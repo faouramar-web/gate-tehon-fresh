@@ -8,7 +8,8 @@ import {
   onSnapshot,
   query,
   orderBy,
-  limit
+  limit,
+  deleteDoc
 } from 'firebase/firestore';
 
 // Time helpers for Asia/Jerusalem
@@ -169,6 +170,7 @@ const INITIAL_PASSES: GatePass[] = [
     studentCode: 'S002',
     studentName: 'מרים סאלח',
     className: 'ז1',
+    homeroomTeacher: 'לינא ח׳ליל',
     teacherId: 'staff-t01',
     teacherName: 'לינא ח׳ליל',
     dateStr: getClientIsraelDateString(),
@@ -367,6 +369,20 @@ class ClientStorageEngine {
       .trim();
   }
 
+  // Get permanent homeroom teacher for a given class
+  public getHomeroomForClass(className: string): string {
+    const student = this.students.find((s) => s.className === className && s.teacherName);
+    if (student?.teacherName) return student.teacherName;
+    const homeroomMap: Record<string, string> = {
+      'ז1': 'לינא ח׳ליל',
+      'ז2': 'סוהא מנצור',
+      'ח1': 'דלאל חביב',
+      'ח2': 'נאדיה סרחאן',
+      'ט1': 'רימא ג׳אבר',
+    };
+    return homeroomMap[className] || 'מחנכת כיתה';
+  }
+
   // --- Auth ---
   public login(pinCode: string): { user: User; token: string } {
     const clean = this.normalizePin(pinCode);
@@ -516,12 +532,15 @@ class ClientStorageEngine {
         continue;
       }
 
+      const homeroom = student.teacherName || this.getHomeroomForClass(student.className);
+
       const pass: GatePass = {
         id: `pass-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         studentId: student.id,
         studentCode: student.studentCode,
         studentName: student.fullName,
         className: student.className,
+        homeroomTeacher: homeroom,
         teacherId: user.id,
         teacherName: user.fullName,
         dateStr: today,
@@ -739,6 +758,49 @@ class ClientStorageEngine {
     return {
       passes: list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
+  }
+
+  public deletePasses(options: {
+    all?: boolean;
+    passIds?: string[];
+    fromDate?: string;
+    toDate?: string;
+  }): { success: boolean; deletedCount: number } {
+    let toDelete: GatePass[] = [];
+
+    if (options.all) {
+      toDelete = [...this.passes];
+      this.passes = [];
+    } else if (options.passIds && options.passIds.length > 0) {
+      const idSet = new Set(options.passIds);
+      toDelete = this.passes.filter((p) => idSet.has(p.id));
+      this.passes = this.passes.filter((p) => !idSet.has(p.id));
+    } else if (options.fromDate || options.toDate) {
+      toDelete = this.passes.filter((p) => {
+        if (options.fromDate && p.dateStr < options.fromDate) return false;
+        if (options.toDate && p.dateStr > options.toDate) return false;
+        return true;
+      });
+      const deleteIds = new Set(toDelete.map((p) => p.id));
+      this.passes = this.passes.filter((p) => !deleteIds.has(p.id));
+    }
+
+    // Persist to local storage
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('gate_local_passes', JSON.stringify(this.passes));
+    }
+
+    // Attempt deletion from Firestore
+    try {
+      for (const p of toDelete) {
+        deleteDoc(doc(firestoreDb, 'gatepasses', p.id)).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+
+    this.broadcastChange();
+    return { success: true, deletedCount: toDelete.length };
   }
 
   public importData(

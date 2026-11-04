@@ -447,6 +447,15 @@ app.post('/api/admin/reset-demo', authenticate, requireRole('admin'), (_req: Req
   res.json({ success: true, message: 'המערכת אופסה לנתוני ההדגמה המקוריים' });
 });
 
+// Admin purge or delete passes (all or by date range)
+app.post('/api/admin/passes/delete', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const admin = (req as any).user as Staff;
+  const { all, passIds, fromDate, toDate } = req.body || {};
+
+  const result = db.deletePasses({ all, passIds, fromDate, toDate }, admin);
+  res.json({ success: true, deletedCount: result.deletedCount });
+});
+
 // Search historical gate passes (Parent Inquiry mechanism across any date)
 app.get('/api/admin/history-search', authenticate, (req: Request, res: Response) => {
   const query = req.query.q as string | undefined;

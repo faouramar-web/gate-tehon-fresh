@@ -27,6 +27,7 @@ import {
   FileCheck,
   UserCheck,
   Award,
+  GraduationCap,
   Sparkles,
   ExternalLink,
   Eye,
@@ -98,6 +99,78 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
 
   // Reset demo state
   const [resetting, setResetting] = useState(false);
+
+  // Pass Deletion & Archive Purge state (Admin Amar Faour)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<'all' | 'range' | 'single'>('range');
+  const [singlePassToDelete, setSinglePassToDelete] = useState<GatePass | null>(null);
+  const [purgeFromDate, setPurgeFromDate] = useState('');
+  const [purgeToDate, setPurgeToDate] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Homeroom & Authorizer helpers
+  const getHomeroomTeacher = (className: string, fallback?: string) => {
+    if (fallback) return fallback;
+    const map: Record<string, string> = {
+      'ז1': 'לינא ח׳ליל',
+      'ז2': 'סוהא מנצור',
+      'ח1': 'דלאל חביב',
+      'ח2': 'נאדיה סרחאן',
+      'ט1': 'רימא ג׳אבר',
+    };
+    return map[className] || 'מחנכת כיתה';
+  };
+
+  const isSubjectAuthorizer = (teacherName: string, className: string, homeroom?: string) => {
+    const cleanTeacher = (teacherName || '').trim();
+    if (cleanTeacher.includes('מקצועי') || cleanTeacher.includes('מוחמד עלי')) return true;
+    const hr = homeroom || getHomeroomTeacher(className);
+    if (hr && hr.trim() !== cleanTeacher) return true;
+    return false;
+  };
+
+  const handleExecuteDelete = async () => {
+    setIsDeleting(true);
+    try {
+      let res;
+      if (deleteMode === 'all') {
+        res = await api.deletePasses({ all: true });
+        setDeleteFeedback({
+          type: 'success',
+          message: `כל מאגר האישורים נמחק בהצלחה (${res.deletedCount} אישורים הוסרו מהמאגר).`,
+        });
+      } else if (deleteMode === 'single' && singlePassToDelete) {
+        res = await api.deletePasses({ passIds: [singlePassToDelete.id] });
+        setDeleteFeedback({
+          type: 'success',
+          message: `אישור השחרור של ${singlePassToDelete.studentName} נמחק בהצלחה מהמאגר.`,
+        });
+      } else if (deleteMode === 'range') {
+        if (!purgeFromDate && !purgeToDate) {
+          throw new Error('אנא בחר לפחות תאריך התחלה או תאריך סיום למחיקה');
+        }
+        res = await api.deletePasses({
+          fromDate: purgeFromDate || undefined,
+          toDate: purgeToDate || undefined,
+        });
+        setDeleteFeedback({
+          type: 'success',
+          message: `נמחקו ${res.deletedCount} אישורי שחרור בטווח התאריכים שנבחר.`,
+        });
+      }
+      setDeleteModalOpen(false);
+      setSinglePassToDelete(null);
+      await loadHistory(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה במחיקת האישורים מהמאגר',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Helper for date offsets
   const getDateOffsetString = (daysAgo: number) => {
@@ -469,6 +542,84 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       {/* ================= TAB 0: PARENT INQUIRY & HISTORY ================= */}
       {activeTab === 'history' && (
         <div className="space-y-5">
+          {/* Feedback Toast */}
+          {deleteFeedback && (
+            <div
+              className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-sm font-bold shadow-sm border ${
+                deleteFeedback.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                  : 'bg-rose-50 text-rose-900 border-rose-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {deleteFeedback.type === 'success' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                )}
+                <span>{deleteFeedback.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteFeedback(null)}
+                className="p-1 hover:bg-black/5 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Admin Database Pass Management & Purge Toolbar (Amar Faour) */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-5 border-2 border-slate-700 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center shrink-0 shadow-sm">
+                <Trash2 className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-rose-500/30 text-rose-300 font-extrabold px-2.5 py-0.5 rounded-full border border-rose-500/40">
+                    פעולות מנהל בלבד · עמאר פאעור
+                  </span>
+                  <span className="text-xs text-slate-400">איפוס ומחיקת אישורים</span>
+                </div>
+                <h3 className="text-base font-black text-white font-['Rubik'] mt-1">
+                  ניהול ומחיקת אישורי שחרור מהמאגר
+                </h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  מחיקת אישורים ישנים לפי טווח תאריכים מוגדר או ריקון כולל של מאגר האישורים.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-stretch sm:self-auto shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteMode('range');
+                  setPurgeFromDate('');
+                  setPurgeToDate(getDateOffsetString(14)); // default to older than 2 weeks
+                  setDeleteModalOpen(true);
+                }}
+                className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              >
+                <Calendar className="w-4 h-4 text-amber-400" />
+                <span>מחיקה לפי טווח תאריכים...</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteMode('all');
+                  setDeleteModalOpen(true);
+                }}
+                className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-rose-600/30 cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>מחיקת כל האישורים במערכת</span>
+              </button>
+            </div>
+          </div>
+
           {/* Inquiry Explainer Banner */}
           <div className="bg-emerald-950 text-emerald-100 rounded-3xl p-5 border border-emerald-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -645,6 +796,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   const isUsed = pass.status === 'used';
                   const isCancelled = pass.status === 'cancelled';
                   const isActive = pass.status === 'active';
+                  const homeroom = pass.homeroomTeacher || getHomeroomTeacher(pass.className);
+                  const isSubject = isSubjectAuthorizer(pass.teacherName, pass.className, homeroom);
 
                   return (
                     <div
@@ -657,10 +810,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                           : 'border-amber-200'
                       }`}
                     >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
-                        <div className="flex items-center gap-2.5">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
                           <div
-                            className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm ${
+                            className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm shrink-0 ${
                               isUsed
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : isCancelled
@@ -671,8 +824,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                             {pass.studentName[0]}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-slate-900 text-base">{pass.studentName}</h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-black text-slate-900 text-base">{pass.studentName}</h3>
                               <span className="text-xs font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200">
                                 {pass.className}
                               </span>
@@ -681,16 +834,30 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                                   ת.ז/קוד: {pass.studentCode}
                                 </span>
                               )}
+                              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                                <UserCheck className="w-3.5 h-3.5 text-teal-700" />
+                                <span>מחנכת הכיתה: {homeroom}</span>
+                              </span>
                             </div>
-                            <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              <span className="font-semibold text-slate-700">תאריך יציאה: {pass.dateStr}</span>
+
+                            <div className="text-xs text-slate-600 flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className="font-bold text-slate-500">אישור ניתן ע״י:</span>
+                              <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${
+                                isSubject ? 'bg-blue-50 text-blue-800 border border-blue-200' : 'bg-teal-50 text-teal-800 border border-teal-200'
+                              }`}>
+                                {pass.teacherName} {isSubject ? '(מורה מקצועי)' : '(מחנכת הכיתה)'}
+                              </span>
+                              <span className="text-slate-300">·</span>
+                              <span className="font-semibold text-slate-700 flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span>תאריך יציאה: <strong className="text-slate-900">{pass.dateStr}</strong></span>
+                              </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Status Badge */}
-                        <div className="flex items-center gap-2">
+                        {/* Status Badge & Actions */}
+                        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
                           <span
                             className={`text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-1.5 ${
                               isUsed
@@ -717,35 +884,56 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                           <button
                             type="button"
                             onClick={() => setSelectedSlipPass(pass)}
-                            className="px-3 py-1.5 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5"
+                            className="px-3 py-1.5 text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl border border-amber-500/40 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                             title="הפק דוח בירור רשמי להורה"
                           >
-                            <Printer className="w-3.5 h-3.5 text-emerald-700" />
+                            <Printer className="w-3.5 h-3.5 text-slate-950" />
                             <span>אישור להורה</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSinglePassToDelete(pass);
+                              setDeleteMode('single');
+                              setDeleteModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                            title="מחיקת אישור זה מהמאגר"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
 
                       {/* Detailed Breakdown Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3.5 text-xs">
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                          <span className="text-slate-500 block mb-0.5 font-medium">גורם משחרר (מורה/מחנך):</span>
-                          <span className="font-bold text-slate-900 flex items-center gap-1">
-                            <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                        <div className={`p-2.5 rounded-xl border ${
+                          isSubject ? 'bg-blue-50/70 border-blue-200' : 'bg-teal-50/70 border-teal-200'
+                        }`}>
+                          <span className="text-slate-500 block mb-0.5 font-bold">מי אישר שחרור בפועל:</span>
+                          <span className="font-extrabold text-slate-900 flex items-center gap-1">
+                            {isSubject ? <GraduationCap className="w-3.5 h-3.5 text-blue-600" /> : <UserCheck className="w-3.5 h-3.5 text-teal-600" />}
                             <span>{pass.teacherName}</span>
                           </span>
-                        </div>
-
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                          <span className="text-slate-500 block mb-0.5 font-medium">שעת אישור מתוכננת:</span>
-                          <span className="font-bold text-slate-900 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-amber-600" />
-                            <span>{pass.validFromTime}</span>
+                          <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
+                            {isSubject ? 'מורה מקצועי (שעה אחרונה)' : `מחנכת כיתה ${pass.className}`}
                           </span>
                         </div>
 
                         <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                          <span className="text-slate-500 block mb-0.5 font-medium">יציאה בפועל בשער:</span>
+                          <span className="text-slate-500 block mb-0.5 font-bold">מחנכת הכיתה הקבועה:</span>
+                          <span className="font-bold text-teal-900 flex items-center gap-1">
+                            <UserCheck className="w-3.5 h-3.5 text-teal-700" />
+                            <span>{homeroom}</span>
+                          </span>
+                          <span className="text-[11px] text-slate-500 mt-0.5 block">
+                            כיתת אם {pass.className}
+                          </span>
+                        </div>
+
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-slate-500 block mb-0.5 font-bold">יציאה בפועל בשער:</span>
                           <span
                             className={`font-bold flex items-center gap-1 ${
                               pass.usedAt ? 'text-emerald-800' : 'text-slate-500'
@@ -765,10 +953,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                               </span>
                             )}
                           </span>
+                          <span className="text-[11px] text-slate-500 mt-0.5 block">
+                            שעת אישור: {pass.validFromTime}
+                          </span>
                         </div>
 
                         <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                          <span className="text-slate-500 block mb-0.5 font-medium">סיבת השחרור:</span>
+                          <span className="text-slate-500 block mb-0.5 font-bold">סיבת השחרור:</span>
                           <span className="font-semibold text-slate-800 truncate block">
                             {pass.reason || 'אישור יציאה רשמי מבית הספר'}
                           </span>
@@ -1642,6 +1833,158 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               >
                 <Printer className="w-4 h-4" />
                 <span>הדפס טופס רשמי (A4 / PDF)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Pass Deletion & Purge Modal (Amar Faour) */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border-2 border-slate-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 font-['Rubik']">
+                    {deleteMode === 'all'
+                      ? 'מחיקת כל האישורים במערכת'
+                      : deleteMode === 'single'
+                      ? 'מחיקת אישור שחרור בודד'
+                      : 'מחיקת אישורים לפי טווח תאריכים'}
+                  </h3>
+                  <p className="text-xs text-slate-500">פעולת ניהול זו מוחקת נתונים מהמאגר לצמיתות</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 space-y-4 text-xs">
+              {deleteMode === 'all' && (
+                <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-950 space-y-2">
+                  <div className="flex items-center gap-2 font-black text-sm text-rose-700">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span>אזהרה חמורה: איפוס כולל של כל האישורים</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    פעולה זו תמחק את <strong>כל {historyPasses.length} אישורי השחרור</strong> הקיימים כרגע במסד הנתונים.
+                    רשימת התלמידים, הכיתות וצוות המורים לא תיפגע — רק היסטוריית האישורים תימחק.
+                  </p>
+                </div>
+              )}
+
+              {deleteMode === 'single' && singlePassToDelete && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="font-bold text-slate-900 text-sm">האישור שיימחק לצמיתות:</div>
+                  <div className="grid grid-cols-2 gap-2 text-slate-700">
+                    <div>תלמיד: <strong>{singlePassToDelete.studentName}</strong></div>
+                    <div>כיתה: <strong>{singlePassToDelete.className}</strong></div>
+                    <div>תאריך: <strong>{singlePassToDelete.dateStr}</strong></div>
+                    <div>אושר ע״י: <strong>{singlePassToDelete.teacherName}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {deleteMode === 'range' && (
+                <div className="space-y-3.5">
+                  <p className="text-slate-600 font-medium">
+                    בחר את טווח התאריכים של אישורי השחרור שברצונך למחוק מהמאגר:
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">מתאריך:</label>
+                      <input
+                        type="date"
+                        value={purgeFromDate}
+                        onChange={(e) => setPurgeFromDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">עד תאריך:</label>
+                      <input
+                        type="date"
+                        value={purgeToDate}
+                        onChange={(e) => setPurgeToDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Range Quick Shortcuts */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-500">קיצורים מהירים לבחירה:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPurgeFromDate('');
+                          setPurgeToDate(getDateOffsetString(14));
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        מחק שחרורים ישנים מעל שבועיים
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPurgeFromDate('');
+                          setPurgeToDate(getDateOffsetString(30));
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        מחק שחרורים ישנים מעל חודש
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = getDateOffsetString(0);
+                          setPurgeFromDate(today);
+                          setPurgeToDate(today);
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        היום בלבד
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                ביטול וחזרה
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleExecuteDelete}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 active:scale-98 disabled:bg-slate-300 text-white font-black rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>אשר מחיקה לצמיתות</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

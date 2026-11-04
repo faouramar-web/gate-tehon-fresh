@@ -317,6 +317,25 @@ export const api = {
     }
   },
 
+  async deletePasses(options: {
+    all?: boolean;
+    passIds?: string[];
+    fromDate?: string;
+    toDate?: string;
+  }): Promise<{ success: boolean; deletedCount: number }> {
+    if (isStaticHost) {
+      return clientStore.deletePasses(options);
+    }
+    try {
+      return await request('/api/admin/passes/delete', {
+        method: 'POST',
+        body: JSON.stringify(options),
+      });
+    } catch {
+      return clientStore.deletePasses(options);
+    }
+  },
+
   async searchHistory(params: {
     q?: string;
     from?: string;

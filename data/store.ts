@@ -44,7 +44,7 @@ export interface GatePass {
 export interface AuditLogEntry {
   id: string;
   timestamp: string; // ISO
-  actionType: 'PASS_CREATED' | 'PASS_USED' | 'PASS_CANCELLED' | 'STUDENTS_IMPORTED' | 'STAFF_UPDATED' | 'PIN_CHANGED' | 'RESET_DEMO';
+  actionType: 'PASS_CREATED' | 'PASS_USED' | 'PASS_CANCELLED' | 'STUDENTS_IMPORTED' | 'STAFF_UPDATED' | 'PIN_CHANGED' | 'RESET_DEMO' | 'PASSES_DELETED';
   actorId: string;
   actorName: string;
   actorRole: string;
@@ -751,6 +751,46 @@ class SchoolDatabase {
         details: `עדכון אנשי צוות וקודי גישה`,
       });
     });
+  }
+
+  public deletePasses(
+    options: { all?: boolean; passIds?: string[]; fromDate?: string; toDate?: string },
+    actor: Staff
+  ): { deletedCount: number } {
+    let count = 0;
+    this.mutate((data) => {
+      let toDelete: GatePass[] = [];
+      if (options.all) {
+        count = data.passes.length;
+        data.passes = [];
+      } else if (options.passIds && options.passIds.length > 0) {
+        const idSet = new Set(options.passIds);
+        toDelete = data.passes.filter((p) => idSet.has(p.id));
+        count = toDelete.length;
+        data.passes = data.passes.filter((p) => !idSet.has(p.id));
+      } else if (options.fromDate || options.toDate) {
+        toDelete = data.passes.filter((p) => {
+          if (options.fromDate && p.dateStr < options.fromDate) return false;
+          if (options.toDate && p.dateStr > options.toDate) return false;
+          return true;
+        });
+        count = toDelete.length;
+        const deleteIds = new Set(toDelete.map((p) => p.id));
+        data.passes = data.passes.filter((p) => !deleteIds.has(p.id));
+      }
+
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'PASSES_DELETED',
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: `מחיקת ${count} אישורי יציאה מהמאגר ${options.all ? '(מחיקה כוללת)' : options.fromDate ? `(מתאריך ${options.fromDate} עד ${options.toDate || 'עכשיו'})` : ''}`,
+      });
+    });
+
+    return { deletedCount: count };
   }
 }
 

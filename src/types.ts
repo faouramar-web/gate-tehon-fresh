@@ -24,8 +24,9 @@ export interface GatePass {
   studentCode: string;
   studentName: string;
   className: string;
+  homeroomTeacher?: string; // Student's permanent homeroom teacher
   teacherId: string;
-  teacherName: string;
+  teacherName: string; // The teacher who issued this gate pass
   dateStr: string;
   validFromTime: string;
   status: 'active' | 'used' | 'cancelled' | 'expired';

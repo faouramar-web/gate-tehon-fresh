@@ -20,7 +20,12 @@ import {
   GraduationCap,
   ArrowRight,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  RotateCcw,
+  History as HistoryIcon
 } from 'lucide-react';
 
 interface VicePrincipalViewProps {
@@ -33,14 +38,28 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Helper date offset
+  const getDateOffsetString = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().split('T')[0];
+  };
+
+  // Date Navigation State
+  const [activeDate, setActiveDate] = useState<string>(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  });
+  const [viewMode, setViewMode] = useState<'single_day' | 'range' | 'all'>('single_day');
+  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | '2days' | 'two_weeks' | '7days' | 'all'>('today');
+  const [fromDate, setFromDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [toDate, setToDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('ALL');
   const [authorizerType, setAuthorizerType] = useState<'ALL' | 'HOMEROOM' | 'SUBJECT'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'USED' | 'PENDING' | 'CANCELLED'>('ALL');
-  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | '3days' | '7days' | 'all'>('today');
-  const [fromDate, setFromDate] = useState<string>('');
-  const [toDate, setToDate] = useState<string>('');
 
   // Class list extracted dynamically
   const [allClasses, setAllClasses] = useState<string[]>([]);
@@ -49,45 +68,92 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   // Slip modal for printing / parent inquiry
   const [selectedSlipPass, setSelectedSlipPass] = useState<GatePass | null>(null);
 
-  // Helper date offset
-  const getDateOffsetString = (daysAgo: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    return d.toISOString().split('T')[0];
+  // Hebrew weekday formatter
+  const formatHebrewDateWithDay = (dateStr: string) => {
+    if (!dateStr) return { dayName: '', formattedDate: '', fullStr: '' };
+    try {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      const dayName = new Intl.DateTimeFormat('he-IL', { weekday: 'long' }).format(d);
+      const formattedDate = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(d);
+      return {
+        dayName,
+        formattedDate,
+        fullStr: `${dayName}, ${formattedDate}`,
+      };
+    } catch {
+      return { dayName: '', formattedDate: dateStr, fullStr: dateStr };
+    }
   };
 
-  const handleApplyDatePreset = (preset: 'today' | 'yesterday' | '3days' | '7days' | 'all') => {
+  const handleStepDay = (delta: number) => {
+    setViewMode('single_day');
+    const [y, m, d] = activeDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + delta);
+    const nextDate = dt.toISOString().split('T')[0];
+    setActiveDate(nextDate);
+    setFromDate(nextDate);
+    setToDate(nextDate);
+    setDatePreset('custom' as any);
+  };
+
+  const handleSelectSpecificDate = (dateVal: string) => {
+    if (!dateVal) return;
+    setViewMode('single_day');
+    setActiveDate(dateVal);
+    setFromDate(dateVal);
+    setToDate(dateVal);
+    setDatePreset('custom' as any);
+  };
+
+  const handleJumpToToday = () => {
+    const today = getDateOffsetString(0);
+    setActiveDate(today);
+    setFromDate(today);
+    setToDate(today);
+    setViewMode('single_day');
+    setDatePreset('today');
+  };
+
+  const handleApplyDatePreset = (preset: 'today' | 'yesterday' | '2days' | 'two_weeks' | '7days' | 'all') => {
     setDatePreset(preset);
     if (preset === 'today') {
       const today = getDateOffsetString(0);
+      setActiveDate(today);
       setFromDate(today);
       setToDate(today);
+      setViewMode('single_day');
     } else if (preset === 'yesterday') {
       const yesterday = getDateOffsetString(1);
+      setActiveDate(yesterday);
       setFromDate(yesterday);
       setToDate(yesterday);
-    } else if (preset === '3days') {
-      const threeDays = getDateOffsetString(3);
-      const today = getDateOffsetString(0);
-      setFromDate(threeDays);
-      setToDate(today);
+      setViewMode('single_day');
+    } else if (preset === '2days') {
+      const twoDays = getDateOffsetString(2);
+      setActiveDate(twoDays);
+      setFromDate(twoDays);
+      setToDate(twoDays);
+      setViewMode('single_day');
+    } else if (preset === 'two_weeks') {
+      const twoWeeks = getDateOffsetString(14);
+      setActiveDate(twoWeeks);
+      setFromDate(twoWeeks);
+      setToDate(twoWeeks);
+      setViewMode('single_day');
     } else if (preset === '7days') {
       const sevenDays = getDateOffsetString(7);
       const today = getDateOffsetString(0);
       setFromDate(sevenDays);
       setToDate(today);
+      setViewMode('range');
     } else if (preset === 'all') {
       setFromDate('');
       setToDate('');
+      setViewMode('all');
     }
   };
-
-  // Initial load
-  useEffect(() => {
-    const today = getDateOffsetString(0);
-    setFromDate(today);
-    setToDate(today);
-  }, []);
 
   // Fetch classes and students list to identify homeroom teachers accurately
   useEffect(() => {
@@ -225,6 +291,234 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     passes.forEach((p) => set.add(p.className));
     return Array.from(set).filter(Boolean).sort();
   }, [allClasses, passes]);
+
+  // Group passes by date & Hebrew weekday
+  const groupedPassesByDay = useMemo(() => {
+    const map = new Map<string, GatePass[]>();
+    for (const p of filteredPasses) {
+      const d = p.dateStr || 'unknown';
+      if (!map.has(d)) map.set(d, []);
+      map.get(d)!.push(p);
+    }
+    const dates = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
+    return dates.map((dateStr) => {
+      const info = formatHebrewDateWithDay(dateStr);
+      const dayPasses = map.get(dateStr)!;
+      const usedCount = dayPasses.filter((p) => p.status === 'used').length;
+      const pendingCount = dayPasses.filter((p) => p.status === 'active').length;
+      const cancelledCount = dayPasses.filter((p) => p.status === 'cancelled').length;
+      return {
+        dateStr,
+        dayName: info.dayName,
+        formattedDate: info.formattedDate,
+        fullStr: info.fullStr,
+        passes: dayPasses,
+        usedCount,
+        pendingCount,
+        cancelledCount,
+      };
+    });
+  }, [filteredPasses]);
+
+  const renderPassCard = (pass: GatePass) => {
+    const isUsed = pass.status === 'used';
+    const isCancelled = pass.status === 'cancelled';
+    const isSubject = isSubjectTeacher(pass.teacherName, pass.className);
+    const homeroom = pass.homeroomTeacher || classHomeroomMap.get(pass.className) || 'מחנכת כיתה';
+
+    return (
+      <div
+        key={pass.id}
+        className={`bg-white rounded-3xl p-5 sm:p-6 border-2 transition-all shadow-sm hover:shadow-md ${
+          isUsed
+            ? 'border-emerald-300 hover:border-emerald-400'
+            : isCancelled
+            ? 'border-rose-200 bg-rose-50/20'
+            : 'border-amber-300 hover:border-amber-400'
+        }`}
+      >
+        {/* Header Row: Student name, class badge, homeroom badge, authorizer badge, status badge & Action Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          {/* Student & Class Info */}
+          <div className="flex items-center gap-3.5">
+            {/* Class Tag */}
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 shadow-sm ${
+                isUsed
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-400'
+                  : isCancelled
+                  ? 'bg-rose-50 text-rose-800 border-rose-300'
+                  : 'bg-amber-50 text-amber-800 border-amber-400'
+              }`}
+            >
+              {pass.className}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="font-black text-lg sm:text-xl text-slate-900 font-['Rubik']">
+                  {pass.studentName}
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
+                  {pass.studentCode || 'ללא ת.ז'}
+                </span>
+                <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg">
+                  כיתה {pass.className}
+                </span>
+                <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                  <UserCheck className="w-3.5 h-3.5 text-teal-700" />
+                  <span>מחנכת הכיתה: {homeroom}</span>
+                </span>
+              </div>
+
+              {/* Authorizer Identity (Teacher vs Homeroom) - BOLD & HIGH VISIBILITY */}
+              <div className="mt-2 flex items-center gap-2.5 flex-wrap">
+                <span className="text-xs font-bold text-slate-500">אישור שחרור ניתן ע״י:</span>
+                {isSubject ? (
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-blue-600/20">
+                    <GraduationCap className="w-4 h-4" />
+                    <span>מורה מקצועי: {pass.teacherName}</span>
+                  </span>
+                ) : (
+                  <span className="bg-teal-700 text-white px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-teal-700/20">
+                    <UserCheck className="w-4 h-4" />
+                    <span>מחנכת כיתה: {pass.teacherName}</span>
+                  </span>
+                )}
+
+                <span className="text-slate-300">·</span>
+                <span className="text-xs font-semibold text-slate-600">
+                  תאריך: <strong className="text-slate-900">{pass.dateStr}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Badge & PROMINENT Action Button */}
+          <div className="flex items-center gap-3 self-start sm:self-auto shrink-0 flex-wrap">
+            <span
+              className={`text-xs font-black px-3.5 py-1.5 rounded-xl border-2 flex items-center gap-2 shadow-2xs ${
+                isUsed
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                  : isCancelled
+                  ? 'bg-rose-50 text-rose-900 border-rose-300'
+                  : 'bg-amber-50 text-amber-900 border-amber-300'
+              }`}
+            >
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  isUsed ? 'bg-emerald-600' : isCancelled ? 'bg-rose-600' : 'bg-amber-600 animate-pulse'
+                }`}
+              />
+              <span>
+                {isUsed
+                  ? 'יצא/ה מהשער בהצלחה'
+                  : isCancelled
+                  ? 'בוטל ע״י המורה'
+                  : 'אושר, ממתין/ה ליציאה'}
+              </span>
+            </span>
+
+            {/* PROMINENT Yellow/Amber "טופס רשמי" Button */}
+            <button
+              type="button"
+              onClick={() => setSelectedSlipPass(pass)}
+              className="px-4 py-2 text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl shadow-md hover:shadow-lg border border-amber-500/40 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
+              title="הפק אישור ובירור רשמי"
+            >
+              <Printer className="w-4 h-4 text-slate-950" />
+              <span>טופס רשמי</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Timing & Authorization Detail Row - 4 Clear High-Contrast Boxes */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3.5 text-xs">
+          {/* Dedicated Box: Who authorized this pass */}
+          <div
+            className={`p-3 rounded-2xl border-2 ${
+              isSubject
+                ? 'bg-blue-50/80 border-blue-300 text-blue-950'
+                : 'bg-teal-50/80 border-teal-300 text-teal-950'
+            }`}
+          >
+            <span className="block mb-1 font-bold flex items-center gap-1.5 text-slate-600">
+              {isSubject ? (
+                <GraduationCap className="w-4 h-4 text-blue-700" />
+              ) : (
+                <UserCheck className="w-4 h-4 text-teal-700" />
+              )}
+              <span>מי נתן את האישור:</span>
+            </span>
+            <div className="font-black text-sm">
+              {pass.teacherName}
+            </div>
+            <div className="text-[11px] font-bold mt-0.5 text-slate-600">
+              {isSubject ? 'מורה מקצועי (שעה אחרונה)' : `מחנכת כיתה ${pass.className}`}
+            </div>
+          </div>
+
+          {/* Time Authorized */}
+          <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+            <span className="text-slate-500 block mb-1 font-bold flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-blue-600" />
+              <span>שעת אישור השחרור:</span>
+            </span>
+            <div className="font-black text-slate-900 text-base font-mono">
+              {pass.validFromTime}
+            </div>
+            <div className="text-[11px] font-medium text-slate-500 mt-0.5">
+              הופק ב-{new Date(pass.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+
+          {/* Actual Gate Exit Time */}
+          <div
+            className={`p-3 rounded-2xl border-2 ${
+              isUsed
+                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                : 'bg-slate-50 border-slate-200 text-slate-700'
+            }`}
+          >
+            <span className="block mb-1 font-bold flex items-center gap-1.5 text-slate-600">
+              <DoorOpen className="w-4 h-4 text-emerald-600" />
+              <span>יציאה בפועל מהשער:</span>
+            </span>
+            <div className="font-black text-base">
+              {pass.usedAt ? (
+                <span className="text-emerald-800 font-mono">
+                  בשעה{' '}
+                  {pass.usedAt.includes('T')
+                    ? pass.usedAt.split('T')[1].substring(0, 5)
+                    : pass.usedAt}
+                </span>
+              ) : isCancelled ? (
+                <span className="text-rose-700 font-bold">לא יצא (בוטל)</span>
+              ) : (
+                <span className="text-amber-700 font-bold">טרם יצא/ה מהשער</span>
+              )}
+            </div>
+            {pass.usedBy && (
+              <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                אושר ע״י {pass.usedBy}
+              </div>
+            )}
+          </div>
+
+          {/* Reason */}
+          <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+            <span className="text-slate-500 block mb-1 font-bold">סיבת השחרור:</span>
+            <div className="font-bold text-slate-800 truncate text-xs sm:text-sm" title={pass.reason || 'שחרור מוקדם באישור הורים'}>
+              {pass.reason || 'שחרור מוקדם באישור הורים'}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              מאושר במערכת
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="pb-24 max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
@@ -378,34 +672,140 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             )}
           </div>
 
-          {/* Date range picker & presets */}
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0 bg-slate-100 p-1 rounded-2xl border border-slate-200">
-            <span className="text-xs font-bold text-slate-600 px-2">תקופה:</span>
-            {(['today', 'yesterday', '3days', '7days', 'all'] as const).map((preset) => {
-              const active = datePreset === preset;
-              return (
+          {/* Daily Stepper & Weekday Navigation Bar */}
+          <div className="w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-700 space-y-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              {/* Stepper Controls */}
+              <div className="flex items-center justify-between md:justify-start gap-2">
                 <button
-                  key={preset}
                   type="button"
-                  onClick={() => handleApplyDatePreset(preset)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    active
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-700 hover:text-slate-950 hover:bg-white/60'
+                  onClick={() => handleStepDay(-1)}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold rounded-xl text-xs border border-amber-400/30 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer hover:border-amber-400"
+                  title="דפדף יום אחד אחורה"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                  <span>יום קודם</span>
+                </button>
+
+                {/* Central Date Indicator */}
+                <div className="px-4 py-1.5 bg-slate-800/90 rounded-xl border border-slate-700 text-center flex-1 md:flex-none min-w-[200px]">
+                  {viewMode === 'single_day' ? (
+                    <div>
+                      <div className="text-amber-400 font-black text-sm sm:text-base font-['Rubik'] flex items-center justify-center gap-1.5">
+                        <CalendarDays className="w-4 h-4 text-amber-400" />
+                        <span>{formatHebrewDateWithDay(activeDate).dayName || 'יום נבחר'}</span>
+                        <span className="text-white text-xs font-semibold">({formatHebrewDateWithDay(activeDate).formattedDate})</span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 flex items-center justify-center gap-2 mt-0.5">
+                        {activeDate === getDateOffsetString(0) ? (
+                          <span className="bg-emerald-500/20 text-emerald-300 font-black px-2 py-0.2 rounded-md border border-emerald-500/40">היום</span>
+                        ) : activeDate === getDateOffsetString(1) ? (
+                          <span className="bg-blue-500/20 text-blue-300 font-bold px-2 py-0.2 rounded-md">אתמול</span>
+                        ) : activeDate === getDateOffsetString(2) ? (
+                          <span className="bg-blue-500/20 text-blue-300 font-bold px-2 py-0.2 rounded-md">שלשום</span>
+                        ) : activeDate === getDateOffsetString(14) ? (
+                          <span className="bg-purple-500/20 text-purple-300 font-bold px-2 py-0.2 rounded-md">לפני שבועיים בדיוק</span>
+                        ) : (
+                          <span className="text-slate-400">תאריך בודד</span>
+                        )}
+
+                        {activeDate !== getDateOffsetString(0) && (
+                          <button
+                            type="button"
+                            onClick={handleJumpToToday}
+                            className="text-amber-400 hover:text-amber-300 font-bold underline hover:no-underline cursor-pointer flex items-center gap-1"
+                          >
+                            <span>קפוץ להיום</span>
+                            <span>🎯</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-amber-400 font-black text-sm font-['Rubik']">
+                        {viewMode === 'range' ? 'תצוגת 7 ימים אחרונים' : 'כל היסטוריית השחרורים'}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        מחולק ומקובץ לפי ימים בשבוע ({groupedPassesByDay.length} ימים שונים)
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleStepDay(1)}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold rounded-xl text-xs border border-amber-400/30 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer hover:border-amber-400"
+                  title="דפדף יום אחד קדימה"
+                >
+                  <span>יום הבא</span>
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Direct Date Picker & Quick Presets */}
+              <div className="flex items-center gap-1.5 flex-wrap justify-center md:justify-end">
+                <input
+                  type="date"
+                  value={activeDate}
+                  onChange={(e) => handleSelectSpecificDate(e.target.value)}
+                  className="bg-slate-800 text-white text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-600 focus:border-amber-400 focus:outline-none cursor-pointer"
+                  title="בחר תאריך ספציפי מהיומן"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleJumpToToday}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === 'today' ? 'bg-amber-400 text-slate-950 font-black shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                   }`}
                 >
-                  {preset === 'today'
-                    ? 'היום'
-                    : preset === 'yesterday'
-                    ? 'אתמול'
-                    : preset === '3days'
-                    ? '3 ימים'
-                    : preset === '7days'
-                    ? 'שבוע'
-                    : 'הכל'}
+                  היום
                 </button>
-              );
-            })}
+
+                <button
+                  type="button"
+                  onClick={() => handleApplyDatePreset('yesterday')}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === 'yesterday' ? 'bg-amber-400 text-slate-950 font-black shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  אתמול
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleApplyDatePreset('two_weeks')}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === 'two_weeks' ? 'bg-amber-400 text-slate-950 font-black shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="קפיצה מהירה ליום לפני שבועיים"
+                >
+                  לפני שבועיים ⚡
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleApplyDatePreset('7days')}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === '7days' ? 'bg-amber-400 text-slate-950 font-black shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  7 ימים
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleApplyDatePreset('all')}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    datePreset === 'all' ? 'bg-amber-400 text-slate-950 font-black shadow-sm' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  הכל (לפי ימים)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -523,7 +923,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
       </div>
 
       {/* Dismissals List Section */}
-      <div className="space-y-3.5">
+      <div className="space-y-4">
         {loading && passes.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-3xl border-2 border-slate-200 text-slate-500 text-sm">
             <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -534,176 +934,78 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             <ShieldAlert className="w-12 h-12 text-slate-300 mx-auto" />
             <div className="font-extrabold text-slate-800 text-base">לא נמצאו שחרורים התואמים לסינון</div>
             <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto font-medium">
-              נסה לשנות את הכיתה שנבחרה, טווח התאריכים או להסיר את החיפוש החופשי.
+              {viewMode === 'single_day'
+                ? `לא נרשמו אישורי שחרור לתאריך ${formatHebrewDateWithDay(activeDate).fullStr}. נסה לדפדף יום קודם / יום הבא או לקפוץ להיום.`
+                : 'נסה לשנות את הכיתה שנבחרה, טווח התאריכים או להסיר את החיפוש החופשי.'}
             </p>
-          </div>
-        ) : (
-          filteredPasses.map((pass) => {
-            const isUsed = pass.status === 'used';
-            const isCancelled = pass.status === 'cancelled';
-            const isSubject = isSubjectTeacher(pass.teacherName, pass.className);
-
-            return (
-              <div
-                key={pass.id}
-                className={`bg-white rounded-3xl p-5 sm:p-6 border-2 transition-all shadow-sm hover:shadow-md ${
-                  isUsed
-                    ? 'border-emerald-300 hover:border-emerald-400'
-                    : isCancelled
-                    ? 'border-rose-200 bg-rose-50/20'
-                    : 'border-amber-300 hover:border-amber-400'
-                }`}
+            {viewMode === 'single_day' && activeDate !== getDateOffsetString(0) && (
+              <button
+                type="button"
+                onClick={handleJumpToToday}
+                className="mt-2 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-3.5 py-1.5 rounded-xl border border-amber-300 inline-flex items-center gap-1.5 cursor-pointer"
               >
-                {/* Header Row: Student name, class badge, authorizer, status badge & PROMINENT Action Button */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                  {/* Student & Class Info */}
-                  <div className="flex items-center gap-3.5">
-                    {/* Class Tag */}
-                    <div
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 shadow-sm ${
-                        isUsed
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-400'
-                          : isCancelled
-                          ? 'bg-rose-50 text-rose-800 border-rose-300'
-                          : 'bg-amber-50 text-amber-800 border-amber-400'
-                      }`}
-                    >
-                      {pass.className}
+                <span>קפוץ לנתוני היום</span>
+                <span>🎯</span>
+              </button>
+            )}
+          </div>
+        ) : viewMode === 'all' || viewMode === 'range' ? (
+          /* Multi-day / All History View: Grouped by Day of Week */
+          <div className="space-y-6">
+            {groupedPassesByDay.map((group) => (
+              <div key={group.dateStr} className="space-y-3">
+                {/* Weekday Group Header Banner */}
+                <div className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md border-2 border-slate-700">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-400 border border-amber-400/40 flex items-center justify-center font-bold">
+                      <CalendarDays className="w-4 h-4" />
                     </div>
-
                     <div>
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="font-black text-lg sm:text-xl text-slate-900 font-['Rubik']">
-                          {pass.studentName}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
-                          {pass.studentCode || 'ללא ת.ז'}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg">
-                          כיתה {pass.className}
-                        </span>
-                      </div>
-
-                      {/* Authorizer Identity (Teacher vs Homeroom) */}
-                      <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
-                        {isSubject ? (
-                          <span className="bg-blue-50 text-blue-900 border-2 border-blue-200 px-2.5 py-0.5 rounded-lg font-extrabold flex items-center gap-1.5 shadow-2xs">
-                            <GraduationCap className="w-4 h-4 text-blue-700" />
-                            <span>מורה מקצועי: {pass.teacherName}</span>
-                          </span>
-                        ) : (
-                          <span className="bg-teal-50 text-teal-900 border-2 border-teal-200 px-2.5 py-0.5 rounded-lg font-extrabold flex items-center gap-1.5 shadow-2xs">
-                            <UserCheck className="w-4 h-4 text-teal-700" />
-                            <span>מחנכת כיתה: {pass.teacherName}</span>
-                          </span>
-                        )}
-
-                        <span className="text-slate-300">·</span>
-                        <span className="text-slate-600 font-medium">
-                          תאריך: <strong className="text-slate-800">{pass.dateStr}</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status Badge & PROMINENT Action Button */}
-                  <div className="flex items-center gap-3 self-start sm:self-auto shrink-0 flex-wrap">
-                    <span
-                      className={`text-xs font-black px-3.5 py-1.5 rounded-xl border-2 flex items-center gap-2 shadow-2xs ${
-                        isUsed
-                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                          : isCancelled
-                          ? 'bg-rose-50 text-rose-900 border-rose-300'
-                          : 'bg-amber-50 text-amber-900 border-amber-300'
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          isUsed ? 'bg-emerald-600' : isCancelled ? 'bg-rose-600' : 'bg-amber-600 animate-pulse'
-                        }`}
-                      />
-                      <span>
-                        {isUsed
-                          ? 'יצא/ה מהשער בהצלחה'
-                          : isCancelled
-                          ? 'בוטל ע״י המורה'
-                          : 'אושר, ממתין/ה ליציאה'}
+                      <span className="font-black text-sm sm:text-base font-['Rubik'] text-white">
+                        {group.fullStr}
                       </span>
-                    </span>
-
-                    {/* PROMINENT Yellow/Amber "טופס רשמי" Button */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSlipPass(pass)}
-                      className="px-4 py-2 text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl shadow-md hover:shadow-lg border border-amber-500/40 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
-                      title="הפק אישור ובירור רשמי"
-                    >
-                      <Printer className="w-4 h-4 text-slate-950" />
-                      <span>טופס רשמי</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Timing Detail Row - High-Contrast, Clear Boxes */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3.5 text-xs">
-                  {/* Time Authorized */}
-                  <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
-                    <span className="text-slate-500 block mb-1 font-bold flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-blue-600" />
-                      <span>שעת אישור השחרור:</span>
-                    </span>
-                    <div className="font-black text-slate-900 text-base font-mono">
-                      {pass.validFromTime}
-                      <span className="text-xs font-semibold text-slate-500 mr-2 font-sans">
-                        (נוצר ב-{new Date(pass.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actual Gate Exit Time */}
-                  <div
-                    className={`p-3 rounded-2xl border-2 ${
-                      isUsed
-                        ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
-                        : 'bg-slate-50 border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <span className="block mb-1 font-bold flex items-center gap-1.5 text-slate-600">
-                      <DoorOpen className="w-4 h-4 text-emerald-600" />
-                      <span>שעת יציאה בפועל מהשער:</span>
-                    </span>
-                    <div className="font-black text-base">
-                      {pass.usedAt ? (
-                        <span className="text-emerald-800 font-mono">
-                          בשעה{' '}
-                          {pass.usedAt.includes('T')
-                            ? pass.usedAt.split('T')[1].substring(0, 5)
-                            : pass.usedAt}
-                          {pass.usedBy && (
-                            <span className="text-xs font-bold text-emerald-700 mr-2 font-sans">
-                              (ע״י {pass.usedBy})
-                            </span>
-                          )}
+                      {group.dateStr === getDateOffsetString(0) && (
+                        <span className="mr-2 text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md">
+                          היום
                         </span>
-                      ) : isCancelled ? (
-                        <span className="text-rose-700 font-bold">לא יצא (בוטל)</span>
-                      ) : (
-                        <span className="text-amber-700 font-bold">טרם יצא/ה (בדרך לשער)</span>
                       )}
                     </div>
                   </div>
 
-                  {/* Reason */}
-                  <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
-                    <span className="text-slate-500 block mb-1 font-bold">סיבת השחרור:</span>
-                    <div className="font-bold text-slate-800 truncate text-xs sm:text-sm" title={pass.reason || 'שחרור מוקדם באישור הורים'}>
-                      {pass.reason || 'שחרור מוקדם באישור הורים'}
-                    </div>
+                  <div className="flex items-center gap-2 text-xs font-bold">
+                    <span className="bg-slate-800 text-slate-200 px-2.5 py-1 rounded-xl border border-slate-700">
+                      סה״כ {group.passes.length} שוחררו
+                    </span>
+                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-1 rounded-xl">
+                      {group.usedCount} יצאו מהשער
+                    </span>
+                    {group.pendingCount > 0 && (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-1 rounded-xl">
+                        {group.pendingCount} ממתינים
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {/* Day's passes */}
+                <div className="space-y-3">
+                  {group.passes.map(renderPassCard)}
+                </div>
               </div>
-            );
-          })
+            ))}
+          </div>
+        ) : (
+          /* Single Day View: Passes for active selected date */
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1 text-xs font-bold text-slate-600">
+              <span className="flex items-center gap-1.5 text-slate-800">
+                <CalendarDays className="w-4 h-4 text-amber-600" />
+                <span>מוצגים שחרורים ל-{formatHebrewDateWithDay(activeDate).fullStr}:</span>
+              </span>
+              <span>נמצאו {filteredPasses.length} תלמידים</span>
+            </div>
+            {filteredPasses.map(renderPassCard)}
+          </div>
         )}
       </div>
 
@@ -781,14 +1083,20 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
 
               {/* Student Details Grid */}
               <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 border-2 border-slate-200 space-y-3 text-xs sm:text-sm">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <span className="text-slate-500 text-xs block font-semibold">שם התלמיד/ה:</span>
                     <span className="font-black text-slate-900 text-lg">{selectedSlipPass.studentName}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-xs block font-semibold">כיתה:</span>
-                    <span className="font-black text-slate-900 text-lg">{selectedSlipPass.className}</span>
+                    <span className="text-slate-500 text-xs block font-semibold">כיתת האם:</span>
+                    <span className="font-black text-slate-900 text-lg">כיתה {selectedSlipPass.className}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-xs block font-semibold">מחנכת הכיתה:</span>
+                    <span className="font-black text-teal-900 text-base">
+                      {selectedSlipPass.homeroomTeacher || classHomeroomMap.get(selectedSlipPass.className) || 'מחנכת כיתה'}
+                    </span>
                   </div>
                 </div>
 
