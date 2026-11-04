@@ -7,15 +7,13 @@ on:
       - master
   workflow_dispatch:
 
-# Permissions required for GitHub Pages deployment
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
-  group: 'pages'
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -24,6 +22,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,21 +30,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build static interface for GitHub Pages
         env:
           GITHUB_PAGES: 'true'
-          VITE_BASE_PATH: '/gate-tehon/'
+          VITE_BASE_PATH: '/gate-tehon-fresh/'
         run: |
           npm run build:pages
-          # Fallback for SPA routing on GitHub Pages
           cp dist-pages/index.html dist-pages/404.html
-          # Verify that server code is never deployed to GitHub Pages
           rm -f dist-pages/server.js dist-pages/server.ts
 
       - name: Setup Pages
