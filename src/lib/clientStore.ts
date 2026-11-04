@@ -464,15 +464,28 @@ class ClientStorageEngine {
     return this.activeSchoolId;
   }
 
-  public setActiveSchoolId(schoolId: string): { success: boolean; activeSchoolId: string } {
+  public getActiveSchoolName(): string {
+    const school = this.schools.find((s) => s.id === this.activeSchoolId);
+    if (school?.name) return school.name;
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('gate_school_name');
+      if (stored) return stored;
+    }
+    return this.schools[0]?.name || 'בית ספר מקיף (סניף ראשי)';
+  }
+
+  public setActiveSchoolId(schoolId: string): { success: boolean; activeSchoolId: string; activeSchoolName: string } {
     const school = this.schools.find((s) => s.id === schoolId);
     if (!school) {
       throw new Error(`בית ספר לא נמצא במערכת: ${schoolId}`);
     }
     this.activeSchoolId = schoolId;
     this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('gate_school_name', school.name);
+    }
     this.broadcastChange();
-    return { success: true, activeSchoolId: this.activeSchoolId };
+    return { success: true, activeSchoolId: this.activeSchoolId, activeSchoolName: school.name };
   }
 
   public createSchool(data: {
