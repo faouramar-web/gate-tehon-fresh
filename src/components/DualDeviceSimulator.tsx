@@ -33,27 +33,19 @@ export const DualDeviceSimulator: React.FC<DualDeviceSimulatorProps> = ({
   // Auto-login default demo users for the simulator
   useEffect(() => {
     // Phone 1: Teacher Lina Khalil (PIN: 1001)
-    fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pinCode: '1001' }),
-    })
-      .then((r) => r.json())
+    api.login('1001')
       .then((data) => {
         if (data.user) setDevice1User(data.user);
       })
+      .catch(() => {})
       .finally(() => setDevice1Loading(false));
 
     // Phone 2: Guard Abraham Cohen (PIN: 2001)
-    fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pinCode: '2001' }),
-    })
-      .then((r) => r.json())
+    api.login('2001')
       .then((data) => {
         if (data.user) setDevice2User(data.user);
       })
+      .catch(() => {})
       .finally(() => setDevice2Loading(false));
   }, []);
 

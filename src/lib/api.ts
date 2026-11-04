@@ -1,4 +1,5 @@
 import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount } from '../types.ts';
+import { clientStore } from './clientStore.ts';
 
 const TOKEN_KEY = 'gatepass_auth_token';
 
@@ -13,6 +14,13 @@ export function setStoredToken(token: string): void {
 export function removeStoredToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
+
+// Check if running on a static hosting environment like GitHub Pages
+export const isStaticHost: boolean =
+  typeof window !== 'undefined' &&
+  (window.location.hostname.endsWith('github.io') ||
+    window.location.protocol === 'file:' ||
+    (!window.location.port && !window.location.hostname.includes('run.app') && window.location.hostname !== 'localhost'));
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
@@ -40,35 +48,84 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const api = {
-  // Auth
+  // --- Auth ---
   async login(pinCode: string): Promise<{ token: string; user: User }> {
-    const res = await request<{ token: string; user: User }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ pinCode }),
-    });
-    setStoredToken(res.token);
-    return res;
-  },
+    if (isStaticHost) {
+      const res = clientStore.login(pinCode);
+      setStoredToken(res.token);
+      return res;
+    }
 
-  async getMe(): Promise<{ user: User }> {
-    return request<{ user: User }>('/api/auth/me');
-  },
-
-  async logout(): Promise<void> {
     try {
-      await request('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // ignore
-    } finally {
-      removeStoredToken();
+      const res = await request<{ token: string; user: User }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ pinCode }),
+      });
+      setStoredToken(res.token);
+      return res;
+    } catch (err: any) {
+      // If server route is unreachable (404/static host), fallback seamlessly to clientStore
+      try {
+        const res = clientStore.login(pinCode);
+        setStoredToken(res.token);
+        return res;
+      } catch (clientErr: any) {
+        throw new Error(clientErr.message || err.message || 'קוד גישה שגוי');
+      }
     }
   },
 
-  async getDemoAccounts(): Promise<{ accounts: DemoAccount[] }> {
-    return request<{ accounts: DemoAccount[] }>('/api/public/demo-accounts');
+  async getMe(): Promise<{ user: User }> {
+    if (isStaticHost) {
+      return clientStore.getMe();
+    }
+    try {
+      return await request<{ user: User }>('/api/auth/me');
+    } catch {
+      return clientStore.getMe();
+    }
   },
 
-  // Teacher
+  async logout(): Promise<void> {
+    clientStore.logout();
+    if (!isStaticHost) {
+      try {
+        await request('/api/auth/logout', { method: 'POST' });
+      } catch {
+        // ignore
+      }
+    }
+    removeStoredToken();
+  },
+
+  async getDemoAccounts(): Promise<{ accounts: DemoAccount[] }> {
+    if (isStaticHost) {
+      return {
+        accounts: [
+          { role: 'admin', title: 'מנהל המערכת', name: 'עמאר פאעור' },
+          { role: 'vice_principal', title: 'סגן מנהל (אחראי שחרורים)', name: 'סגן מנהל' },
+          { role: 'teacher', title: 'מחנכת כיתה ז1', name: 'לינא ח׳ליל' },
+          { role: 'teacher', title: 'מורה מקצועי', name: 'מוחמד עלי' },
+          { role: 'guard', title: 'שומר שער', name: 'אברהם כהן' },
+        ],
+      };
+    }
+    try {
+      return await request<{ accounts: DemoAccount[] }>('/api/public/demo-accounts');
+    } catch {
+      return {
+        accounts: [
+          { role: 'admin', title: 'מנהל המערכת', name: 'עמאר פאעור' },
+          { role: 'vice_principal', title: 'סגן מנהל (אחראי שחרורים)', name: 'סגן מנהל' },
+          { role: 'teacher', title: 'מחנכת כיתה ז1', name: 'לינא ח׳ליל' },
+          { role: 'teacher', title: 'מורה מקצועי', name: 'מוחמד עלי' },
+          { role: 'guard', title: 'שומר שער', name: 'אברהם כהן' },
+        ],
+      };
+    }
+  },
+
+  // --- Teacher & Vice Principal ---
   async getTeacherClasses(): Promise<{
     assignedClasses: string[];
     teacherName: string;
@@ -76,14 +133,32 @@ export const api = {
     today: string;
     currentTime: string;
   }> {
-    return request('/api/teacher/my-classes');
+    if (isStaticHost) {
+      const { user } = clientStore.getMe();
+      return clientStore.getTeacherClasses(user);
+    }
+    try {
+      return await request('/api/teacher/my-classes');
+    } catch {
+      const { user } = clientStore.getMe();
+      return clientStore.getTeacherClasses(user);
+    }
   },
 
   async getTeacherPasses(): Promise<{
     passes: GatePass[];
     currentTime: string;
   }> {
-    return request('/api/teacher/passes');
+    if (isStaticHost) {
+      const { user } = clientStore.getMe();
+      return clientStore.getTeacherPasses(user);
+    }
+    try {
+      return await request('/api/teacher/passes');
+    } catch {
+      const { user } = clientStore.getMe();
+      return clientStore.getTeacherPasses(user);
+    }
   },
 
   async createPasses(studentIds: string[], validFromTime: string, reason?: string): Promise<{
@@ -92,25 +167,50 @@ export const api = {
     created: GatePass[];
     errors: string[];
   }> {
-    return request('/api/passes/create', {
-      method: 'POST',
-      body: JSON.stringify({ studentIds, validFromTime, reason }),
-    });
+    if (isStaticHost) {
+      const { user } = clientStore.getMe();
+      return clientStore.createPasses(user, studentIds, validFromTime, reason);
+    }
+    try {
+      return await request('/api/passes/create', {
+        method: 'POST',
+        body: JSON.stringify({ studentIds, validFromTime, reason }),
+      });
+    } catch {
+      const { user } = clientStore.getMe();
+      return clientStore.createPasses(user, studentIds, validFromTime, reason);
+    }
   },
 
   async cancelPass(passId: string): Promise<{ success: boolean; pass: GatePass }> {
-    return request('/api/passes/cancel', {
-      method: 'POST',
-      body: JSON.stringify({ passId }),
-    });
+    if (isStaticHost) {
+      const { user } = clientStore.getMe();
+      return clientStore.cancelPass(user, passId);
+    }
+    try {
+      return await request('/api/passes/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ passId }),
+      });
+    } catch {
+      const { user } = clientStore.getMe();
+      return clientStore.cancelPass(user, passId);
+    }
   },
 
-  // Guard
+  // --- Guard ---
   async searchGuard(query = ''): Promise<{
     results: GuardSearchResult[];
     currentTime: string;
   }> {
-    return request(`/api/guard/search?q=${encodeURIComponent(query)}`);
+    if (isStaticHost) {
+      return clientStore.searchGuard(query);
+    }
+    try {
+      return await request(`/api/guard/search?q=${encodeURIComponent(query)}`);
+    } catch {
+      return clientStore.searchGuard(query);
+    }
   },
 
   async getActivePasses(): Promise<{
@@ -120,7 +220,14 @@ export const api = {
     totalActive: number;
     totalExitedToday: number;
   }> {
-    return request('/api/guard/active-passes');
+    if (isStaticHost) {
+      return clientStore.getActivePasses();
+    }
+    try {
+      return await request('/api/guard/active-passes');
+    } catch {
+      return clientStore.getActivePasses();
+    }
   },
 
   async markExit(passId: string): Promise<{
@@ -128,26 +235,56 @@ export const api = {
     pass: GatePass;
     message: string;
   }> {
-    return request('/api/guard/mark-exit', {
-      method: 'POST',
-      body: JSON.stringify({ passId }),
-    });
+    if (isStaticHost) {
+      const { user } = clientStore.getMe();
+      return clientStore.markExit(user, passId);
+    }
+    try {
+      return await request('/api/guard/mark-exit', {
+        method: 'POST',
+        body: JSON.stringify({ passId }),
+      });
+    } catch {
+      const { user } = clientStore.getMe();
+      return clientStore.markExit(user, passId);
+    }
   },
 
-  // Admin
+  // --- Admin ---
   async getStaff(): Promise<{ staff: StaffMember[] }> {
-    return request('/api/admin/staff');
+    if (isStaticHost) {
+      return clientStore.getStaff();
+    }
+    try {
+      return await request('/api/admin/staff');
+    } catch {
+      return clientStore.getStaff();
+    }
   },
 
   async saveStaff(staffList: StaffMember[]): Promise<{ success: boolean; staff: StaffMember[] }> {
-    return request('/api/admin/staff', {
-      method: 'POST',
-      body: JSON.stringify({ staffList }),
-    });
+    if (isStaticHost) {
+      return clientStore.saveStaff(staffList);
+    }
+    try {
+      return await request('/api/admin/staff', {
+        method: 'POST',
+        body: JSON.stringify({ staffList }),
+      });
+    } catch {
+      return clientStore.saveStaff(staffList);
+    }
   },
 
   async getAudit(): Promise<{ logs: AuditLogEntry[] }> {
-    return request('/api/admin/audit');
+    if (isStaticHost) {
+      return { logs: [] };
+    }
+    try {
+      return await request('/api/admin/audit');
+    } catch {
+      return { logs: [] };
+    }
   },
 
   async importData(students: any[], classesTeachers: any[]): Promise<{
@@ -156,14 +293,28 @@ export const api = {
     updated: number;
     total: number;
   }> {
-    return request('/api/admin/import', {
-      method: 'POST',
-      body: JSON.stringify({ students, classesTeachers }),
-    });
+    if (isStaticHost) {
+      return clientStore.importData(students, classesTeachers);
+    }
+    try {
+      return await request('/api/admin/import', {
+        method: 'POST',
+        body: JSON.stringify({ students, classesTeachers }),
+      });
+    } catch {
+      return clientStore.importData(students, classesTeachers);
+    }
   },
 
   async resetDemo(): Promise<{ success: boolean; message: string }> {
-    return request('/api/admin/reset-demo', { method: 'POST' });
+    if (isStaticHost) {
+      return clientStore.resetDemo();
+    }
+    try {
+      return await request('/api/admin/reset-demo', { method: 'POST' });
+    } catch {
+      return clientStore.resetDemo();
+    }
   },
 
   async searchHistory(params: {
@@ -172,11 +323,18 @@ export const api = {
     to?: string;
     className?: string;
   } = {}): Promise<{ passes: GatePass[] }> {
-    const qParams = new URLSearchParams();
-    if (params.q) qParams.append('q', params.q);
-    if (params.from) qParams.append('from', params.from);
-    if (params.to) qParams.append('to', params.to);
-    if (params.className) qParams.append('class', params.className);
-    return request(`/api/admin/history-search?${qParams.toString()}`);
+    if (isStaticHost) {
+      return clientStore.searchHistory(params);
+    }
+    try {
+      const qParams = new URLSearchParams();
+      if (params.q) qParams.append('q', params.q);
+      if (params.from) qParams.append('from', params.from);
+      if (params.to) qParams.append('to', params.to);
+      if (params.className) qParams.append('class', params.className);
+      return await request(`/api/admin/history-search?${qParams.toString()}`);
+    } catch {
+      return clientStore.searchHistory(params);
+    }
   },
 };

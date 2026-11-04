@@ -4,9 +4,9 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
-  // Use /gate-tehon/ for GitHub Pages builds, while keeping '/' for Cloud Run and local dev
+  // Use relative './' for GitHub Pages builds (supports gate-tehon, gate-tehon-fresh, etc.), while keeping '/' for Cloud Run and local dev
   const isGithubPages = process.env.GITHUB_PAGES === 'true' || process.env.BUILD_TARGET === 'github-pages';
-  const basePath = process.env.VITE_BASE_PATH || (isGithubPages ? '/gate-tehon/' : '/');
+  const basePath = process.env.VITE_BASE_PATH || (isGithubPages ? './' : '/');
 
   return {
     base: basePath,

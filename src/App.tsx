@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, removeStoredToken } from './lib/api.ts';
+import { api, removeStoredToken, isStaticHost } from './lib/api.ts';
+import { clientStore } from './lib/clientStore.ts';
 import { User } from './types.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { LoginScreen } from './components/LoginScreen.tsx';
@@ -36,8 +37,25 @@ export default function App() {
       });
   }, []);
 
-  // Connect SSE for real-time synchronization across phones
+  // Real-time synchronization: SSE for Node backend, clientStore + BroadcastChannel + Firestore for GitHub Pages
   useEffect(() => {
+    if (isStaticHost) {
+      setIsConnected(true);
+      const now = new Date().toLocaleTimeString('he-IL');
+      setLastSyncTime(now);
+
+      const unsubscribe = clientStore.subscribe(() => {
+        setIsConnected(true);
+        const curTime = new Date().toLocaleTimeString('he-IL');
+        setLastSyncTime(curTime);
+        setSyncTick((t) => t + 1);
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    }
+
     let reconnectTimeout: any = null;
 
     function connectSSE() {

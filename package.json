@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server.ts",
     "build": "vite build && esbuild server.ts --platform=node --target=node22 --format=esm --bundle --packages=external --outfile=dist/server.js && cp dist/server.js ./server.js",
-    "build:pages": "GITHUB_PAGES=true vite build --base=/gate-tehon-fresh/ --outDir dist-pages",    "start": "node dist/server.js",
+    "build:pages": "GITHUB_PAGES=true vite build --base=./ --outDir dist-pages",
+    "start": "node dist/server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"

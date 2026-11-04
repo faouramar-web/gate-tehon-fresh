@@ -71,10 +71,12 @@ export interface StaffMember {
 }
 
 export interface DemoAccount {
-  id: string;
-  fullName: string;
-  role: 'teacher' | 'guard' | 'admin';
-  roleLabel: string;
-  pinCode: string;
-  classes: string;
+  id?: string;
+  fullName?: string;
+  role: UserRole;
+  roleLabel?: string;
+  pinCode?: string;
+  classes?: string;
+  title?: string;
+  name?: string;
 }
