@@ -1,0 +1,369 @@
+{
+  "settings": {
+    "schoolName": "בית ספר מקיף",
+    "lastUpdated": "2026-11-04T13:23:32.442Z"
+  },
+  "staff": [
+    {
+      "id": "staff-t01",
+      "staffCode": "T01",
+      "fullName": "לינא ח׳ליל",
+      "role": "teacher",
+      "pinCode": "1001",
+      "assignedClasses": [
+        "ז1"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-t02",
+      "staffCode": "T02",
+      "fullName": "סוהא מנצור",
+      "role": "teacher",
+      "pinCode": "1002",
+      "assignedClasses": [
+        "ז2"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-t03",
+      "staffCode": "T03",
+      "fullName": "דלאל חביב",
+      "role": "teacher",
+      "pinCode": "1003",
+      "assignedClasses": [
+        "ח1"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-t04",
+      "staffCode": "T04",
+      "fullName": "נאדיה סרחאן",
+      "role": "teacher",
+      "pinCode": "1004",
+      "assignedClasses": [
+        "ח2"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-t05",
+      "staffCode": "T05",
+      "fullName": "רימא ג׳אבר",
+      "role": "teacher",
+      "pinCode": "1005",
+      "assignedClasses": [
+        "ט1"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-t06",
+      "staffCode": "T06",
+      "fullName": "מוחמד עלי (מורה מקצועי)",
+      "role": "teacher",
+      "pinCode": "1010",
+      "assignedClasses": [
+        "*"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-g01",
+      "staffCode": "G01",
+      "fullName": "אברהם כהן (שומר שער)",
+      "role": "guard",
+      "pinCode": "2001",
+      "assignedClasses": [],
+      "isActive": true
+    },
+    {
+      "id": "staff-g02",
+      "staffCode": "G02",
+      "fullName": "יוסי לוי (שומר מחליף)",
+      "role": "guard",
+      "pinCode": "2002",
+      "assignedClasses": [],
+      "isActive": true
+    },
+    {
+      "id": "staff-vp01",
+      "staffCode": "VP01",
+      "fullName": "סגן מנהל (אחראי שחרורים)",
+      "role": "vice_principal",
+      "pinCode": "3001",
+      "assignedClasses": [
+        "*"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-admin-amar",
+      "staffCode": "ADMIN",
+      "fullName": "עמאר פאעור (מנהל המערכת)",
+      "role": "admin",
+      "pinCode": "160525",
+      "assignedClasses": [
+        "*"
+      ],
+      "isActive": true
+    }
+  ],
+  "students": [
+    {
+      "id": "s-001",
+      "studentCode": "S001",
+      "fullName": "אדם נאסר",
+      "className": "ז1",
+      "teacherName": "לינא ח׳ליל"
+    },
+    {
+      "id": "s-002",
+      "studentCode": "S002",
+      "fullName": "מרים סאלח",
+      "className": "ז1",
+      "teacherName": "לינא ח׳ליל"
+    },
+    {
+      "id": "s-003",
+      "studentCode": "S003",
+      "fullName": "יוסף חמדאן",
+      "className": "ז1",
+      "teacherName": "לינא ח׳ליל"
+    },
+    {
+      "id": "s-004",
+      "studentCode": "S004",
+      "fullName": "נור עבדאללה",
+      "className": "ז1",
+      "teacherName": "לינא ח׳ליל"
+    },
+    {
+      "id": "s-005",
+      "studentCode": "S005",
+      "fullName": "ליאן סעיד",
+      "className": "ז1",
+      "teacherName": "לינא ח׳ליל"
+    },
+    {
+      "id": "s-006",
+      "studentCode": "S006",
+      "fullName": "אמיר חורי",
+      "className": "ז2",
+      "teacherName": "סוהא מנצור"
+    },
+    {
+      "id": "s-007",
+      "studentCode": "S007",
+      "fullName": "תאלה חנא",
+      "className": "ז2",
+      "teacherName": "סוהא מנצור"
+    },
+    {
+      "id": "s-008",
+      "studentCode": "S008",
+      "fullName": "ראמי עיסא",
+      "className": "ז2",
+      "teacherName": "סוהא מנצור"
+    },
+    {
+      "id": "s-009",
+      "studentCode": "S009",
+      "fullName": "דינה סלים",
+      "className": "ז2",
+      "teacherName": "סוהא מנצור"
+    },
+    {
+      "id": "s-010",
+      "studentCode": "S010",
+      "fullName": "סאמר עבוד",
+      "className": "ז2",
+      "teacherName": "סוהא מנצור"
+    },
+    {
+      "id": "s-011",
+      "studentCode": "S011",
+      "fullName": "רים זידאן",
+      "className": "ח1",
+      "teacherName": "דלאל חביב"
+    },
+    {
+      "id": "s-012",
+      "studentCode": "S012",
+      "fullName": "איאד חלבי",
+      "className": "ח1",
+      "teacherName": "דלאל חביב"
+    },
+    {
+      "id": "s-013",
+      "studentCode": "S013",
+      "fullName": "סלמא עזאם",
+      "className": "ח1",
+      "teacherName": "דלאל חביב"
+    },
+    {
+      "id": "s-014",
+      "studentCode": "S014",
+      "fullName": "נדים שאהין",
+      "className": "ח1",
+      "teacherName": "דלאל חביב"
+    },
+    {
+      "id": "s-015",
+      "studentCode": "S015",
+      "fullName": "מאיה יעקוב",
+      "className": "ח1",
+      "teacherName": "דלאל חביב"
+    },
+    {
+      "id": "s-016",
+      "studentCode": "S016",
+      "fullName": "האני ח׳טיב",
+      "className": "ח2",
+      "teacherName": "נאדיה סרחאן"
+    },
+    {
+      "id": "s-017",
+      "studentCode": "S017",
+      "fullName": "ליאן חסן",
+      "className": "ח2",
+      "teacherName": "נאדיה סרחאן"
+    },
+    {
+      "id": "s-018",
+      "studentCode": "S018",
+      "fullName": "אמל דאהר",
+      "className": "ח2",
+      "teacherName": "נאדיה סרחאן"
+    },
+    {
+      "id": "s-019",
+      "studentCode": "S019",
+      "fullName": "כרים עלי",
+      "className": "ח2",
+      "teacherName": "נאדיה סרחאן"
+    },
+    {
+      "id": "s-020",
+      "studentCode": "S020",
+      "fullName": "נור פארס",
+      "className": "ח2",
+      "teacherName": "נאדיה סרחאן"
+    },
+    {
+      "id": "s-021",
+      "studentCode": "S021",
+      "fullName": "לין סעד",
+      "className": "ט1",
+      "teacherName": "רימא ג׳אבר"
+    },
+    {
+      "id": "s-022",
+      "studentCode": "S022",
+      "fullName": "מאלכ איברהים",
+      "className": "ט1",
+      "teacherName": "רימא ג׳אבר"
+    },
+    {
+      "id": "s-023",
+      "studentCode": "S023",
+      "fullName": "ג׳נא עודה",
+      "className": "ט1",
+      "teacherName": "רימא ג׳אבר"
+    },
+    {
+      "id": "s-024",
+      "studentCode": "S024",
+      "fullName": "אדם מנסור",
+      "className": "ט1",
+      "teacherName": "רימא ג׳אבר"
+    },
+    {
+      "id": "s-025",
+      "studentCode": "S025",
+      "fullName": "סוהיל סלאמה",
+      "className": "ט1",
+      "teacherName": "רימא ג׳אבר"
+    }
+  ],
+  "passes": [
+    {
+      "id": "pass-hist-01",
+      "studentId": "s-002",
+      "studentCode": "S002",
+      "studentName": "מרים סאלח",
+      "className": "ז1",
+      "teacherId": "staff-t01",
+      "teacherName": "לינא ח׳ליל",
+      "dateStr": "2026-11-02",
+      "validFromTime": "12:30",
+      "status": "used",
+      "createdAt": "2026-11-02T10:15:00.000Z",
+      "createdBy": "לינא ח׳ליל",
+      "usedAt": "2026-11-02T12:32:00.000Z",
+      "usedBy": "אברהם כהן (שומר שער)",
+      "reason": "אישור יציאה לבדיקה רפואית לפי בקשת אם"
+    },
+    {
+      "id": "pass-hist-02",
+      "studentId": "s-007",
+      "studentCode": "S007",
+      "studentName": "ראמי עיסא",
+      "className": "ז2",
+      "teacherId": "staff-t02",
+      "teacherName": "סוהא מנצור",
+      "dateStr": "2026-11-03",
+      "validFromTime": "13:15",
+      "status": "used",
+      "createdAt": "2026-11-03T11:00:00.000Z",
+      "createdBy": "סוהא מנצור",
+      "usedAt": "2026-11-03T13:18:00.000Z",
+      "usedBy": "יוסי לוי (שומר מחליף)",
+      "reason": "אירוע משפחתי דחוף"
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "log-seed-1",
+      "timestamp": "2026-11-04T13:22:54.754Z",
+      "actionType": "RESET_DEMO",
+      "actorId": "system",
+      "actorName": "מערכת",
+      "actorRole": "system",
+      "details": "טעינה ראשונית של נתוני כיתות, מחנכות ותלמידים"
+    },
+    {
+      "id": "log-1793798589969-7735",
+      "timestamp": "2026-11-04T13:23:09.969Z",
+      "actionType": "PASS_CREATED",
+      "actorId": "staff-t01",
+      "actorName": "לינא ח׳ליל",
+      "actorRole": "teacher",
+      "studentName": "אדם נאסר",
+      "className": "ז1",
+      "details": "הונפק אישור יציאה לשעה 15:20"
+    },
+    {
+      "id": "log-1793798599805-6gjr",
+      "timestamp": "2026-11-04T13:23:19.805Z",
+      "actionType": "PASS_USED",
+      "actorId": "staff-g01",
+      "actorName": "אברהם כהן (שומר שער)",
+      "actorRole": "guard",
+      "studentName": "אדם נאסר",
+      "className": "ז1",
+      "details": "יציאה אושרה בשער על ידי אברהם כהן (שומר שער) בשעה 15:23"
+    },
+    {
+      "id": "log-1793798612442",
+      "timestamp": "2026-11-04T13:23:32.442Z",
+      "actionType": "RESET_DEMO",
+      "actorId": "admin",
+      "actorName": "מזכירות",
+      "actorRole": "admin",
+      "details": "איפוס מערכת לנתוני הדגמה מקוריים"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "אישור לשער",
+  "description": "מערכת לניהול ואימות יציאת תלמידים מבית הספר בזמן אמת למחנכות, שומרים ומזכירות",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
