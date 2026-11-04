@@ -509,12 +509,12 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
             type="button"
             disabled={selectedStudentIds.size === 0}
             onClick={handleOpenSendModal}
-            className="flex-1 h-12 bg-teal-600 hover:bg-teal-700 active:scale-[0.99] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm sm:text-base rounded-2xl shadow-md shadow-teal-600/25 transition-all flex items-center justify-center gap-2.5"
+            className="flex-1 h-14 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 active:scale-[0.98] disabled:from-slate-200 disabled:to-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none text-white font-black text-base sm:text-lg rounded-2xl shadow-lg shadow-teal-700/30 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
           >
             <Send className="w-5 h-5" />
             <span>שליחת אישור לשער</span>
             {selectedStudentIds.size > 0 && (
-              <span className="bg-white text-teal-700 font-extrabold text-xs px-2 py-0.5 rounded-full">
+              <span className="bg-white text-teal-800 font-black text-xs px-2.5 py-0.5 rounded-full shadow-sm">
                 {selectedStudentIds.size}
               </span>
             )}
@@ -621,7 +621,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
               <button
                 type="button"
                 onClick={() => setShowSendModal(false)}
-                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm rounded-xl transition-colors"
+                className="flex-1 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-2xl transition-colors cursor-pointer"
               >
                 ביטול
               </button>
@@ -630,10 +630,10 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleSendPasses}
-                className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] disabled:bg-slate-300 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-12 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 active:scale-[0.98] disabled:bg-slate-300 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-teal-700/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
                     <Send className="w-4 h-4" />

@@ -18,7 +18,9 @@ import {
   Award,
   Layers,
   GraduationCap,
-  ArrowRight
+  ArrowRight,
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react';
 
 interface VicePrincipalViewProps {
@@ -107,7 +109,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         map.set(student.className.trim(), student.teacherName.trim());
       }
     }
-    // Default known homerooms from PDF
+    // Default known homerooms from school roster
     if (!map.has('ז1')) map.set('ז1', 'לינא ח׳ליל');
     if (!map.has('ז2')) map.set('ז2', 'סוהא מנצור');
     if (!map.has('ח1')) map.set('ח1', 'דלאל חביב');
@@ -139,7 +141,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     loadPasses(passes.length === 0);
   }, [fromDate, toDate, selectedClass, searchQuery]);
 
-  // Sync tick listener (SSE real-time background update)
+  // Sync tick listener (real-time background update)
   useEffect(() => {
     if (syncTick > 0) {
       loadPasses(false);
@@ -226,125 +228,150 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
 
   return (
     <div className="pb-24 max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
-      {/* Vice Principal Header Banner */}
-      <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-amber-800/40 mb-5 relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 shadow-inner">
-              <ShieldAlert className="w-6 h-6 text-amber-400" />
+      {/* Executive Header Banner - Sleek Deep Navy & Indigo with Prominent Actions */}
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 text-white rounded-3xl p-5 sm:p-7 shadow-xl border border-slate-800 mb-6 relative overflow-hidden">
+        <div className="absolute top-0 right-1/4 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative z-10">
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-400/20 border-2 border-amber-400/50 flex items-center justify-center shrink-0 shadow-lg shadow-amber-950/40">
+              <ShieldAlert className="w-7 h-7 text-amber-300" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-amber-300 font-extrabold tracking-wider uppercase">
                   לוח פיקוח שחרורים בית ספרי
                 </span>
-                <span className="text-[11px] bg-amber-400/20 text-amber-200 border border-amber-400/30 px-2 py-0.5 rounded-md font-semibold">
+                <span className="text-xs bg-amber-400/20 text-amber-200 border border-amber-400/40 px-2.5 py-0.5 rounded-lg font-bold">
                   סגן מנהל · אחראי שחרורים כולל
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold font-['Rubik'] mt-0.5 text-white">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-['Rubik'] mt-1 text-white tracking-tight">
                 מעקב שחרורים וזמני יציאה בשער
               </h1>
-              <p className="text-xs text-slate-300 mt-1">
-                בקרה שוטפת על כל תלמיד ששוחרר: כיתה, זהות המורה המשחרר (מקצועי או מחנכת), שעת האישור ושעת היציאה הפיזית
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl font-medium">
+                בקרה שוטפת על כל תלמיד ששוחרר: כיתה, זהות המורה המשחרר (מקצועי או מחנכת), שעת האישור ושעת היציאה הפיזית בשער
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          {/* Prominent Header Action Buttons */}
+          <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0 flex-wrap">
             <button
               type="button"
               onClick={() => loadPasses(true)}
               disabled={refreshing}
-              className="px-3 py-2 text-xs font-semibold text-slate-200 bg-white/10 hover:bg-white/20 rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
+              className="px-4 py-2.5 text-xs sm:text-sm font-bold text-white bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl border border-white/25 shadow-sm transition-all flex items-center gap-2 cursor-pointer"
               title="רענן נתוני שחרורים"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 text-slate-200 ${refreshing ? 'animate-spin' : ''}`} />
               <span>רענן נתונים</span>
             </button>
 
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-3.5 py-2 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-md transition-all flex items-center gap-1.5"
+              className="px-4 py-2.5 text-xs sm:text-sm font-black text-slate-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-lg shadow-amber-400/25 transition-all flex items-center gap-2 cursor-pointer"
               title="הדפס דוח שחרורים מרוכז"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-4 h-4 text-slate-950" />
               <span>הדפס דוח</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* KPI Statistics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-5">
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-          <div className="text-[11px] font-semibold text-slate-500 mb-1">סה״כ שוחררו</div>
-          <div className="text-2xl font-black text-slate-900 font-mono">{stats.total}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">בטווח שנבחר</div>
+      {/* KPI Statistics Cards - High-Contrast, Clean, Executive Dashboard */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {/* Total */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-slate-200/90 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-slate-500 mb-1">סה״כ שוחררו</div>
+          <div className="text-3xl font-black text-slate-900 font-mono tracking-tight">{stats.total}</div>
+          <div className="text-[11px] text-slate-500 font-semibold mt-1">בטווח שנבחר</div>
         </div>
 
-        <div className="bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200/80 shadow-2xs">
-          <div className="text-[11px] font-semibold text-emerald-800 mb-1 flex items-center gap-1">
-            <DoorOpen className="w-3.5 h-3.5 text-emerald-600" />
+        {/* Exited */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-emerald-300 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-emerald-800 mb-1 flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-700">
+              <DoorOpen className="w-3.5 h-3.5" />
+            </div>
             <span>יצאו מהשער</span>
           </div>
-          <div className="text-2xl font-black text-emerald-700 font-mono">{stats.used}</div>
-          <div className="text-[10px] text-emerald-600 font-medium mt-0.5">אושר ונרשם בשער</div>
+          <div className="text-3xl font-black text-emerald-700 font-mono tracking-tight">{stats.used}</div>
+          <div className="text-[11px] text-emerald-700 font-semibold mt-1">נרשמו ויצאו פיזית</div>
         </div>
 
-        <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200/80 shadow-2xs">
-          <div className="text-[11px] font-semibold text-amber-800 mb-1 flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
+        {/* Pending */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-amber-300 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-amber-800 mb-1 flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center text-amber-700">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
             <span>ממתינים בשער</span>
           </div>
-          <div className="text-2xl font-black text-amber-700 font-mono">{stats.pending}</div>
-          <div className="text-[10px] text-amber-600 font-medium mt-0.5">בדרך לשומר</div>
+          <div className="text-3xl font-black text-amber-700 font-mono tracking-tight">{stats.pending}</div>
+          <div className="text-[11px] text-amber-700 font-semibold mt-1">בדרך לשומר השער</div>
         </div>
 
-        <div className="bg-blue-50/80 p-3.5 rounded-2xl border border-blue-200/80 shadow-2xs">
-          <div className="text-[11px] font-semibold text-blue-900 mb-1 flex items-center gap-1">
-            <GraduationCap className="w-3.5 h-3.5 text-blue-700" />
+        {/* Subject Teachers */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-blue-300 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-blue-900 mb-1 flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-md bg-blue-100 flex items-center justify-center text-blue-700">
+              <GraduationCap className="w-3.5 h-3.5" />
+            </div>
             <span>מורים מקצועיים</span>
           </div>
-          <div className="text-2xl font-black text-blue-700 font-mono">{stats.bySubject}</div>
-          <div className="text-[10px] text-blue-600 font-medium mt-0.5">שעה אחרונה / מקצוע</div>
+          <div className="text-3xl font-black text-blue-700 font-mono tracking-tight">{stats.bySubject}</div>
+          <div className="text-[11px] text-blue-700 font-semibold mt-1">שעה אחרונה / מקצוע</div>
         </div>
 
-        <div className="bg-teal-50/80 p-3.5 rounded-2xl border border-teal-200/80 shadow-2xs">
-          <div className="text-[11px] font-semibold text-teal-900 mb-1 flex items-center gap-1">
-            <UserCheck className="w-3.5 h-3.5 text-teal-700" />
+        {/* Homeroom Teachers */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-teal-300 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-teal-900 mb-1 flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-md bg-teal-100 flex items-center justify-center text-teal-700">
+              <UserCheck className="w-3.5 h-3.5" />
+            </div>
             <span>מחנכות כיתה</span>
           </div>
-          <div className="text-2xl font-black text-teal-700 font-mono">{stats.byHomeroom}</div>
-          <div className="text-[10px] text-teal-600 font-medium mt-0.5">כיתת אם ראשית</div>
+          <div className="text-3xl font-black text-teal-700 font-mono tracking-tight">{stats.byHomeroom}</div>
+          <div className="text-[11px] text-teal-700 font-semibold mt-1">כיתת אם ראשית</div>
         </div>
 
-        <div className="bg-rose-50/80 p-3.5 rounded-2xl border border-rose-200/80 shadow-2xs">
-          <div className="text-[11px] font-semibold text-rose-800 mb-1">אישורים שבוטלו</div>
-          <div className="text-2xl font-black text-rose-700 font-mono">{stats.cancelled}</div>
-          <div className="text-[10px] text-rose-600 font-medium mt-0.5">בוטלו ע״י מורה</div>
+        {/* Cancelled */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-rose-300 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-md bg-rose-100 flex items-center justify-center text-rose-700">
+              <X className="w-3.5 h-3.5" />
+            </div>
+            <span>אישורים שבוטלו</span>
+          </div>
+          <div className="text-3xl font-black text-rose-700 font-mono tracking-tight">{stats.cancelled}</div>
+          <div className="text-[11px] text-rose-700 font-semibold mt-1">בוטלו ע״י מורה</div>
         </div>
       </div>
 
-      {/* Control & Filter Zone */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4 mb-5">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          {/* Search box */}
+      {/* Control & Filter Zone - High Contrast, Prominent Segmented Buttons */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-slate-200 shadow-md space-y-4 mb-6">
+        {/* Row 1: Search bar + Date range presets */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5">
+          {/* Prominent Search box */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="חיפוש מהיר: שם תלמיד, כיתה, שם המורה ששיחרר, או שומר..."
-              className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-amber-600 focus:outline-none transition-colors"
+              placeholder="חיפוש מהיר: שם תלמיד, כיתה, שם המורה ששיחרר, או שומר השער..."
+              className="w-full pl-10 pr-12 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all shadow-inner"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                title="נקה חיפוש"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -352,48 +379,51 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
           </div>
 
           {/* Date range picker & presets */}
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-            <span className="text-xs font-semibold text-slate-500 ml-1">תקופה:</span>
-            {(['today', 'yesterday', '3days', '7days', 'all'] as const).map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => handleApplyDatePreset(preset)}
-                className={`px-2.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                  datePreset === preset
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                {preset === 'today'
-                  ? 'היום'
-                  : preset === 'yesterday'
-                  ? 'אתמול'
-                  : preset === '3days'
-                  ? '3 ימים'
-                  : preset === '7days'
-                  ? 'שבוע'
-                  : 'הכל'}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <span className="text-xs font-bold text-slate-600 px-2">תקופה:</span>
+            {(['today', 'yesterday', '3days', '7days', 'all'] as const).map((preset) => {
+              const active = datePreset === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => handleApplyDatePreset(preset)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    active
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-700 hover:text-slate-950 hover:bg-white/60'
+                  }`}
+                >
+                  {preset === 'today'
+                    ? 'היום'
+                    : preset === 'yesterday'
+                    ? 'אתמול'
+                    : preset === '3days'
+                    ? '3 ימים'
+                    : preset === '7days'
+                    ? 'שבוע'
+                    : 'הכל'}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Row 2: Granular Filters (Class & Authorizer Type & Status) */}
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-          {/* Class Filter Chips */}
+        <div className="pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Class Filter Buttons */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-bold text-slate-600 flex items-center gap-1 ml-1">
-              <Layers className="w-3.5 h-3.5 text-slate-500" />
+            <span className="font-extrabold text-slate-700 flex items-center gap-1 ml-1 text-xs">
+              <Layers className="w-4 h-4 text-slate-500" />
               <span>כיתה:</span>
             </span>
             <button
               type="button"
               onClick={() => setSelectedClass('ALL')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                 selectedClass === 'ALL'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
               }`}
             >
               כל הכיתות
@@ -403,10 +433,10 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                 key={cls}
                 type="button"
                 onClick={() => setSelectedClass(cls)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                   selectedClass === cls
-                    ? 'bg-teal-700 text-white'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    ? 'bg-teal-700 text-white shadow-sm'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
                 }`}
               >
                 {cls}
@@ -415,13 +445,13 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
           </div>
 
           {/* Authorizer Type (מורה מקצועי מול מחנכת) */}
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
-            <span className="text-[11px] font-bold text-slate-500 px-1">גורם משחרר:</span>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <span className="text-xs font-bold text-slate-600 px-2">גורם משחרר:</span>
             <button
               type="button"
               onClick={() => setAuthorizerType('ALL')}
-              className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors ${
-                authorizerType === 'ALL' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                authorizerType === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               הכל
@@ -429,33 +459,37 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             <button
               type="button"
               onClick={() => setAuthorizerType('SUBJECT')}
-              className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors flex items-center gap-1 ${
-                authorizerType === 'SUBJECT' ? 'bg-blue-600 text-white shadow-2xs' : 'text-blue-800 hover:bg-blue-50'
+              className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                authorizerType === 'SUBJECT'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-blue-900 hover:bg-blue-50'
               }`}
             >
-              <Sparkles className="w-3 h-3" />
+              <GraduationCap className="w-3.5 h-3.5" />
               <span>מורה מקצועי</span>
             </button>
             <button
               type="button"
               onClick={() => setAuthorizerType('HOMEROOM')}
-              className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors flex items-center gap-1 ${
-                authorizerType === 'HOMEROOM' ? 'bg-teal-600 text-white shadow-2xs' : 'text-teal-800 hover:bg-teal-50'
+              className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                authorizerType === 'HOMEROOM'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'text-teal-900 hover:bg-teal-50'
               }`}
             >
-              <UserCheck className="w-3 h-3" />
+              <UserCheck className="w-3.5 h-3.5" />
               <span>מחנכת כיתה</span>
             </button>
           </div>
 
           {/* Gate Exit Status Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
-            <span className="text-[11px] font-bold text-slate-500 px-1">סטטוס שער:</span>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <span className="text-xs font-bold text-slate-600 px-2">סטטוס שער:</span>
             <button
               type="button"
               onClick={() => setStatusFilter('ALL')}
-              className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors ${
-                statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               הכל
@@ -463,21 +497,25 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             <button
               type="button"
               onClick={() => setStatusFilter('USED')}
-              className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors flex items-center gap-1 ${
-                statusFilter === 'USED' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-emerald-800 hover:bg-emerald-50'
+              className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                statusFilter === 'USED'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-emerald-900 hover:bg-emerald-50'
               }`}
             >
-              <CheckCircle2 className="w-3 h-3" />
+              <CheckCircle2 className="w-3.5 h-3.5" />
               <span>יצאו מהשער</span>
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('PENDING')}
-              className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors flex items-center gap-1 ${
-                statusFilter === 'PENDING' ? 'bg-amber-500 text-white shadow-2xs' : 'text-amber-800 hover:bg-amber-50'
+              className={`px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                statusFilter === 'PENDING'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-amber-900 hover:bg-amber-50'
               }`}
             >
-              <Clock className="w-3 h-3" />
+              <Clock className="w-3.5 h-3.5" />
               <span>ממתינים</span>
             </button>
           </div>
@@ -485,17 +523,17 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
       </div>
 
       {/* Dismissals List Section */}
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         {loading && passes.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 text-xs">
-            <div className="w-8 h-8 border-3 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <span>טוען נתוני שחרורים עבור סגן המנהל...</span>
+          <div className="p-12 text-center bg-white rounded-3xl border-2 border-slate-200 text-slate-500 text-sm">
+            <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <span className="font-bold">טוען נתוני שחרורים עבור סגן המנהל...</span>
           </div>
         ) : filteredPasses.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-500 text-xs space-y-2">
-            <ShieldAlert className="w-10 h-10 text-slate-300 mx-auto" />
-            <div className="font-bold text-slate-700 text-sm">לא נמצאו שחרורים התואמים לסינון</div>
-            <p className="text-slate-400 max-w-sm mx-auto">
+          <div className="p-12 text-center bg-white rounded-3xl border-2 border-slate-200 text-slate-500 space-y-3">
+            <ShieldAlert className="w-12 h-12 text-slate-300 mx-auto" />
+            <div className="font-extrabold text-slate-800 text-base">לא נמצאו שחרורים התואמים לסינון</div>
+            <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto font-medium">
               נסה לשנות את הכיתה שנבחרה, טווח התאריכים או להסיר את החיפוש החופשי.
             </p>
           </div>
@@ -508,76 +546,80 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             return (
               <div
                 key={pass.id}
-                className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all shadow-2xs hover:shadow-sm ${
+                className={`bg-white rounded-3xl p-5 sm:p-6 border-2 transition-all shadow-sm hover:shadow-md ${
                   isUsed
-                    ? 'border-emerald-200/90 hover:border-emerald-300'
+                    ? 'border-emerald-300 hover:border-emerald-400'
                     : isCancelled
-                    ? 'border-rose-200/90 bg-rose-50/20'
-                    : 'border-amber-200/90 hover:border-amber-300'
+                    ? 'border-rose-200 bg-rose-50/20'
+                    : 'border-amber-300 hover:border-amber-400'
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                {/* Header Row: Student name, class badge, authorizer, status badge & PROMINENT Action Button */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                   {/* Student & Class Info */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3.5">
+                    {/* Class Tag */}
                     <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 border shadow-2xs ${
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border-2 shadow-sm ${
                         isUsed
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-400'
                           : isCancelled
-                          ? 'bg-rose-50 text-rose-700 border-rose-300'
-                          : 'bg-amber-50 text-amber-700 border-amber-300'
+                          ? 'bg-rose-50 text-rose-800 border-rose-300'
+                          : 'bg-amber-50 text-amber-800 border-amber-400'
                       }`}
                     >
                       {pass.className}
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-base text-slate-900 font-['Rubik']">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="font-black text-lg sm:text-xl text-slate-900 font-['Rubik']">
                           {pass.studentName}
                         </span>
-                        <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">
                           {pass.studentCode || 'ללא ת.ז'}
                         </span>
-                        <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg">
                           כיתה {pass.className}
                         </span>
                       </div>
 
                       {/* Authorizer Identity (Teacher vs Homeroom) */}
-                      <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+                      <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
                         {isSubject ? (
-                          <span className="bg-blue-100/80 text-blue-900 border border-blue-300/80 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                            <Sparkles className="w-3.5 h-3.5 text-blue-700" />
+                          <span className="bg-blue-50 text-blue-900 border-2 border-blue-200 px-2.5 py-0.5 rounded-lg font-extrabold flex items-center gap-1.5 shadow-2xs">
+                            <GraduationCap className="w-4 h-4 text-blue-700" />
                             <span>מורה מקצועי: {pass.teacherName}</span>
                           </span>
                         ) : (
-                          <span className="bg-teal-100/80 text-teal-900 border border-teal-300/80 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                            <UserCheck className="w-3.5 h-3.5 text-teal-700" />
+                          <span className="bg-teal-50 text-teal-900 border-2 border-teal-200 px-2.5 py-0.5 rounded-lg font-extrabold flex items-center gap-1.5 shadow-2xs">
+                            <UserCheck className="w-4 h-4 text-teal-700" />
                             <span>מחנכת כיתה: {pass.teacherName}</span>
                           </span>
                         )}
 
-                        <span className="text-slate-400">·</span>
-                        <span className="text-slate-500">תאריך: <strong>{pass.dateStr}</strong></span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-slate-600 font-medium">
+                          תאריך: <strong className="text-slate-800">{pass.dateStr}</strong>
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Badge & Action */}
-                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  {/* Status Badge & PROMINENT Action Button */}
+                  <div className="flex items-center gap-3 self-start sm:self-auto shrink-0 flex-wrap">
                     <span
-                      className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 shadow-2xs ${
+                      className={`text-xs font-black px-3.5 py-1.5 rounded-xl border-2 flex items-center gap-2 shadow-2xs ${
                         isUsed
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
                           : isCancelled
-                          ? 'bg-rose-50 text-rose-800 border-rose-300'
-                          : 'bg-amber-50 text-amber-800 border-amber-300'
+                          ? 'bg-rose-50 text-rose-900 border-rose-300'
+                          : 'bg-amber-50 text-amber-900 border-amber-300'
                       }`}
                     >
                       <span
-                        className={`w-2 h-2 rounded-full ${
-                          isUsed ? 'bg-emerald-600' : isCancelled ? 'bg-rose-600' : 'bg-amber-600'
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          isUsed ? 'bg-emerald-600' : isCancelled ? 'bg-rose-600' : 'bg-amber-600 animate-pulse'
                         }`}
                       />
                       <span>
@@ -585,33 +627,34 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                           ? 'יצא/ה מהשער בהצלחה'
                           : isCancelled
                           ? 'בוטל ע״י המורה'
-                          : 'אושר, ממתין ליציאה'}
+                          : 'אושר, ממתין/ה ליציאה'}
                       </span>
                     </span>
 
+                    {/* PROMINENT Yellow/Amber "טופס רשמי" Button */}
                     <button
                       type="button"
                       onClick={() => setSelectedSlipPass(pass)}
-                      className="px-3 py-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl border border-amber-200 transition-colors flex items-center gap-1 shadow-2xs"
+                      className="px-4 py-2 text-xs sm:text-sm font-black bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl shadow-md hover:shadow-lg border border-amber-500/40 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
                       title="הפק אישור ובירור רשמי"
                     >
-                      <Printer className="w-3.5 h-3.5 text-amber-700" />
+                      <Printer className="w-4 h-4 text-slate-950" />
                       <span>טופס רשמי</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Granular Timing Grid (שעת שחרור מול שעת יציאה מהשער) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-xs">
+                {/* Timing Detail Row - High-Contrast, Clear Boxes */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3.5 text-xs">
                   {/* Time Authorized */}
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                    <span className="text-slate-500 block mb-0.5 font-medium flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-blue-600" />
+                  <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+                    <span className="text-slate-500 block mb-1 font-bold flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-blue-600" />
                       <span>שעת אישור השחרור:</span>
                     </span>
-                    <div className="font-bold text-slate-900 text-sm">
+                    <div className="font-black text-slate-900 text-base font-mono">
                       {pass.validFromTime}
-                      <span className="text-[11px] font-normal text-slate-500 mr-1.5">
+                      <span className="text-xs font-semibold text-slate-500 mr-2 font-sans">
                         (נוצר ב-{new Date(pass.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })})
                       </span>
                     </div>
@@ -619,41 +662,41 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
 
                   {/* Actual Gate Exit Time */}
                   <div
-                    className={`p-2.5 rounded-xl border ${
+                    className={`p-3 rounded-2xl border-2 ${
                       isUsed
-                        ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-                        : 'bg-slate-50 border-slate-200/80 text-slate-700'
+                        ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
                     }`}
                   >
-                    <span className="block mb-0.5 font-medium flex items-center gap-1 text-slate-500">
-                      <DoorOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="block mb-1 font-bold flex items-center gap-1.5 text-slate-600">
+                      <DoorOpen className="w-4 h-4 text-emerald-600" />
                       <span>שעת יציאה בפועל מהשער:</span>
                     </span>
-                    <div className="font-bold text-sm">
+                    <div className="font-black text-base">
                       {pass.usedAt ? (
-                        <span className="text-emerald-800">
+                        <span className="text-emerald-800 font-mono">
                           בשעה{' '}
                           {pass.usedAt.includes('T')
                             ? pass.usedAt.split('T')[1].substring(0, 5)
                             : pass.usedAt}
                           {pass.usedBy && (
-                            <span className="text-xs font-semibold text-emerald-700 mr-1.5">
+                            <span className="text-xs font-bold text-emerald-700 mr-2 font-sans">
                               (ע״י {pass.usedBy})
                             </span>
                           )}
                         </span>
                       ) : isCancelled ? (
-                        <span className="text-rose-700 font-semibold">לא יצא (בוטל)</span>
+                        <span className="text-rose-700 font-bold">לא יצא (בוטל)</span>
                       ) : (
-                        <span className="text-amber-700 font-semibold">טרם יצא/ה (בדרך לשער)</span>
+                        <span className="text-amber-700 font-bold">טרם יצא/ה (בדרך לשער)</span>
                       )}
                     </div>
                   </div>
 
                   {/* Reason */}
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                    <span className="text-slate-500 block mb-0.5 font-medium">סיבת השחרור:</span>
-                    <div className="font-semibold text-slate-800 truncate" title={pass.reason || 'שחרור מוקדם באישור הורים'}>
+                  <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+                    <span className="text-slate-500 block mb-1 font-bold">סיבת השחרור:</span>
+                    <div className="font-bold text-slate-800 truncate text-xs sm:text-sm" title={pass.reason || 'שחרור מוקדם באישור הורים'}>
                       {pass.reason || 'שחרור מוקדם באישור הורים'}
                     </div>
                   </div>
@@ -664,42 +707,42 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         )}
       </div>
 
-      {/* Modal: Official Parent Inquiry Slip */}
+      {/* Official Gate Pass Inquiry Document Modal (Dialog for Parents/Inquiries) */}
       {selectedSlipPass && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 md:p-6 overflow-y-auto print:p-0 print:bg-white print:fixed print:inset-0 print:overflow-visible">
-          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-300 flex flex-col max-h-[94vh] my-auto overflow-hidden print:border-none print:shadow-none print:rounded-none print:max-h-none print:my-0">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border-2 border-slate-300 flex flex-col max-h-[94vh] my-auto overflow-hidden print:border-none print:shadow-none print:rounded-none print:max-h-none print:my-0">
             {/* Modal Header Bar (Fixed, Always Visible on Screen) */}
-            <div className="shrink-0 bg-slate-900 text-white px-4 sm:px-5 py-3 flex items-center justify-between border-b border-slate-800 z-10 print:hidden">
-              <div className="flex items-center gap-2">
+            <div className="shrink-0 bg-slate-950 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800 z-10 print:hidden">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setSelectedSlipPass(null)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 shadow-2xs"
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 border border-slate-700 shadow-sm cursor-pointer"
                   title="חזרה לחלון הראשי"
                 >
                   <ArrowRight className="w-4 h-4 text-slate-300" />
                   <span>חזרה</span>
                 </button>
-                <div className="flex items-center gap-1.5 mr-1 text-xs sm:text-sm font-bold font-['Rubik'] text-white">
+                <div className="flex items-center gap-2 text-sm font-bold font-['Rubik'] text-white">
                   <FileCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="truncate">טופס בירור שחרור להורים</span>
+                  <span className="truncate">טופס בירור שחרור רשמי</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-amber-950/30"
+                  className="px-4 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 shadow-md shadow-amber-950/40 cursor-pointer"
                   title="הדפס טופס בירור רשמי"
                 >
-                  <Printer className="w-3.5 h-3.5" />
+                  <Printer className="w-4 h-4" />
                   <span>הדפס אישור</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedSlipPass(null)}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                   title="סגור חלון"
                 >
                   <X className="w-5 h-5" />
@@ -708,116 +751,116 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             </div>
 
             {/* Scrollable Document Content */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-4 bg-white text-slate-800 print:overflow-visible print:p-0" dir="rtl">
-              <div className="text-center border-b-2 border-slate-900 pb-3">
-                <div className="text-xs font-semibold text-slate-500 tracking-wider">
+            <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-5 bg-white text-slate-800 print:overflow-visible print:p-0" dir="rtl">
+              <div className="text-center border-b-2 border-slate-900 pb-4">
+                <div className="text-xs font-bold text-slate-500 tracking-wider">
                   משרד החינוך · הנהלת בית הספר · פיקוח שער וביטחון
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-['Rubik'] mt-1">
                   אישור ובירור שעת יציאת תלמיד/ה מבית הספר
                 </h2>
-                <div className="text-xs text-slate-600 mt-1 font-medium">
+                <div className="text-xs text-slate-600 mt-1 font-semibold">
                   תעודת בירור רשמית מאת סגן המנהל ואחראי שחרורים
                 </div>
               </div>
 
               {/* Timestamp & Pass ID */}
-              <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <div>
-                  <span className="font-semibold text-slate-700">תאריך הפקה: </span>
+                  <span className="font-bold text-slate-700">תאריך הפקה: </span>
                   <span>
                     {new Date().toLocaleDateString('he-IL')} בשעה{' '}
                     {new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-700">מזהה אישור: </span>
-                  <span className="font-mono text-slate-800">{selectedSlipPass.id}</span>
+                  <span className="font-bold text-slate-700">מזהה אישור: </span>
+                  <span className="font-mono text-slate-800 font-semibold">{selectedSlipPass.id}</span>
                 </div>
               </div>
 
               {/* Student Details Grid */}
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2.5 text-xs sm:text-sm">
+              <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 border-2 border-slate-200 space-y-3 text-xs sm:text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="text-slate-500 text-xs block">שם התלמיד/ה:</span>
-                    <span className="font-bold text-slate-900 text-base">{selectedSlipPass.studentName}</span>
+                    <span className="text-slate-500 text-xs block font-semibold">שם התלמיד/ה:</span>
+                    <span className="font-black text-slate-900 text-lg">{selectedSlipPass.studentName}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-xs block">כיתה:</span>
-                    <span className="font-bold text-slate-900 text-base">{selectedSlipPass.className}</span>
+                    <span className="text-slate-500 text-xs block font-semibold">כיתה:</span>
+                    <span className="font-black text-slate-900 text-lg">{selectedSlipPass.className}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-slate-200">
                   <div>
-                    <span className="text-slate-500 text-xs block">ת.ז / קוד זיהוי:</span>
+                    <span className="text-slate-500 text-xs block font-semibold">ת.ז / קוד זיהוי:</span>
                     <span className="font-mono font-bold text-slate-800">
                       {selectedSlipPass.studentCode || 'לא צוין'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-xs block">תאריך השחרור:</span>
+                    <span className="text-slate-500 text-xs block font-semibold">תאריך השחרור:</span>
                     <span className="font-bold text-slate-800">{selectedSlipPass.dateStr}</span>
                   </div>
                 </div>
               </div>
 
               {/* Chronological Gate Event Trail */}
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <h4 className="font-bold text-xs uppercase text-slate-700 tracking-wider">
                   ציר זמני האישור והיציאה בשער:
                 </h4>
 
-                <div className="border border-slate-200 rounded-2xl p-3.5 space-y-3 bg-white text-xs">
+                <div className="border-2 border-slate-200 rounded-2xl p-4 space-y-3.5 bg-white text-xs sm:text-sm">
                   {/* Step 1: Teacher Release */}
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-black text-xs shrink-0 mt-0.5">
                       1
                     </div>
                     <div className="flex-1">
-                      <div className="font-bold text-slate-900">
+                      <div className="font-extrabold text-slate-900 text-sm">
                         שחרור אושר ע״י {selectedSlipPass.teacherName}{' '}
                         {isSubjectTeacher(selectedSlipPass.teacherName, selectedSlipPass.className)
                           ? '(מורה מקצועי)'
                           : '(מחנכת כיתה)'}
                       </div>
-                      <div className="text-slate-600 text-[11px] mt-0.5">
-                        שעת אישור מתוכננת: <strong className="text-slate-900">{selectedSlipPass.validFromTime}</strong> · סיבה:{' '}
-                        <span className="font-semibold">{selectedSlipPass.reason || 'אישור יציאה רשמי'}</span>
+                      <div className="text-slate-600 text-xs mt-1">
+                        שעת אישור מתוכננת: <strong className="text-slate-900 font-mono text-sm">{selectedSlipPass.validFromTime}</strong> · סיבה:{' '}
+                        <span className="font-semibold text-slate-800">{selectedSlipPass.reason || 'אישור יציאה רשמי'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Step 2: Gate Physical Exit */}
-                  <div className="flex items-start gap-2.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-start gap-3 pt-3 border-t border-slate-100">
                     <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5 ${
-                        selectedSlipPass.usedAt ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                      className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shrink-0 mt-0.5 ${
+                        selectedSlipPass.usedAt ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
                       }`}
                     >
                       2
                     </div>
                     <div className="flex-1">
-                      <div className="font-bold text-slate-900">
-                        {selectedSlipPass.usedAt ? 'יציאה פיזית מהשער' : 'מעבר בשער'}
+                      <div className="font-extrabold text-slate-900 text-sm">
+                        יציאה פיזית בשער בית הספר
                       </div>
-                      <div className="text-slate-600 text-[11px] mt-0.5">
+                      <div className="text-slate-600 text-xs mt-1">
                         {selectedSlipPass.usedAt ? (
-                          <span>
-                            התלמיד/ה יצא/ה מהשער בשעה{' '}
-                            <strong className="text-emerald-700 font-mono text-xs">
+                          <span className="text-emerald-800 font-semibold">
+                            נרשם בשער בשעה{' '}
+                            <strong className="font-mono text-sm text-emerald-900">
                               {selectedSlipPass.usedAt.includes('T')
                                 ? selectedSlipPass.usedAt.split('T')[1].substring(0, 5)
                                 : selectedSlipPass.usedAt}
-                            </strong>
-                            {selectedSlipPass.usedBy && ` באישור השומר ${selectedSlipPass.usedBy}`}
+                            </strong>{' '}
+                            {selectedSlipPass.usedBy && `על ידי ${selectedSlipPass.usedBy}`}
                           </span>
                         ) : selectedSlipPass.status === 'cancelled' ? (
-                          <span className="text-rose-600 font-bold">האישור בוטל</span>
+                          <span className="text-rose-700 font-semibold">האישור בוטל על ידי המורה</span>
                         ) : (
-                          <span className="text-amber-700 font-medium">
-                            האישור תקף, אך התלמיד/ה טרם עבר/ה בשער הפיזי
+                          <span className="text-amber-700 font-semibold">
+                            האישור פעיל, התלמיד/ה טרם עבר/ה בשער הפיזי
                           </span>
                         )}
                       </div>
@@ -826,38 +869,43 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                 </div>
               </div>
 
-              {/* Official Signatures Zone */}
-              <div className="pt-3 border-t-2 border-slate-900 flex items-end justify-between text-xs">
-                <div className="text-center">
-                  <div className="w-36 border-b border-slate-400 mb-1" />
-                  <span className="text-slate-500">חתימת סגן המנהל (אחראי שחרורים)</span>
+              {/* Signatures & School Stamp Section */}
+              <div className="pt-6 border-t-2 border-slate-200 grid grid-cols-2 gap-6 text-center text-xs">
+                <div>
+                  <div className="h-12 border-b border-dashed border-slate-400 mb-1" />
+                  <div className="font-bold text-slate-800">חתימת סגן המנהל ואחראי שחרורים</div>
+                  <div className="text-[11px] text-slate-500 font-semibold">הנהלת בית הספר</div>
                 </div>
+                <div>
+                  <div className="h-12 border-b border-dashed border-slate-400 mb-1" />
+                  <div className="font-bold text-slate-800">חתימת שומר השער</div>
+                  <div className="text-[11px] text-slate-500 font-semibold">עמדת ביטחון ראשית</div>
+                </div>
+              </div>
 
-                <div className="text-center">
-                  <div className="w-36 border-b border-slate-400 mb-1" />
-                  <span className="text-slate-500">חותמת בית הספר ועמאר פאעור</span>
-                </div>
+              {/* Disclaimer */}
+              <div className="text-[11px] text-slate-400 text-center pt-2">
+                מסמך זה הינו תיעוד דיגיטלי רשמי המופק ישירות מיומן השער הממוחשב בזמן אמת.
               </div>
             </div>
 
-            {/* Bottom Navigation Toolbar (Fixed, Always Visible on Screen) */}
-            <div className="shrink-0 bg-slate-100 border-t border-slate-200 px-4 sm:px-5 py-3 flex items-center justify-between gap-3 z-10 print:hidden">
+            {/* Modal Bottom Footer (Fixed, Always Visible on Screen) */}
+            <div className="shrink-0 bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between z-10 print:hidden">
               <button
                 type="button"
                 onClick={() => setSelectedSlipPass(null)}
-                className="px-4 py-2 bg-white hover:bg-slate-50 active:scale-95 text-slate-700 font-bold rounded-xl text-xs border border-slate-300 transition-all flex items-center gap-1.5 shadow-2xs"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
-                <ArrowRight className="w-4 h-4 text-slate-500" />
-                <span>חזרה למערכת</span>
+                סגור חלון
               </button>
 
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-5 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-md shadow-amber-950/20"
+                className="px-5 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 shadow-md shadow-amber-950/20 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                <span>הדפס טופס רשמי (A4 / PDF)</span>
+                <span>הדפס אישור</span>
               </button>
             </div>
           </div>
