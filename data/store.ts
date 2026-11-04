@@ -652,9 +652,38 @@ class SchoolDatabase {
         timestamp: new Date().toISOString(),
         actionType: 'RESET_DEMO',
         actorId: 'admin',
-        actorName: 'מזכירות',
+        actorName: 'עמאר פאעור (מנהל המערכת)',
         actorRole: 'admin',
         details: 'איפוס מערכת לנתוני הדגמה מקוריים',
+      });
+    });
+  }
+
+  public clearAllSchoolData(actor: Staff): void {
+    this.mutate((data) => {
+      data.students = [];
+      data.passes = [];
+      // Keep Amar Faour admin active
+      const amarExists = data.staff.some((s) => s.role === 'admin' && s.pinCode === '160525');
+      if (!amarExists) {
+        data.staff.unshift({
+          id: 'staff-admin-amar',
+          staffCode: 'ADMIN',
+          fullName: 'עמאר פאעור (מנהל המערכת)',
+          role: 'admin',
+          pinCode: '160525',
+          assignedClasses: ['*'],
+          isActive: true,
+        });
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'RESET_DEMO',
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: 'איפוס מלא של מאגר התלמידים והאישורים ללוח נקי',
       });
     });
   }
@@ -662,12 +691,17 @@ class SchoolDatabase {
   public importStudentsData(
     newStudents: Omit<Student, 'id'>[],
     classesTeachers: Array<{ className: string; teacherName?: string }>,
-    actor: Staff
+    actor: Staff,
+    replaceExisting?: boolean
   ): { added: number; updated: number; total: number } {
     let added = 0;
     let updated = 0;
 
     this.mutate((data) => {
+      if (replaceExisting) {
+        data.students = [];
+        data.passes = [];
+      }
       // Idempotent upsert by studentCode or (fullName + className)
       for (const item of newStudents) {
         const existing = data.students.find(
@@ -791,6 +825,77 @@ class SchoolDatabase {
     });
 
     return { deletedCount: count };
+  }
+
+  public suspendAllStaff(suspend: boolean, actor: Staff): void {
+    this.mutate((data) => {
+      for (const s of data.staff) {
+        if (s.role !== 'admin' && s.pinCode !== '160525') {
+          s.isActive = !suspend;
+        }
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'STAFF_UPDATED',
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: suspend
+          ? 'הקפאת והשבתת כל אנשי צוות בית הספר (עקב אי-תשלום / השעיית רישוי)'
+          : 'חידוש והפעלת כל אנשי צוות בית הספר במערכת',
+      });
+    });
+  }
+
+  public rollAllStaffPins(actor: Staff): Staff[] {
+    this.mutate((data) => {
+      for (const s of data.staff) {
+        if (s.role !== 'admin' && s.pinCode !== '160525') {
+          s.pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+        }
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'STAFF_UPDATED',
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: 'החלפה והגרלת קודי גישה חדשים לכל צוות בית הספר',
+      });
+    });
+    return this.data.staff;
+  }
+
+  public factoryResetForNewSchool(actor: Staff, newSchoolName?: string): void {
+    this.mutate((data) => {
+      data.students = [];
+      data.passes = [];
+      // Retain solely Amar Faour Master Admin
+      data.staff = [
+        {
+          id: 'staff-admin-amar',
+          staffCode: 'ADMIN',
+          fullName: 'עמאר פאעור (מנהל המערכת)',
+          role: 'admin',
+          pinCode: '160525',
+          assignedClasses: ['*'],
+          isActive: true,
+        },
+      ];
+      data.auditLogs = [
+        {
+          id: `log-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          actionType: 'RESET_DEMO',
+          actorId: actor.id,
+          actorName: actor.fullName,
+          actorRole: actor.role,
+          details: `איפוס בית ספרי מלא לקראת העברה לבית ספר חדש${newSchoolName ? `: ${newSchoolName}` : ''}`,
+        },
+      ];
+    });
   }
 }
 

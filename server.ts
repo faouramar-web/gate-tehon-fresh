@@ -115,7 +115,7 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   const staff = db.getStaffByPin(pinCode);
   if (!staff) {
     res.status(401).json({
-      error: 'קוד אישי שגוי. אנא נסה שוב או פנה למזכירות.',
+      error: 'קוד אישי שגוי או שהגישה הושעתה. אנא פנה למנהל המערכת (עמאר פאעור).',
     });
     return;
   }
@@ -425,20 +425,27 @@ app.get('/api/admin/audit', authenticate, requireRole('admin'), (req: Request, r
 // Import parsed student list from Excel/CSV
 app.post('/api/admin/import', authenticate, requireRole('admin'), (req: Request, res: Response) => {
   const admin = (req as any).user as Staff;
-  const { students, classesTeachers } = req.body;
+  const { students, classesTeachers, replaceExisting } = req.body;
 
   if (!Array.isArray(students) || students.length === 0) {
     res.status(400).json({ error: 'לא סופקו תלמידים לייבוא' });
     return;
   }
 
-  const result = db.importStudentsData(students, classesTeachers || [], admin);
+  const result = db.importStudentsData(students, classesTeachers || [], admin, Boolean(replaceExisting));
   res.json({
     success: true,
     added: result.added,
     updated: result.updated,
     total: result.total,
   });
+});
+
+// Clear all demo data completely to a fresh clean slate
+app.post('/api/admin/clear-all', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const admin = (req as any).user as Staff;
+  db.clearAllSchoolData(admin);
+  res.json({ success: true, message: 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי' });
 });
 
 // Reset system to demo data from the PDF attachments
@@ -454,6 +461,29 @@ app.post('/api/admin/passes/delete', authenticate, requireRole('admin'), (req: R
 
   const result = db.deletePasses({ all, passIds, fromDate, toDate }, admin);
   res.json({ success: true, deletedCount: result.deletedCount });
+});
+
+// Suspend or unsuspend all school staff (Kill switch for unpaid subscription)
+app.post('/api/admin/suspend-all', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const admin = (req as any).user as Staff;
+  const { suspend } = req.body;
+  db.suspendAllStaff(Boolean(suspend), admin);
+  res.json({ success: true, staff: db.getAllStaff() });
+});
+
+// Roll / regenerate all staff PINs (except Amar Faour)
+app.post('/api/admin/roll-pins', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const admin = (req as any).user as Staff;
+  const updatedStaff = db.rollAllStaffPins(admin);
+  res.json({ success: true, staff: updatedStaff });
+});
+
+// Factory reset for complete transfer to a new school
+app.post('/api/admin/factory-reset', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const admin = (req as any).user as Staff;
+  const { newSchoolName } = req.body;
+  db.factoryResetForNewSchool(admin, newSchoolName);
+  res.json({ success: true, message: 'המערכת אופסה לחלוטין ומוכנה לקליטת בית הספר החדש!' });
 });
 
 // Search historical gate passes (Parent Inquiry mechanism across any date)

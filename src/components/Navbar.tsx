@@ -44,7 +44,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-bold text-lg tracking-tight text-white font-['Rubik']">אישור לשער</span>
-            <span className="text-xs text-slate-400 hidden sm:inline">ניהול יציאות בית ספרי</span>
+            <span className="text-xs text-teal-300/90 font-medium hidden sm:inline">
+              {user?.schoolName
+                ? `· ${user.schoolName}`
+                : typeof localStorage !== 'undefined' && localStorage.getItem('gate_school_name')
+                ? `· ${localStorage.getItem('gate_school_name')}`
+                : 'ניהול יציאות בית ספרי'}
+            </span>
           </div>
         </div>
 

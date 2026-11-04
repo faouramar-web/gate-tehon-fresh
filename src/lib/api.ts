@@ -1,4 +1,4 @@
-import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount } from '../types.ts';
+import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount, School } from '../types.ts';
 import { clientStore } from './clientStore.ts';
 
 const TOKEN_KEY = 'gatepass_auth_token';
@@ -49,9 +49,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // --- Auth ---
-  async login(pinCode: string): Promise<{ token: string; user: User }> {
+  async login(pinCode: string, targetSchoolId?: string): Promise<{ token: string; user: User }> {
     if (isStaticHost) {
-      const res = clientStore.login(pinCode);
+      const res = clientStore.login(pinCode, targetSchoolId);
       setStoredToken(res.token);
       return res;
     }
@@ -59,14 +59,14 @@ export const api = {
     try {
       const res = await request<{ token: string; user: User }>('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ pinCode }),
+        body: JSON.stringify({ pinCode, targetSchoolId }),
       });
       setStoredToken(res.token);
       return res;
     } catch (err: any) {
       // If server route is unreachable (404/static host), fallback seamlessly to clientStore
       try {
-        const res = clientStore.login(pinCode);
+        const res = clientStore.login(pinCode, targetSchoolId);
         setStoredToken(res.token);
         return res;
       } catch (clientErr: any) {
@@ -287,22 +287,38 @@ export const api = {
     }
   },
 
-  async importData(students: any[], classesTeachers: any[]): Promise<{
+  async importData(
+    students: any[],
+    classesTeachers: any[],
+    replaceExisting?: boolean,
+    targetSchoolId?: string
+  ): Promise<{
     success: boolean;
     added: number;
     updated: number;
     total: number;
   }> {
     if (isStaticHost) {
-      return clientStore.importData(students, classesTeachers);
+      return clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
     }
     try {
       return await request('/api/admin/import', {
         method: 'POST',
-        body: JSON.stringify({ students, classesTeachers }),
+        body: JSON.stringify({ students, classesTeachers, replaceExisting, targetSchoolId }),
       });
     } catch {
-      return clientStore.importData(students, classesTeachers);
+      return clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
+    }
+  },
+
+  async clearAllDemoData(): Promise<{ success: boolean; message: string }> {
+    if (isStaticHost) {
+      return clientStore.clearAllDemoData();
+    }
+    try {
+      return await request('/api/admin/clear-all', { method: 'POST' });
+    } catch {
+      return clientStore.clearAllDemoData();
     }
   },
 
@@ -322,6 +338,7 @@ export const api = {
     passIds?: string[];
     fromDate?: string;
     toDate?: string;
+    schoolId?: string;
   }): Promise<{ success: boolean; deletedCount: number }> {
     if (isStaticHost) {
       return clientStore.deletePasses(options);
@@ -341,6 +358,7 @@ export const api = {
     from?: string;
     to?: string;
     className?: string;
+    schoolId?: string;
   } = {}): Promise<{ passes: GatePass[] }> {
     if (isStaticHost) {
       return clientStore.searchHistory(params);
@@ -351,9 +369,162 @@ export const api = {
       if (params.from) qParams.append('from', params.from);
       if (params.to) qParams.append('to', params.to);
       if (params.className) qParams.append('class', params.className);
+      if (params.schoolId) qParams.append('schoolId', params.schoolId);
       return await request(`/api/admin/history-search?${qParams.toString()}`);
     } catch {
       return clientStore.searchHistory(params);
+    }
+  },
+
+  async suspendAllStaff(suspend: boolean): Promise<{ success: boolean; staff: StaffMember[] }> {
+    if (isStaticHost) {
+      return clientStore.suspendAllStaff(suspend);
+    }
+    try {
+      return await request('/api/admin/suspend-all', {
+        method: 'POST',
+        body: JSON.stringify({ suspend }),
+      });
+    } catch {
+      return clientStore.suspendAllStaff(suspend);
+    }
+  },
+
+  async rollAllStaffPins(): Promise<{ success: boolean; staff: StaffMember[] }> {
+    if (isStaticHost) {
+      return clientStore.rollAllStaffPins();
+    }
+    try {
+      return await request('/api/admin/roll-pins', { method: 'POST' });
+    } catch {
+      return clientStore.rollAllStaffPins();
+    }
+  },
+
+  async factoryResetForNewSchool(newSchoolName?: string): Promise<{ success: boolean; message: string }> {
+    if (isStaticHost) {
+      return clientStore.factoryResetForNewSchool(newSchoolName);
+    }
+    try {
+      return await request('/api/admin/factory-reset', {
+        method: 'POST',
+        body: JSON.stringify({ newSchoolName }),
+      });
+    } catch {
+      return clientStore.factoryResetForNewSchool(newSchoolName);
+    }
+  },
+
+  // --- Multi-School APIs (Amar Faour) ---
+  async getSchools(): Promise<{ schools: School[]; activeSchoolId: string }> {
+    if (isStaticHost) {
+      return clientStore.getSchools();
+    }
+    try {
+      return await request<{ schools: School[]; activeSchoolId: string }>('/api/admin/schools');
+    } catch {
+      return clientStore.getSchools();
+    }
+  },
+
+  async setActiveSchoolId(schoolId: string): Promise<{ success: boolean; activeSchoolId: string }> {
+    if (isStaticHost) {
+      return clientStore.setActiveSchoolId(schoolId);
+    }
+    try {
+      return await request<{ success: boolean; activeSchoolId: string }>('/api/admin/schools/active', {
+        method: 'POST',
+        body: JSON.stringify({ schoolId }),
+      });
+    } catch {
+      return clientStore.setActiveSchoolId(schoolId);
+    }
+  },
+
+  async createSchool(data: {
+    name: string;
+    city?: string;
+    code?: string;
+    contactPerson?: string;
+    phone?: string;
+  }): Promise<{ success: boolean; school: School }> {
+    if (isStaticHost) {
+      return clientStore.createSchool(data);
+    }
+    try {
+      return await request<{ success: boolean; school: School }>('/api/admin/schools', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch {
+      return clientStore.createSchool(data);
+    }
+  },
+
+  async updateSchool(schoolId: string, data: Partial<School>): Promise<{ success: boolean; school: School }> {
+    if (isStaticHost) {
+      return clientStore.updateSchool(schoolId, data);
+    }
+    try {
+      return await request<{ success: boolean; school: School }>(`/api/admin/schools/${schoolId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch {
+      return clientStore.updateSchool(schoolId, data);
+    }
+  },
+
+  async deleteSchool(schoolId: string): Promise<{ success: boolean; message: string }> {
+    if (isStaticHost) {
+      return clientStore.deleteSchool(schoolId);
+    }
+    try {
+      return await request<{ success: boolean; message: string }>(`/api/admin/schools/${schoolId}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      return clientStore.deleteSchool(schoolId);
+    }
+  },
+
+  async suspendSchool(schoolId: string, suspend: boolean): Promise<{ success: boolean; school: School; message: string }> {
+    if (isStaticHost) {
+      return clientStore.suspendSchool(schoolId, suspend);
+    }
+    try {
+      return await request<{ success: boolean; school: School; message: string }>(`/api/admin/schools/${schoolId}/suspend`, {
+        method: 'POST',
+        body: JSON.stringify({ suspend }),
+      });
+    } catch {
+      return clientStore.suspendSchool(schoolId, suspend);
+    }
+  },
+
+  async rollSchoolPins(schoolId: string): Promise<{ success: boolean; count: number; message: string }> {
+    if (isStaticHost) {
+      return clientStore.rollSchoolPins(schoolId);
+    }
+    try {
+      return await request<{ success: boolean; count: number; message: string }>(`/api/admin/schools/${schoolId}/roll-pins`, {
+        method: 'POST',
+      });
+    } catch {
+      return clientStore.rollSchoolPins(schoolId);
+    }
+  },
+
+  async clearSchoolData(schoolId: string): Promise<{ success: boolean; message: string }> {
+    if (isStaticHost) {
+      return clientStore.clearSchoolData(schoolId);
+    }
+    try {
+      return await request<{ success: boolean; message: string }>(`/api/admin/schools/${schoolId}/clear-data`, {
+        method: 'POST',
+      });
+    } catch {
+      return clientStore.clearSchoolData(schoolId);
     }
   },
 };

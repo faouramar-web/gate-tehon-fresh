@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.ts';
 import { parseExcelOrCsv, generateSampleExcelWorkbook, ParseResult } from '../lib/excelParser.ts';
-import { User, StaffMember, AuditLogEntry, GatePass } from '../types.ts';
+import { User, StaffMember, AuditLogEntry, GatePass, School } from '../types.ts';
 import {
   Upload,
   FileSpreadsheet,
@@ -34,7 +34,17 @@ import {
   EyeOff,
   Copy,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Building,
+  Building2,
+  Unlock,
+  Power,
+  Ban,
+  ShieldCheck,
+  Edit3,
+  Phone,
+  MapPin,
+  School as SchoolIcon
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -43,7 +53,7 @@ interface AdminViewProps {
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
-  const [activeTab, setActiveTab] = useState<'history' | 'import' | 'staff' | 'audit'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'import' | 'staff' | 'audit' | 'transfer'>('history');
 
   // History & Parent Inquiry state
   const [historyPasses, setHistoryPasses] = useState<GatePass[]>([]);
@@ -97,8 +107,35 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [auditFilter, setAuditFilter] = useState<string>('ALL');
   const [auditSearch, setAuditSearch] = useState<string>('');
 
-  // Reset demo state
+  // Reset demo & Clear all state
   const [resetting, setResetting] = useState(false);
+  const [resetDemoModalOpen, setResetDemoModalOpen] = useState(false);
+  const [clearDemoModalOpen, setClearDemoModalOpen] = useState(false);
+  const [clearingDemo, setClearingDemo] = useState(false);
+  const [replaceExistingDemo, setReplaceExistingDemo] = useState(true);
+
+  // Multi-school Architecture state (Amar Faour)
+  const [schools, setSchools] = useState<School[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [createSchoolModalOpen, setCreateSchoolModalOpen] = useState(false);
+  const [newSchoolName, setNewSchoolName] = useState('');
+  const [newSchoolCity, setNewSchoolCity] = useState('');
+  const [newSchoolContact, setNewSchoolContact] = useState('');
+  const [newSchoolPhone, setNewSchoolPhone] = useState('');
+  const [isCreatingSchool, setIsCreatingSchool] = useState(false);
+  const [targetActionSchool, setTargetActionSchool] = useState<School | null>(null);
+  const [schoolActionType, setSchoolActionType] = useState<'suspend' | 'unsuspend' | 'roll_pins' | 'clear_data' | 'delete' | null>(null);
+  const [isPerformingSchoolAction, setIsPerformingSchoolAction] = useState(false);
+
+  // Transfer & Legacy state
+  const [newSchoolNameInput, setNewSchoolNameInput] = useState('');
+  const [factoryResetModalOpen, setFactoryResetModalOpen] = useState(false);
+  const [isFactoryResetting, setIsFactoryResetting] = useState(false);
+  const [suspendModalOpen, setSuspendModalOpen] = useState(false);
+  const [suspendAction, setSuspendAction] = useState<boolean>(true);
+  const [isSuspending, setIsSuspending] = useState(false);
+  const [rollPinsModalOpen, setRollPinsModalOpen] = useState(false);
+  const [isRollingPins, setIsRollingPins] = useState(false);
 
   // Pass Deletion & Archive Purge state (Admin Amar Faour)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -135,13 +172,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     try {
       let res;
       if (deleteMode === 'all') {
-        res = await api.deletePasses({ all: true });
+        res = await api.deletePasses({ all: true, schoolId: selectedSchoolId });
         setDeleteFeedback({
           type: 'success',
-          message: `כל מאגר האישורים נמחק בהצלחה (${res.deletedCount} אישורים הוסרו מהמאגר).`,
+          message: `כל מאגר האישורים של בית ספר זה נמחק בהצלחה (${res.deletedCount} אישורים הוסרו). שאר בתי הספר נותרו ללא פגע.`,
         });
       } else if (deleteMode === 'single' && singlePassToDelete) {
-        res = await api.deletePasses({ passIds: [singlePassToDelete.id] });
+        res = await api.deletePasses({ passIds: [singlePassToDelete.id], schoolId: selectedSchoolId });
         setDeleteFeedback({
           type: 'success',
           message: `אישור השחרור של ${singlePassToDelete.studentName} נמחק בהצלחה מהמאגר.`,
@@ -153,10 +190,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         res = await api.deletePasses({
           fromDate: purgeFromDate || undefined,
           toDate: purgeToDate || undefined,
+          schoolId: selectedSchoolId,
         });
         setDeleteFeedback({
           type: 'success',
-          message: `נמחקו ${res.deletedCount} אישורי שחרור בטווח התאריכים שנבחר.`,
+          message: `נמחקו ${res.deletedCount} אישורי שחרור בטווח התאריכים שנבחר עבור בית ספר זה.`,
         });
       }
       setDeleteModalOpen(false);
@@ -204,7 +242,33 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     }
   };
 
-  // Load History / Parent inquiry (with seamless background update)
+  // Load Schools (Amar Faour)
+  const loadSchools = async () => {
+    try {
+      const res = await api.getSchools();
+      setSchools(res.schools);
+      if (!selectedSchoolId) {
+        setSelectedSchoolId(res.activeSchoolId || res.schools[0]?.id || 'school-main');
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadSchools();
+  }, []);
+
+  const handleSelectSchool = async (schoolId: string) => {
+    setSelectedSchoolId(schoolId);
+    try {
+      await api.setActiveSchoolId(schoolId);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Load History / Parent inquiry (scoped to selected school)
   const loadHistory = async (forceSpinner = false) => {
     try {
       if (forceSpinner || historyPasses.length === 0) setLoadingHistory(true);
@@ -213,6 +277,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         from: historyFromDate || undefined,
         to: historyToDate || undefined,
         className: historyClass || undefined,
+        schoolId: selectedSchoolId || undefined,
       });
       setHistoryPasses(res.passes);
     } catch {
@@ -222,12 +287,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     }
   };
 
-  // Load Staff
+  // Load Staff (scoped to selected school + admin)
   const loadStaff = async (forceSpinner = false) => {
     try {
       if (forceSpinner || staffList.length === 0) setLoadingStaff(true);
       const res = await api.getStaff();
-      setStaffList(res.staff);
+      const filtered = selectedSchoolId
+        ? res.staff.filter((s) => s.schoolId === '*' || (s.schoolId || 'school-main') === selectedSchoolId)
+        : res.staff;
+      setStaffList(filtered);
     } catch {
       // ignore
     } finally {
@@ -252,7 +320,135 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     if (activeTab === 'history') loadHistory(false);
     if (activeTab === 'staff') loadStaff(false);
     if (activeTab === 'audit') loadAudit(false);
-  }, [activeTab, historyFromDate, historyToDate, historyClass]);
+  }, [activeTab, historyFromDate, historyToDate, historyClass, selectedSchoolId, syncTick]);
+
+  // Multi-School Management handlers (Amar Faour)
+  const handleToggleSuspendSchool = async (schoolId: string, suspend: boolean) => {
+    setIsPerformingSchoolAction(true);
+    try {
+      const res = await api.suspendSchool(schoolId, suspend);
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      await loadSchools();
+      await loadStaff(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בשינוי סטטוס המנוי',
+      });
+    } finally {
+      setIsPerformingSchoolAction(false);
+      setTargetActionSchool(null);
+      setSchoolActionType(null);
+    }
+  };
+
+  const handleRollSchoolPins = async (schoolId: string) => {
+    setIsPerformingSchoolAction(true);
+    try {
+      const res = await api.rollSchoolPins(schoolId);
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      await loadStaff(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בהגרלת קודים חדשים',
+      });
+    } finally {
+      setIsPerformingSchoolAction(false);
+      setTargetActionSchool(null);
+      setSchoolActionType(null);
+    }
+  };
+
+  const handleClearSchoolData = async (schoolId: string) => {
+    setIsPerformingSchoolAction(true);
+    try {
+      const res = await api.clearSchoolData(schoolId);
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      await loadHistory(true);
+      await loadStaff(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה באיפוס נתוני בית הספר',
+      });
+    } finally {
+      setIsPerformingSchoolAction(false);
+      setTargetActionSchool(null);
+      setSchoolActionType(null);
+    }
+  };
+
+  const handleDeleteSchool = async (schoolId: string) => {
+    setIsPerformingSchoolAction(true);
+    try {
+      const res = await api.deleteSchool(schoolId);
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      const remainingSchools = await api.getSchools();
+      setSchools(remainingSchools.schools);
+      setSelectedSchoolId(remainingSchools.activeSchoolId);
+      await loadHistory(true);
+      await loadStaff(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה במחיקת בית הספר',
+      });
+    } finally {
+      setIsPerformingSchoolAction(false);
+      setTargetActionSchool(null);
+      setSchoolActionType(null);
+    }
+  };
+
+  const handleCreateNewSchool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSchoolName.trim()) {
+      setDeleteFeedback({ type: 'error', message: 'אנא הזן את שם בית הספר' });
+      return;
+    }
+    setIsCreatingSchool(true);
+    try {
+      const res = await api.createSchool({
+        name: newSchoolName.trim(),
+        city: newSchoolCity.trim() || undefined,
+        contactPerson: newSchoolContact.trim() || undefined,
+        phone: newSchoolPhone.trim() || undefined,
+      });
+      setDeleteFeedback({
+        type: 'success',
+        message: `בית הספר "${res.school.name}" נוצר בהצלחה עם סביבה מבודדת! כעת תוכל להזין עבורו תלמידים ומורים.`,
+      });
+      setCreateSchoolModalOpen(false);
+      setNewSchoolName('');
+      setNewSchoolCity('');
+      setNewSchoolContact('');
+      setNewSchoolPhone('');
+      await loadSchools();
+      setSelectedSchoolId(res.school.id);
+      await loadStaff(true);
+      await loadHistory(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה ביצירת בית ספר חדש',
+      });
+    } finally {
+      setIsCreatingSchool(false);
+    }
+  };
 
   // Handle File Upload & Parse
   const handleFileUpload = async (file: File) => {
@@ -299,12 +495,16 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         teacherName: c.teacherName,
       }));
 
-      const res = await api.importData(parseResult.students, classesTeachers);
+      const res = await api.importData(parseResult.students, classesTeachers, replaceExistingDemo, selectedSchoolId);
       setImportSuccess(
-        `הייבוא הושלם בהצלחה! ${res.added} תלמידים חדשים נוספו, ${res.updated} עודכנו. סה״כ במערכת: ${res.total}`
+        replaceExistingDemo
+          ? `המאגר הוחלף בהצלחה עבור בית הספר הנבחר! נקלטו ${res.added} תלמידים חדשים מתוך הקובץ. שאר בתי הספר נותרו ללא פגע. סה״כ בבית ספר זה: ${res.total}`
+          : `הייבוא הושלם בהצלחה! ${res.added} תלמידים חדשים נוספו, ${res.updated} עודכנו. סה״כ בבית ספר זה: ${res.total}`
       );
       setParseResult(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      await loadStaff(true);
+      await loadHistory(true);
     } catch (err: any) {
       setImportError(err.message || 'שגיאה בשמירת הנתונים בשרת');
     } finally {
@@ -441,20 +641,119 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   };
 
   // Reset to original PDF demo data
-  const handleResetDemoData = async () => {
-    if (!confirm('האם לאפס את כל הנתונים בחזרה ל-5 הכיתות ו-25 התלמידים המקוריים מקובץ ה-PDF?')) {
-      return;
-    }
+  const handleExecuteResetDemo = async () => {
     setResetting(true);
     try {
-      await api.resetDemo();
-      alert('המערכת אופסה בהצלחה לנתוני ההדגמה המקוריים');
+      const res = await api.resetDemo();
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message || 'המערכת אופסה לנתוני ההדגמה המקוריים',
+      });
+      setResetDemoModalOpen(false);
       if (activeTab === 'staff') loadStaff();
       if (activeTab === 'audit') loadAudit();
     } catch {
-      alert('שגיאה באיפוס הנתונים');
+      setDeleteFeedback({
+        type: 'error',
+        message: 'שגיאה בשחזור נתוני הדמו',
+      });
     } finally {
       setResetting(false);
+    }
+  };
+
+  // Clear all demo data completely to a fresh blank slate
+  const handleExecuteClearAllDemo = async () => {
+    setClearingDemo(true);
+    try {
+      const res = await api.clearAllDemoData();
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message || 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי!',
+      });
+      setClearDemoModalOpen(false);
+      if (activeTab === 'history') loadHistory();
+      if (activeTab === 'staff') loadStaff();
+      if (activeTab === 'audit') loadAudit();
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה באיפוס המאגר',
+      });
+    } finally {
+      setClearingDemo(false);
+    }
+  };
+
+  // Check if all non-admin staff are suspended
+  const nonAdminStaff = staffList.filter((s) => s.role !== 'admin' && s.pinCode !== '160525');
+  const isSchoolSuspended = nonAdminStaff.length > 0 && nonAdminStaff.every((s) => !s.isActive);
+
+  // Suspend or Unsuspend all staff (Kill switch for unpaid school)
+  const handleToggleSuspendAll = async (suspend: boolean) => {
+    setIsSuspending(true);
+    try {
+      const res = await api.suspendAllStaff(suspend);
+      setStaffList(res.staff);
+      setDeleteFeedback({
+        type: 'success',
+        message: suspend
+          ? 'כל חשבונות הצוות הושבתו והוקפאו מיידית! הגישה מהטלפונים שלהם נחסמה.'
+          : 'גישת צוות בית הספר חודשה בהצלחה! כל אנשי הצוות יכולים להיכנס שוב.',
+      });
+      setSuspendModalOpen(false);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בביצוע הפעולה',
+      });
+    } finally {
+      setIsSuspending(false);
+    }
+  };
+
+  // Emergency PIN shuffle for all staff
+  const handleExecuteRollPins = async () => {
+    setIsRollingPins(true);
+    try {
+      const res = await api.rollAllStaffPins();
+      setStaffList(res.staff);
+      setDeleteFeedback({
+        type: 'success',
+        message: 'הוגרלו קודי גישה חדשים לכל אנשי הצוות! הקודים הישנים בוטלו לחלוטין.',
+      });
+      setRollPinsModalOpen(false);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בהגרלת קודים חדשים',
+      });
+    } finally {
+      setIsRollingPins(false);
+    }
+  };
+
+  // Factory reset to hand over app to a brand new school
+  const handleExecuteFactoryReset = async () => {
+    setIsFactoryResetting(true);
+    try {
+      const res = await api.factoryResetForNewSchool(newSchoolNameInput);
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message || 'המערכת אופסה לחלוטין! כל נתוני בית הספר הקודם נמחקו ומוכנה לבית הספר החדש.',
+      });
+      setFactoryResetModalOpen(false);
+      setNewSchoolNameInput('');
+      loadStaff();
+      if (activeTab === 'history') loadHistory();
+      if (activeTab === 'audit') loadAudit();
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה באיפוס המערכת',
+      });
+    } finally {
+      setIsFactoryResetting(false);
     }
   };
 
@@ -470,26 +769,155 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     );
   });
 
-  return (
+    const currentSchool = schools.find((s) => s.id === selectedSchoolId) || schools[0];
+    const isCurrentSchoolSuspended = currentSchool?.isSuspended || false;
+
+    return (
     <div className="pb-24 max-w-4xl mx-auto px-4 pt-4 sm:pt-6">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-blue-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-800 mb-5">
-        <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-blue-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-800 mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <div className="text-xs text-teal-300 font-semibold tracking-wide">לוח ניהול ומזכירות</div>
-            <h1 className="text-xl sm:text-2xl font-bold font-['Rubik'] mt-0.5">מזכירות בית הספר</h1>
-            <p className="text-xs text-slate-300 mt-1">ניהול קובצי כיתות, קודי גישה ויומן פעולות</p>
+            <div className="text-xs text-teal-300 font-semibold tracking-wide">הנהלת בית הספר ומנהל המערכת</div>
+            <h1 className="text-xl sm:text-2xl font-bold font-['Rubik'] mt-0.5">עמאר פאעור · ניהול בתי ספר ומנויים</h1>
+            <p className="text-xs text-slate-300 mt-1">
+              שליטה עליונה בכל בתי הספר, כרטיסיות מבודדות, קודי גישה ואישורי שער בזמן אמת
+            </p>
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setCreateSchoolModalOpen(true)}
+              className="text-xs font-bold bg-teal-500 hover:bg-teal-400 text-slate-950 px-3.5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer active:scale-98"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>הוסף בית ספר חדש</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setClearDemoModalOpen(true)}
+              className="text-xs font-bold bg-rose-600/25 hover:bg-rose-600/35 active:scale-98 text-rose-200 border border-rose-500/50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="מחיקת כל נתוני הדמו והאישורים ללוח חלק ונקי"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400 stroke-[2.2]" />
+              <span>איפוס למאגר נקי</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setResetDemoModalOpen(true)}
+              disabled={resetting}
+              className="text-xs font-semibold bg-white/10 hover:bg-white/20 active:scale-98 text-slate-200 border border-white/20 px-3 py-2.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="שחזור נתוני הדמו המקוריים"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">שחזר דמו</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ================= MULTI-SCHOOL TABS BAR (AMAR FAOUR) ================= */}
+      <div className="mb-4 bg-slate-900 text-white rounded-3xl p-3 sm:p-4 shadow-md border border-slate-800">
+        <div className="flex items-center justify-between gap-2 mb-2.5 px-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-teal-300">
+            <SchoolIcon className="w-4 h-4 text-teal-400" />
+            <span>כרטיסיות בתי ספר פעילים במערכת (בחר כרטיסייה לניהול מבודד):</span>
+          </div>
+          <span className="text-[11px] text-slate-400 font-medium">
+            {schools.length} בתי ספר מחוברים
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {schools.map((school) => {
+            const isSelected = school.id === selectedSchoolId;
+            return (
+              <button
+                key={school.id}
+                type="button"
+                onClick={() => handleSelectSchool(school.id)}
+                className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 shrink-0 border cursor-pointer ${
+                  isSelected
+                    ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-md font-black ring-2 ring-teal-300/40'
+                    : 'bg-slate-800/90 text-slate-200 border-slate-700/80 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Building2 className={`w-4 h-4 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
+                <span>{school.name}</span>
+                {school.isSuspended ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white">
+                    מוקפא 🔴
+                  </span>
+                ) : (
+                  <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-emerald-400'} shrink-0`} />
+                )}
+              </button>
+            );
+          })}
+
           <button
-            onClick={handleResetDemoData}
-            disabled={resetting}
-            className="text-xs font-semibold bg-white/10 hover:bg-white/20 text-slate-200 border border-white/20 px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5"
-            title="איפוס לנתוני PDF המקוריים"
+            type="button"
+            onClick={() => setCreateSchoolModalOpen(true)}
+            className="px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/20 text-teal-200 border border-teal-500/40 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs active:scale-98"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
-            <span>שחזר נתוני PDF</span>
+            <Plus className="w-4 h-4 text-teal-300 stroke-[2.5]" />
+            <span>הוסף בית ספר חדש</span>
           </button>
         </div>
+
+        {/* Selected School Context & Isolated Quick Actions */}
+        {currentSchool && (
+          <div className="mt-3 pt-3 border-t border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">כרטיסייה פעילה כעת:</span>
+              <span className="font-extrabold text-teal-300">{currentSchool.name}</span>
+              {currentSchool.city && <span className="text-slate-400 font-normal">({currentSchool.city})</span>}
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                  currentSchool.isSuspended ? 'bg-rose-500/30 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                {currentSchool.isSuspended ? '🔴 מנוי מוקפא' : '🟢 מנוי פעיל'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleToggleSuspendSchool(currentSchool.id, !currentSchool.isSuspended)}
+                className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                  currentSchool.isSuspended
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-rose-600/80 hover:bg-rose-600 text-white'
+                }`}
+                title={currentSchool.isSuspended ? 'בטל הקפאה וחדש גישה לצוות' : 'הקפא מנוי לבית ספר זה (אי-תשלום)'}
+              >
+                {currentSchool.isSuspended ? <Unlock className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                <span>{currentSchool.isSuspended ? 'בטל הקפאה' : 'הקפא מנוי (אי-תשלום)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleRollSchoolPins(currentSchool.id)}
+                className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 cursor-pointer"
+                title="החלפת קודי גישה לצוות בית ספר זה בלבד"
+              >
+                <Key className="w-3.5 h-3.5 text-blue-400" />
+                <span>החלף קודים</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleClearSchoolData(currentSchool.id)}
+                className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-rose-900/40 text-rose-300 border border-rose-800/50 flex items-center gap-1 cursor-pointer"
+                title="איפוס תלמידים ואישורים של בית ספר זה בלבד"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>איפוס נתונים</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs Navigation */}
@@ -513,7 +941,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
           }`}
         >
           <Upload className="w-4 h-4 text-teal-600" />
-          <span>ייבוא Excel / CSV</span>
+          <span>הזנת תלמידי בית הספר (Excel)</span>
         </button>
 
         <button
@@ -537,7 +965,46 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
           <FileText className="w-4 h-4 text-purple-600" />
           <span>יומן פעולות</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('transfer')}
+          className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+            activeTab === 'transfer'
+              ? 'bg-gradient-to-r from-purple-700 to-indigo-700 text-white shadow-sm font-black'
+              : 'text-purple-900 hover:text-purple-950 hover:bg-purple-50/70 font-bold'
+          }`}
+        >
+          <Building className="w-4 h-4 text-purple-500" />
+          <span>ניהול בתי ספר ומנויים</span>
+          {schools.some((s) => s.isSuspended) && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+          )}
+        </button>
       </div>
+
+      {/* Current School Suspension Active Banner */}
+      {isCurrentSchoolSuspended && (
+        <div className="mb-5 p-4 bg-rose-50 border-2 border-rose-400 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm animate-pulse">
+          <div className="flex items-center gap-2.5 text-rose-950 font-bold text-xs sm:text-sm">
+            <Ban className="w-5 h-5 text-rose-600 shrink-0" />
+            <div>
+              <span>שים לב: המנוי עבור ״{currentSchool?.name}״ מוקפא עקב אי-תשלום!</span>
+              <p className="text-[11px] font-normal text-rose-800 mt-0.5">
+                כל הצוות של בית ספר זה חסום בטלפונים שלהם. בתי ספר אחרים פועלים כרגיל לחלוטין!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggleSuspendSchool(currentSchool.id, false)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+          >
+            <Unlock className="w-3.5 h-3.5" />
+            <span>בטל הקפאה וחדש גישה מיידית</span>
+          </button>
+        </div>
+      )}
 
       {/* ================= TAB 0: PARENT INQUIRY & HISTORY ================= */}
       {activeTab === 'history' && (
@@ -1001,6 +1468,58 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             </div>
           )}
 
+          {/* Guidance Banner: Why file upload? How to wipe demo data and load real school? */}
+          <div className="bg-gradient-to-r from-teal-50 via-cyan-50/70 to-blue-50/80 border-2 border-teal-200/90 rounded-3xl p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <FileSpreadsheet className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <div className="space-y-3 text-xs text-slate-700 leading-relaxed flex-1">
+                <div>
+                  <h4 className="text-sm sm:text-base font-bold text-teal-950 font-['Rubik']">
+                    הזנת תלמידי בית הספר והחלפת נתוני הדמו
+                  </h4>
+                  <p className="text-slate-600 mt-1">
+                    תשובות לשאלות נפוצות לגבי העלאת קבצים ומחיקת נתוני ההדגמה:
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  <div className="bg-white/95 p-3.5 rounded-2xl border border-teal-100 shadow-2xs space-y-1">
+                    <div className="font-bold text-teal-950 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 text-[11px] font-black flex items-center justify-center">1</span>
+                      <span>למה צריך להעלות קובץ כאן?</span>
+                    </div>
+                    <p className="text-slate-600 text-[11px]">
+                      במקום להקליד ידנית מאות תלמידים אחד אחד, מעלים כאן את קובץ האקסל של בית הספר. המערכת קוראת את כל הכיתות, התלמידים והמחנכות בבת אחת ובשניות בודדות.
+                    </p>
+                  </div>
+
+                  <div className="bg-white/95 p-3.5 rounded-2xl border border-teal-100 shadow-2xs space-y-1">
+                    <div className="font-bold text-teal-950 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 text-[11px] font-black flex items-center justify-center">2</span>
+                      <span>איך מוחקים את נתוני הדמו ומכניסים את החדשים?</span>
+                    </div>
+                    <p className="text-slate-600 text-[11px]">
+                      כל 25 התלמידים שהיו באפליקציה היו נתוני הדגמה (דמו). בעת העלאת הקובץ מסומן אוטומטית <strong>״החלפה מלאה״</strong> — הקובץ מוחק את כל נתוני הדמו ויכניס במקומם רק את תלמידי בית הספר שלך!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setClearDemoModalOpen(true)}
+                    className="text-xs font-bold bg-white text-rose-700 hover:bg-rose-50 active:scale-98 border border-rose-300 px-3.5 py-2 rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-600 stroke-[2.2]" />
+                    <span>רוצה לרוקן את כל נתוני הדמו ללוח חלק כבר עכשיו? לחץ לאיפוס מוחלט</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Upload Zone */}
           <div
             onDragOver={(e) => {
@@ -1100,6 +1619,24 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   </button>
                 </div>
               </div>
+
+              {/* Full Demo Replacement Toggle */}
+              <label className="flex items-start sm:items-center gap-3 p-3.5 bg-teal-50/90 border-2 border-teal-300 rounded-2xl cursor-pointer hover:bg-teal-100/60 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={replaceExistingDemo}
+                  onChange={(e) => setReplaceExistingDemo(e.target.checked)}
+                  className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 mt-0.5 sm:mt-0 shrink-0"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-teal-950 block">
+                    ☑️ החלפה מלאה: מחק את כל תלמידי הדמה הקודמים והזן רק את התלמידים מקובץ זה
+                  </span>
+                  <span className="text-slate-600 text-[11px] block mt-0.5">
+                    מומלץ ביותר! מנקה את 25 תלמידי הדוגמה הישנים, כך שבמאגר יופיעו אך ורק התלמידים האמיתיים של בית הספר שלך.
+                  </span>
+                </div>
+              </label>
 
               {/* Warnings / Duplicates Notice */}
               {(parseResult.duplicatesCount > 0 || parseResult.missingDataCount > 0) && (
@@ -1284,7 +1821,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                           </span>
                         ) : (
                           <span className="text-[11px] font-semibold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-md">
-                            מזכירות / הנהלה
+                            הנהלת בית הספר (מנהל)
                           </span>
                         )}
                         {!member.isActive && (
@@ -1485,6 +2022,355 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         </div>
       )}
 
+      {/* ================= TAB 4: MULTI-SCHOOL MANAGEMENT & SUBSCRIPTIONS (AMAR FAOUR) ================= */}
+      {activeTab === 'transfer' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 border-2 border-purple-800/60 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center justify-center shrink-0 shadow-sm">
+                  <Building2 className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-purple-500/30 text-purple-300 font-extrabold px-2.5 py-0.5 rounded-full border border-purple-500/40">
+                      בלעדי למנהל המערכת: עמאר פאעור
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold font-['Rubik'] mt-1">
+                    מרכז ניהול כרטיסיות בתי ספר ומנויים
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                    לכל בית ספר יש כרטיסייה וסביבה מבודדת לחלוטין. פעולות הקפאת מנוי, החלפת קודים או איפוס תלמידים משפיעות אך ורק על בית הספר הספציפי, ושאר בתי הספר ממשיכים לתפקד כרגיל!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCreateSchoolModalOpen(true)}
+                className="px-4 py-2.5 bg-teal-500 hover:bg-teal-400 active:scale-98 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>הוסף בית ספר חדש</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Educational Multi-Tenancy Architecture Card */}
+          <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 text-xs text-slate-700 space-y-3 shadow-xs">
+            <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+              <ShieldCheck className="w-5 h-5 text-teal-600" />
+              <span>איך עובדת מערכת הכרטיסיות עבור עמאר פאעור?</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              <div className="p-3 bg-white border border-slate-200 rounded-2xl space-y-1">
+                <strong className="text-teal-900 font-bold block">1. בידוד מלא בין בתי ספר</strong>
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  מורים, תלמידים ואישורים של בית ספר א׳ אינם נראים כלל בבית ספר ב׳. כל מוסד חי בסביבה נקייה משלו.
+                </p>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-2xl space-y-1">
+                <strong className="text-rose-900 font-bold block">2. הקפאת מנוי ללא פגיעה באחרים</strong>
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  בית ספר שלא שילם מוקפא בלחיצה אחת. הטלפונים של המורים בו נחסמים, בעוד שאר בתי הספר ממשיכים לעבוד כרגיל!
+                </p>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-2xl space-y-1">
+                <strong className="text-indigo-900 font-bold block">3. החלפת קודים ואיפוס מבודד</strong>
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  הגרלת קודים חדשים או מחיקת תלמידים חלה רק על הכרטיסייה של בית הספר הנבחר, ללא כל סיכון לבתי ספר אחרים.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* SCHOOLS LIST / CARDS */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Building className="w-4 h-4 text-purple-600" />
+                <span>רשימת בתי הספר המנוהלים ({schools.length})</span>
+              </h4>
+              <span className="text-xs text-slate-500">לחץ על כרטיסייה כדי לנהל אותה ישירות</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {schools.map((school) => {
+                const isSelected = school.id === selectedSchoolId;
+                return (
+                  <div
+                    key={school.id}
+                    className={`rounded-3xl p-5 sm:p-6 border-2 transition-all shadow-sm ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-white via-teal-50/20 to-teal-50/40 border-teal-500 ring-2 ring-teal-500/20 shadow-md'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                      <div className="flex items-start gap-3.5">
+                        <div
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                            school.isSuspended
+                              ? 'bg-rose-100 text-rose-700'
+                              : isSelected
+                              ? 'bg-teal-500 text-slate-950 font-black'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          <Building2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h5 className="text-base sm:text-lg font-black text-slate-900 font-['Rubik']">
+                              {school.name}
+                            </h5>
+                            {isSelected && (
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-teal-500 text-slate-950 shadow-xs">
+                                ⭐ כרטיסייה נבחרת כעת
+                              </span>
+                            )}
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                school.isSuspended
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              }`}
+                            >
+                              {school.isSuspended ? '🔴 מנוי מוקפא (אי-תשלום)' : '🟢 מנוי פעיל ותקין'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                            {school.city && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{school.city}</span>
+                              </span>
+                            )}
+                            {school.contactPerson && (
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5 text-slate-400" />
+                                <span>איש קשר: {school.contactPerson}</span>
+                              </span>
+                            )}
+                            {school.phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{school.phone}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Select / Switch active button */}
+                      <div className="shrink-0 flex items-center gap-2">
+                        {!isSelected ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSchool(school.id)}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>עבור לכרטיסייה זו</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-teal-800 bg-teal-100 px-3 py-1.5 rounded-xl flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>סביבת עבודה נוכחית</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* School Specific Control Actions */}
+                    <div className="pt-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Toggle Suspend / Freeze */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSuspendSchool(school.id, !school.isSuspended)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ${
+                            school.isSuspended
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300'
+                          }`}
+                        >
+                          {school.isSuspended ? (
+                            <>
+                              <Unlock className="w-3.5 h-3.5" />
+                              <span>בטל הקפאה וחדש גישה</span>
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="w-3.5 h-3.5" />
+                              <span>הקפא מנוי (אי-תשלום)</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Roll PINs for this school only */}
+                        <button
+                          type="button"
+                          onClick={() => handleRollSchoolPins(school.id)}
+                          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          title="מגריל קודים חדשים לכל צוות בית ספר זה בלבד"
+                        >
+                          <Key className="w-3.5 h-3.5 text-blue-600" />
+                          <span>החלף קודים לצוות בית ספר זה</span>
+                        </button>
+
+                        {/* Clear Data for this school only */}
+                        <button
+                          type="button"
+                          onClick={() => handleClearSchoolData(school.id)}
+                          className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          title="מחיקת תלמידים ואישורים של בית ספר זה בלבד (משאיר בתי ספר אחרים ללא פגע)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>איפוס נתוני בית ספר זה</span>
+                        </button>
+                      </div>
+
+                      {/* Delete School option */}
+                      {schools.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`האם אתה בטוח שברצונך למחוק את בית הספר "${school.name}" לצמיתות? שאר בתי הספר לא ייפגעו כלל.`)) {
+                              handleDeleteSchool(school.id);
+                            }
+                          }}
+                          className="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                        >
+                          מחק בית ספר
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: CREATE NEW SCHOOL (AMAR FAOUR) ================= */}
+      {createSchoolModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 font-['Rubik']">
+                    הוספת כרטיסיית בית ספר חדשה
+                  </h3>
+                  <p className="text-xs text-slate-500">יצירת סביבה מבודדת ועצמאית לבית ספר נוסף</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreateSchoolModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewSchool} className="my-4 space-y-3.5 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  שם בית הספר <span className="text-rose-600">*</span>:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newSchoolName}
+                  onChange={(e) => setNewSchoolName(e.target.value)}
+                  placeholder="לדוגמה: תיכון אבן סינא / חטיבת ביניים שז״ר"
+                  className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">עיר / יישוב:</label>
+                  <input
+                    type="text"
+                    value={newSchoolCity}
+                    onChange={(e) => setNewSchoolCity(e.target.value)}
+                    placeholder="לדוגמה: נצרת, חיפה, ראמה"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">שם איש קשר (מנהל/סגן):</label>
+                  <input
+                    type="text"
+                    value={newSchoolContact}
+                    onChange={(e) => setNewSchoolContact(e.target.value)}
+                    placeholder="לדוגמה: מנהל בית הספר"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">טלפון ליצירת קשר:</label>
+                <input
+                  type="text"
+                  value={newSchoolPhone}
+                  onChange={(e) => setNewSchoolPhone(e.target.value)}
+                  placeholder="לדוגמה: 050-1234567"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="p-3 bg-teal-50 border border-teal-200 rounded-2xl text-[11px] text-teal-950 space-y-1">
+                <strong className="block text-teal-900 font-bold">מה יקרה לאחר היצירה?</strong>
+                <p>
+                  תיווצר כרטיסייה חדשה ונקייה. המערכת תכין עבורה קודים ראשוניים לסגן מנהל ושומר שער. מיד לאחר מכן תוכל להעלות עבור בית ספר זה קובץ אקסל ייעודי בלשונית ״הזנת תלמידים״.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCreateSchoolModalOpen(false)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+                >
+                  ביטול
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isCreatingSchool}
+                  className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  {isCreatingSchool ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>צור סביבת בית ספר חדשה</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal: Add New Staff Member */}
       {newStaffModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
@@ -1519,7 +2405,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 <option value="homeroom">👩‍🏫 מחנכת כיתה (כיתת אם ספציפית)</option>
                 <option value="vice_principal">👑 סגן מנהל - פיקוח שחרורים ובקרה כוללת (ללא גישת ניהול)</option>
                 <option value="guard">🛡️ שומר שער (בדיקת אישורים בשער)</option>
-                <option value="admin">🏛️ מזכירות / הנהלת בית הספר</option>
+                <option value="admin">🏛️ הנהלת בית הספר (מנהל מערכת)</option>
               </select>
             </div>
 
@@ -1983,6 +2869,384 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   <>
                     <Trash2 className="w-4 h-4" />
                     <span>אשר מחיקה לצמיתות</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Clear All Demo Data to a Clean Slate */}
+      {clearDemoModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 font-['Rubik']">
+                    איפוס למאגר נקי וריק
+                  </h3>
+                  <p className="text-xs text-slate-500">הכנת המערכת לתלמידי בית הספר האמיתיים</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClearDemoModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 space-y-3.5 text-xs text-slate-700 leading-relaxed">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-950 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  <span>מה יקרה בלחיצה על איפוס זה?</span>
+                </div>
+                <p>
+                  פעולה זו <strong>תמחק לחלוטין את 25 תלמידי הדוגמה</strong> וכל אישורי העבר, ותשאיר את המאגר כלוח חלק ונקי להזנת תלמידי בית הספר.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl text-teal-950 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-teal-800">
+                  <Shield className="w-4 h-4 text-teal-600" />
+                  <span>חשבון המנהל שלך מוגן תמיד</span>
+                </div>
+                <p>
+                  חשבון מנהל המערכת <strong>עמאר פאעור</strong> וקוד הגישה האישי (<strong>160525</strong>) נשמרים תמיד ללא שינוי, כך שתוכל מיד להעלות את קובץ האקסל של בית הספר שלך.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setClearDemoModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                disabled={clearingDemo}
+                onClick={handleExecuteClearAllDemo}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                {clearingDemo ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>אשר איפוס מוחלט</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Reset to PDF Demo Data */}
+      {resetDemoModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 font-['Rubik']">
+                    שחזור נתוני הדגמה (דמו)
+                  </h3>
+                  <p className="text-xs text-slate-500">שחזור 5 הכיתות ו-25 התלמידים מתיקיית הדמו</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetDemoModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 text-xs text-slate-700 leading-relaxed">
+              <p>
+                פעולה זו תחזיר את המערכת למצב ההדגמה הראשוני עם כיתות ז1, ז2, ח1, ח2, ט1 ו-25 התלמידים לדוגמה.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setResetDemoModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                disabled={resetting}
+                onClick={handleExecuteResetDemo}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                {resetting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>אשר שחזור דמו</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Suspend / Unsuspend All Staff */}
+      {suspendModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                    suspendAction ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
+                  }`}
+                >
+                  {suspendAction ? <Ban className="w-5 h-5 stroke-[2.5]" /> : <Unlock className="w-5 h-5 stroke-[2.5]" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 font-['Rubik']">
+                    {suspendAction ? 'השבתת גישה והקפאת מנוי' : 'חידוש גישת הצוות'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {suspendAction ? 'חסימת כל הטלפונים של הצוות (אי-תשלום)' : 'פתיחה מחודשת של המערכת לצוות'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSuspendModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 space-y-3 text-xs text-slate-700 leading-relaxed">
+              {suspendAction ? (
+                <>
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-950 space-y-1">
+                    <strong className="block text-rose-900 font-bold">מה יקרה ברגע זה?</strong>
+                    <p>
+                      כל המורים, המחנכות והשומרים ייחסמו מיידית. מי שמחובר ינותק אוטומטית למסך הכניסה עם הודעה לפנות אליך (עמאר פאעור).
+                    </p>
+                  </div>
+                  <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl text-teal-950">
+                    <strong className="block text-teal-900 font-bold mb-0.5">החשבון שלך מוגן</strong>
+                    <p>חשבון הניהול שלך (160525) נשאר פעיל ומחובר, ותוכל לחדש את הגישה בכל רגע ברגע שיסדירו תשלום.</p>
+                  </div>
+                </>
+              ) : (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-950 space-y-1">
+                  <strong className="block text-emerald-900 font-bold">חידוש הגישה</strong>
+                  <p>
+                    כל אנשי הצוות יוחזרו מיידית למצב פעיל ויוכלו להיכנס כרגיל עם הקודים האישיים שלהם.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSuspendModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                disabled={isSuspending}
+                onClick={() => handleToggleSuspendAll(suspendAction)}
+                className={`flex-1 py-3 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98 ${
+                  suspendAction ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                {isSuspending ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : suspendAction ? (
+                  <>
+                    <Ban className="w-4 h-4" />
+                    <span>אשר השבתת כל הצוות</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-4 h-4" />
+                    <span>אשר חידוש גישה</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Roll All Staff PINs */}
+      {rollPinsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Key className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 font-['Rubik']">
+                    הגרלת קודי גישה חדשים לכל הצוות
+                  </h3>
+                  <p className="text-xs text-slate-500">ביטול מיידי של כל הקודים הישנים שהיו להם</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRollPinsModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 space-y-3 text-xs text-slate-700 leading-relaxed">
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-950 space-y-1">
+                <strong className="block text-amber-900 font-bold">מה יקרה בלחיצה זו?</strong>
+                <p>
+                  כל מורה, מחנכת ושומר יקבלו קוד אקראי חדש בן 4 ספרות. אף איש צוות לא יוכל להיכנס יותר עם הקוד הישן שלו!
+                </p>
+              </div>
+              <div className="p-3.5 bg-teal-50 border border-teal-200 rounded-2xl text-teal-950">
+                <strong className="block text-teal-900 font-bold mb-0.5">קוד הניהול שלך לא משתנה</strong>
+                <p>קוד הגישה האישי שלך (160525) נשאר קבוע ללא שינוי.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRollPinsModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                disabled={isRollingPins}
+                onClick={handleExecuteRollPins}
+                className="flex-1 py-3 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                {isRollingPins ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Key className="w-4 h-4" />
+                    <span>אשר והגרל קודים חדשים</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Factory Reset for Complete New School Transfer */}
+      {factoryResetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border-2 border-rose-300 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-indigo-600 text-white flex items-center justify-center shadow-md">
+                  <Building className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 font-['Rubik']">
+                    איפוס בית ספרי מלא לקראת העברה
+                  </h3>
+                  <p className="text-xs text-rose-600 font-bold">מחיקת נתוני בית הספר הישן והכנה לבית הספר החדש</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFactoryResetModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 space-y-3.5 text-xs text-slate-700 leading-relaxed">
+              <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-950 space-y-1.5">
+                <div className="font-black text-sm text-rose-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  <span>אזהרת מחיקה מוחלטת:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-slate-700">
+                  <li>יימחקו כל התלמידים והכיתות של בית הספר הישן.</li>
+                  <li>יימחקו כל אישורי השחרור וההיסטוריה.</li>
+                  <li>יימחקו כל חשבונות המורים, המחנכות והשומרים הקודמים.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-950 space-y-1">
+                <strong className="block text-indigo-900 font-bold">מה קורה מיד לאחר מכן?</strong>
+                <p>
+                  המערכת מתרוקנת ב-100% והופכת ללוח נקי עבור בית הספר החדש. רק החשבון של <strong>עמאר פאעור (160525)</strong> נשאר.
+                </p>
+                <p className="font-semibold pt-1 text-indigo-800">
+                  כל מה שנותר לך הוא לגשת ללשונית ״הזנת תלמידי בית הספר (Excel)״ ולהעלות את קובץ האקסל של בית הספר החדש!
+                </p>
+              </div>
+
+              {newSchoolNameInput.trim() && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                  שם בית הספר החדש שייקלט: <strong className="text-indigo-950">{newSchoolNameInput.trim()}</strong>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setFactoryResetModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                ביטול
+              </button>
+
+              <button
+                type="button"
+                disabled={isFactoryResetting}
+                onClick={handleExecuteFactoryReset}
+                className="flex-1 py-3 bg-gradient-to-r from-rose-600 to-indigo-700 hover:opacity-95 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                {isFactoryResetting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>אשר איפוס ומסירה לבית ספר חדש</span>
                   </>
                 )}
               </button>

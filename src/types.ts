@@ -1,11 +1,24 @@
 export type UserRole = 'teacher' | 'guard' | 'vice_principal' | 'admin';
 
+export interface School {
+  id: string;
+  name: string;
+  city?: string;
+  code?: string;
+  contactPerson?: string;
+  phone?: string;
+  isSuspended: boolean;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   staffCode: string;
   fullName: string;
   role: UserRole;
   assignedClasses: string[];
+  schoolId?: string;
+  schoolName?: string;
 }
 
 export interface Student {
@@ -16,6 +29,7 @@ export interface Student {
   teacherName?: string;
   notes?: string;
   currentPass?: GatePass | null;
+  schoolId?: string;
 }
 
 export interface GatePass {
@@ -37,6 +51,7 @@ export interface GatePass {
   cancelledAt?: string;
   cancelledBy?: string;
   reason?: string;
+  schoolId?: string;
 }
 
 export type GuardStatusType = 'APPROVED_NOW' | 'APPROVED_FUTURE' | 'ALREADY_EXITED' | 'CANCELLED' | 'NO_PASS';
@@ -58,6 +73,7 @@ export interface AuditLogEntry {
   details: string;
   studentName?: string;
   className?: string;
+  schoolId?: string;
 }
 
 export interface StaffMember {
@@ -69,6 +85,7 @@ export interface StaffMember {
   assignedClasses: string[];
   isActive: boolean;
   phone?: string;
+  schoolId?: string;
 }
 
 export interface DemoAccount {
