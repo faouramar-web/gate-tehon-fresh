@@ -370,7 +370,32 @@ class ClientStorageEngine {
   // --- Auth ---
   public login(pinCode: string): { user: User; token: string } {
     const clean = this.normalizePin(pinCode);
-    const member = this.staff.find((s) => s.pinCode === clean && s.isActive);
+    if (!clean) {
+      throw new Error('אנא הקלד קוד גישה אישי');
+    }
+
+    // Direct guaranteed check for Amar Faour (PIN: 160525)
+    if (clean === '160525') {
+      const user: User = {
+        id: 'staff-admin-amar',
+        staffCode: 'ADMIN',
+        fullName: 'עמאר פאעור (מנהל המערכת)',
+        role: 'admin',
+        assignedClasses: ['*'],
+      };
+      const token = `client_tok_${Date.now()}_admin`;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+      }
+      return { user, token };
+    }
+
+    // Check loaded staff or fallback to INITIAL_STAFF
+    let member = this.staff.find((s) => s.pinCode === clean && s.isActive);
+    if (!member) {
+      member = INITIAL_STAFF.find((s) => s.pinCode === clean && s.isActive);
+    }
+
     if (!member) {
       throw new Error('קוד אישי שגוי. אנא נסה שוב או פנה למנהל המערכת.');
     }
