@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { api } from '../lib/api.ts';
-import { User, School } from '../types.ts';
-import { ShieldCheck, KeyRound, AlertCircle, ArrowLeft, Lock, Delete, RotateCcw, Eye, EyeOff, Building2, Check } from 'lucide-react';
+import { User } from '../types.ts';
+import { ShieldCheck, KeyRound, AlertCircle, ArrowLeft, Lock, Delete, RotateCcw, Eye, EyeOff } from 'lucide-react';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -13,21 +13,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPinText, setShowPinText] = useState(false);
-
-  // Multi-school state
-  const [schools, setSchools] = useState<School[]>([]);
-  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
-
-  useEffect(() => {
-    api.getSchools().then((res) => {
-      setSchools(res.schools);
-      if (res.activeSchoolId) {
-        setSelectedSchoolId(res.activeSchoolId);
-      } else if (res.schools.length > 0) {
-        setSelectedSchoolId(res.schools[0].id);
-      }
-    }).catch(() => {});
-  }, []);
 
   const cleanPinInput = (val: string) => {
     return (val || '')
@@ -49,7 +34,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
     setErrorMessage(null);
 
     try {
-      const res = await api.login(clean, selectedSchoolId || undefined);
+      const res = await api.login(clean);
       onLoginSuccess(res.user);
     } catch (err: any) {
       setErrorMessage(err.message || 'קוד גישה שגוי');
@@ -94,47 +79,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xs mx-auto font-medium">
               מערכת בית ספרית לניהול ואימות יציאת תלמידים בזמן אמת
             </p>
-            {typeof localStorage !== 'undefined' && localStorage.getItem('gate_school_name') && (
-              <div className="inline-block mt-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-200 text-xs font-bold font-['Rubik']">
-                🏛️ {localStorage.getItem('gate_school_name')}
-              </div>
-            )}
           </div>
 
           {/* Form & Keypad Section */}
           <div className="p-5 sm:p-7">
-            {/* School Selector if multiple schools exist */}
-            {schools.length > 1 && (
-              <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-2xl shadow-xs">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label htmlFor="school-select" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-teal-600" />
-                    <span>בחר בית ספר:</span>
-                  </label>
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    {schools.find((s) => s.id === selectedSchoolId)?.city || ''}
-                  </span>
-                </div>
-                <div className="relative">
-                  <select
-                    id="school-select"
-                    value={selectedSchoolId}
-                    onChange={(e) => {
-                      setSelectedSchoolId(e.target.value);
-                      setErrorMessage(null);
-                    }}
-                    className="w-full py-2.5 px-3 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-xs cursor-pointer"
-                  >
-                    {schools.map((school) => (
-                      <option key={school.id} value={school.id}>
-                        {school.name} {school.isSuspended ? '🔴 (מנוי מוקפא)' : '🟢 (פעיל)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">

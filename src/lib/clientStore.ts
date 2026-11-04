@@ -715,7 +715,7 @@ class ClientStorageEngine {
 
     // Check if the school is suspended (Lockout for non-payment)
     if (school && school.isSuspended) {
-      throw new Error(`המערכת הושעתה עבור "${school.name}" ע״י מנהל המערכת (עמאר פאעור). לחידוש הגישה יש לפנות לעמאר פאעור.`);
+      throw new Error('המערכת הושעתה ע״י מנהל המערכת (עמאר פאעור). לחידוש הגישה יש לפנות לעמאר פאעור.');
     }
 
     if (!member.isActive) {
