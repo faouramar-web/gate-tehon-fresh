@@ -50,7 +50,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
     syncName();
     const unsub = clientStore.subscribe(syncName);
-    return () => unsub();
+    window.addEventListener('storage', syncName);
+    window.addEventListener('school_changed', syncName);
+    return () => {
+      unsub();
+      window.removeEventListener('storage', syncName);
+      window.removeEventListener('school_changed', syncName);
+    };
   }, [user]);
 
   const getRoleBadge = (role?: string) => {
@@ -86,10 +92,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Center: Full School Name in Crisp Prominent White (as requested) */}
         <div className="flex-1 flex items-center justify-center text-center px-2 min-w-0">
-          <div className="flex items-center justify-center gap-2 max-w-full">
-            <Building2 className="w-4 h-4 text-teal-400 shrink-0 hidden sm:inline-block" />
-            <span className="text-white font-bold sm:font-extrabold text-sm sm:text-base md:text-lg lg:text-xl font-['Rubik'] tracking-wide truncate drop-shadow-sm">
-              {displaySchoolName}
+          <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-slate-800/80 border border-slate-700/80 rounded-xl shadow-inner">
+            <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
+            <span className="text-white font-bold sm:font-extrabold text-xs sm:text-sm md:text-base font-['Rubik'] tracking-wide truncate drop-shadow">
+              {displaySchoolName || 'בית ספר מקיף (סניף ראשי)'}
             </span>
           </div>
         </div>

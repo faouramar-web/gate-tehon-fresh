@@ -1,4 +1,4 @@
-import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount, School } from '../types.ts';
+import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount, School, SchoolStatus } from '../types.ts';
 import { clientStore } from './clientStore.ts';
 
 const TOKEN_KEY = 'gatepass_auth_token';
@@ -445,14 +445,20 @@ export const api = {
     name: string;
     city?: string;
     code?: string;
+    activationCode?: string;
+    status?: SchoolStatus;
     contactPerson?: string;
+    contactFirstName?: string;
+    contactLastName?: string;
+    contactRole?: string;
+    contactPin?: string;
     phone?: string;
-  }): Promise<{ success: boolean; school: School }> {
+  }): Promise<{ success: boolean; school: School; coordinatorPin?: string }> {
     if (isStaticHost) {
       return clientStore.createSchool(data);
     }
     try {
-      return await request<{ success: boolean; school: School }>('/api/admin/schools', {
+      return await request<{ success: boolean; school: School; coordinatorPin?: string }>('/api/admin/schools', {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -525,6 +531,48 @@ export const api = {
       });
     } catch {
       return clientStore.clearSchoolData(schoolId);
+    }
+  },
+
+  async setSchoolStatus(schoolId: string, status: SchoolStatus): Promise<{ success: boolean; school: School; message: string }> {
+    if (isStaticHost) {
+      return clientStore.setSchoolStatus(schoolId, status);
+    }
+    try {
+      return await request<{ success: boolean; school: School; message: string }>(`/api/admin/schools/${schoolId}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      });
+    } catch {
+      return clientStore.setSchoolStatus(schoolId, status);
+    }
+  },
+
+  async updateSchoolActivationCode(schoolId: string, newCode: string): Promise<{ success: boolean; school: School; message: string }> {
+    if (isStaticHost) {
+      return clientStore.updateSchoolActivationCode(schoolId, newCode);
+    }
+    try {
+      return await request<{ success: boolean; school: School; message: string }>(`/api/admin/schools/${schoolId}/activation-code`, {
+        method: 'POST',
+        body: JSON.stringify({ newCode }),
+      });
+    } catch {
+      return clientStore.updateSchoolActivationCode(schoolId, newCode);
+    }
+  },
+
+  async activateSchoolByCode(code: string): Promise<{ success: boolean; school: School; message: string }> {
+    if (isStaticHost) {
+      return clientStore.activateSchoolByCode(code);
+    }
+    try {
+      return await request<{ success: boolean; school: School; message: string }>('/api/public/activate-school', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
+      });
+    } catch {
+      return clientStore.activateSchoolByCode(code);
     }
   },
 };

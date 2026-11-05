@@ -102,6 +102,16 @@ export default function App() {
     };
   }, []);
 
+  // Real-time instant lockout: If school is suspended or staff deactivated, kick out non-admin immediately
+  useEffect(() => {
+    if (!loadingInitial && user && user.role !== 'admin') {
+      api.getMe().catch(() => {
+        removeStoredToken();
+        setUser(null);
+      });
+    }
+  }, [syncTick, loadingInitial, user]);
+
   const handleLogout = async () => {
     await api.logout();
     setUser(null);

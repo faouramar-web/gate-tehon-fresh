@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.ts';
 import { parseExcelOrCsv, generateSampleExcelWorkbook, ParseResult } from '../lib/excelParser.ts';
-import { User, StaffMember, AuditLogEntry, GatePass, School } from '../types.ts';
+import { User, StaffMember, AuditLogEntry, GatePass, School, SchoolStatus } from '../types.ts';
 import {
   Upload,
   FileSpreadsheet,
@@ -38,12 +38,14 @@ import {
   Building,
   Building2,
   Unlock,
+  ChevronDown,
   Power,
   Ban,
   ShieldCheck,
   Edit3,
   Phone,
   MapPin,
+  Send,
   School as SchoolIcon
 } from 'lucide-react';
 
@@ -86,6 +88,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   >('subject_all');
   const [newStaffClass, setNewStaffClass] = useState('');
   const [newStaffPin, setNewStaffPin] = useState('');
+  const [newStaffPhoneInput, setNewStaffPhoneInput] = useState('');
+  const [createdStaffForInvite, setCreatedStaffForInvite] = useState<StaffMember | null>(null);
   const [revealedPins, setRevealedPins] = useState<Record<string, boolean>>({});
   const [copiedPinId, setCopiedPinId] = useState<string | null>(null);
 
@@ -120,12 +124,24 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [createSchoolModalOpen, setCreateSchoolModalOpen] = useState(false);
   const [newSchoolName, setNewSchoolName] = useState('');
   const [newSchoolCity, setNewSchoolCity] = useState('');
-  const [newSchoolContact, setNewSchoolContact] = useState('');
+  const [newSchoolContactFirstName, setNewSchoolContactFirstName] = useState('');
+  const [newSchoolContactLastName, setNewSchoolContactLastName] = useState('');
+  const [newSchoolContactRole, setNewSchoolContactRole] = useState<'vice_principal' | 'secretary'>('vice_principal');
+  const [newSchoolContactPin, setNewSchoolContactPin] = useState(() => Math.floor(3000 + Math.random() * 900).toString());
   const [newSchoolPhone, setNewSchoolPhone] = useState('');
+  const [newSchoolActivationCode, setNewSchoolActivationCode] = useState(() => Math.floor(1000 + Math.random() * 9000).toString());
+  const [newSchoolStatus, setNewSchoolStatus] = useState<SchoolStatus>('pending');
   const [isCreatingSchool, setIsCreatingSchool] = useState(false);
   const [targetActionSchool, setTargetActionSchool] = useState<School | null>(null);
   const [schoolActionType, setSchoolActionType] = useState<'suspend' | 'unsuspend' | 'roll_pins' | 'clear_data' | 'delete' | null>(null);
   const [isPerformingSchoolAction, setIsPerformingSchoolAction] = useState(false);
+
+  // Edit Activation Code state
+  const [editCodeModalOpen, setEditCodeModalOpen] = useState(false);
+  const [editCodeTargetSchool, setEditCodeTargetSchool] = useState<School | null>(null);
+  const [editCodeInput, setEditCodeInput] = useState('');
+  const [isSavingCode, setIsSavingCode] = useState(false);
+  const [copiedHandoverSchoolId, setCopiedHandoverSchoolId] = useState<string | null>(null);
 
   // Transfer & Legacy state
   const [newSchoolNameInput, setNewSchoolNameInput] = useState('');
@@ -413,6 +429,87 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     }
   };
 
+  const handleSetSchoolStatus = async (schoolId: string, status: SchoolStatus) => {
+    setIsPerformingSchoolAction(true);
+    try {
+      const res = await api.setSchoolStatus(schoolId, status);
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      await loadSchools();
+      await loadStaff(true);
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בעדכון סטטוס המנוי',
+      });
+    } finally {
+      setIsPerformingSchoolAction(false);
+    }
+  };
+
+  const handleSaveActivationCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editCodeTargetSchool || !editCodeInput.trim()) return;
+    setIsSavingCode(true);
+    try {
+      const res = await api.updateSchoolActivationCode(editCodeTargetSchool.id, editCodeInput.trim());
+      setDeleteFeedback({
+        type: 'success',
+        message: res.message,
+      });
+      setEditCodeModalOpen(false);
+      setEditCodeTargetSchool(null);
+      await loadSchools();
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בעדכון קוד ההפעלה',
+      });
+    } finally {
+      setIsSavingCode(false);
+    }
+  };
+
+  const handleCopyWhatsAppHandover = (school: School) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const appUrl = origin + pathname;
+    const code = school.activationCode || '1001';
+
+    const coordinator = staffList.find((s) => s.schoolId === school.id && s.role === 'vice_principal');
+    const coordInfo = coordinator
+      ? `\n👑 *קוד כניסה אישי לאחראי/ת המערכת (${coordinator.fullName}):* *${coordinator.pinCode}*`
+      : '';
+
+    const text = `שלום רב,\nלהלן פרטי ההתחברות למערכת ״אישור לשער״ עבור בית ספר *${school.name}*:\n\n` +
+      `🔗 *קישור ישיר לאפליקציה:*\n${appUrl}\n\n` +
+      `🔑 *קוד הפעלה מוסדי (סודי לבית הספר):* *${code}*\n` +
+      coordInfo +
+      `\n\n📋 *הנחיות הפעלה לצוות (מחנכים, מורים, שומר, סגן מנהל):*\n` +
+      `1. פתחו את הקישור בדפדפן הטלפון.\n` +
+      `2. בכניסה הראשונה, לחצו על ״🔑 הפעלת בית ספר / קוד מוסדי״ והזינו את קוד ההפעלה: *${code}*.\n` +
+      `3. לאחר ההפעלה, כל איש צוות מקליד את קוד הגישה האישי שקיבל.\n` +
+      (coordinator ? `4. אחראי/ת המערכת נכנס/ת עם הקוד האישי (*${coordinator.pinCode}*) ויכול/ה להוסיף מיידית מורים, מחנכות ושומרים!\n\n` : '\n') +
+      `לכל שאלה ותמיכה:\nעמאר פאעור - מנהל מערכת אישור לשער`;
+
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedHandoverSchoolId(school.id);
+      setDeleteFeedback({
+        type: 'success',
+        message: `נוסח ההודעה לוואטסאפ עבור בית ספר "${school.name}" הועתק בהצלחה! שלח אותה לאחראי בית הספר.`,
+      });
+      setTimeout(() => setCopiedHandoverSchoolId(null), 4000);
+    } catch {
+      setDeleteFeedback({
+        type: 'error',
+        message: 'לא ניתן היה להעתיק ישירות ללוח. אנא העתק ידנית.',
+      });
+    }
+  };
+
   const handleCreateNewSchool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSchoolName.trim()) {
@@ -421,21 +518,33 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     }
     setIsCreatingSchool(true);
     try {
+      const coordinatorFullName = `${newSchoolContactFirstName.trim()} ${newSchoolContactLastName.trim()}`.trim();
       const res = await api.createSchool({
         name: newSchoolName.trim(),
         city: newSchoolCity.trim() || undefined,
-        contactPerson: newSchoolContact.trim() || undefined,
+        contactFirstName: newSchoolContactFirstName.trim() || undefined,
+        contactLastName: newSchoolContactLastName.trim() || undefined,
+        contactRole: newSchoolContactRole === 'secretary' ? 'מזכירת בית הספר' : 'סגן מנהל / אחראי שחרורים',
+        contactPin: newSchoolContactPin.trim() || undefined,
         phone: newSchoolPhone.trim() || undefined,
+        activationCode: newSchoolActivationCode.trim() || undefined,
+        status: newSchoolStatus,
       });
+
+      const assignedPin = res.coordinatorPin || newSchoolContactPin;
       setDeleteFeedback({
         type: 'success',
-        message: `בית הספר "${res.school.name}" נוצר בהצלחה עם סביבה מבודדת! כעת תוכל להזין עבורו תלמידים ומורים.`,
+        message: `בית הספר "${res.school.name}" נוצר בהצלחה! קוד הפעלה: ${res.school.activationCode}. נוצר אחראי מערכת${coordinatorFullName ? ` (${coordinatorFullName})` : ''} עם קוד כניסה אישי: ${assignedPin}.`,
       });
       setCreateSchoolModalOpen(false);
       setNewSchoolName('');
       setNewSchoolCity('');
-      setNewSchoolContact('');
+      setNewSchoolContactFirstName('');
+      setNewSchoolContactLastName('');
+      setNewSchoolContactPin(Math.floor(3000 + Math.random() * 900).toString());
       setNewSchoolPhone('');
+      setNewSchoolActivationCode(Math.floor(1000 + Math.random() * 9000).toString());
+      setNewSchoolStatus('pending');
       await loadSchools();
       setSelectedSchoolId(res.school.id);
       await loadStaff(true);
@@ -617,14 +726,18 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       pinCode: pin,
       assignedClasses,
       isActive: true,
+      phone: newStaffPhoneInput.trim() || undefined,
+      schoolId: selectedSchoolId || 'school-main',
     };
 
     const updatedList = [...staffList, newMember];
     setStaffList(updatedList);
+    setCreatedStaffForInvite(newMember);
     setNewStaffModal(false);
     setNewStaffName('');
     setNewStaffClass('');
     setNewStaffPin('');
+    setNewStaffPhoneInput('');
     setNewStaffRoleType('subject_all');
 
     // Auto-save to server
@@ -638,6 +751,57 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     } finally {
       setSavingStaff(false);
     }
+  };
+
+  const handleSendStaffWhatsApp = (member: StaffMember) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const appUrl = origin + pathname;
+    const currentSch = schools.find((s) => s.id === (member.schoolId || selectedSchoolId));
+    const schoolName = currentSch ? currentSch.name : 'בית הספר';
+
+    const roleHebrew =
+      member.role === 'guard'
+        ? 'שומר שער'
+        : member.role === 'vice_principal'
+        ? 'סגן מנהל / אחראי שחרורים'
+        : member.role === 'admin'
+        ? 'מנהל המערכת'
+        : member.assignedClasses.includes('*')
+        ? 'מורה מקצועי'
+        : `מחנכת כיתה ${member.assignedClasses.join(', ')}`;
+
+    const text = `שלום ${member.fullName},\nנוספת לצוות המערכת ״אישור לשער״ של *${schoolName}*.\n\n` +
+      `📋 *תפקיד:* ${roleHebrew}\n` +
+      `🔗 *קישור ישיר לאפליקציה:*\n${appUrl}\n\n` +
+      `🔑 *קוד הגישה האישי הסודי שלך:* *${member.pinCode}*\n\n` +
+      `היכנס לקישור מהטלפון, הקלד את קוד הגישה האישי שלך והתחל לעבוד מיד!\n` +
+      `שמור את הקוד בסודיות.\nעבודה נעימה!`;
+
+    try {
+      navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+
+    if (member.phone) {
+      let clean = member.phone.replace(/\D/g, '');
+      if (clean.startsWith('0')) {
+        clean = '972' + clean.slice(1);
+      } else if (!clean.startsWith('972')) {
+        clean = '972' + clean;
+      }
+      window.open(`https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(text)}`, '_blank');
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    setCopiedPinId(member.id);
+    setStaffSuccess(`נפתח וואטסאפ לשליחת פרטי ההתחברות ל-${member.fullName}! הנוסח הועתק גם ללוח.`);
+    setTimeout(() => {
+      setCopiedPinId(null);
+      setStaffSuccess(null);
+    }, 4000);
   };
 
   // Reset to original PDF demo data
@@ -816,13 +980,55 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         </div>
       </div>
 
-      {/* ================= MULTI-SCHOOL TABS BAR (AMAR FAOUR) ================= */}
+      {/* ================= MULTI-SCHOOL TABS & DROPDOWN BAR (AMAR FAOUR) ================= */}
       <div className="mb-4 bg-slate-900 text-white rounded-3xl p-3 sm:p-4 shadow-md border border-slate-800">
-        <div className="flex items-center justify-between gap-2 mb-2.5 px-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-teal-300">
-            <SchoolIcon className="w-4 h-4 text-teal-400" />
-            <span>כרטיסיות בתי ספר פעילים במערכת (בחר כרטיסייה לניהול מבודד):</span>
+        {/* Dropdown with down arrow + status */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-800/80 px-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-500/30">
+              <SchoolIcon className="w-4 h-4 text-teal-400" />
+            </div>
+            <div>
+              <span className="text-[11px] text-teal-300 font-bold block">בית ספר פעיל המוצג כרגע בניהול:</span>
+              <span className="text-sm sm:text-base font-extrabold text-white tracking-wide">
+                {currentSchool?.name || 'בחר בית ספר...'}
+              </span>
+            </div>
           </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <label htmlFor="school-dropdown-select" className="text-xs font-bold text-slate-300">
+              רשימת בתי ספר (חץ נפתח):
+            </label>
+            <div className="relative">
+              <select
+                id="school-dropdown-select"
+                value={selectedSchoolId}
+                onChange={(e) => handleSelectSchool(e.target.value)}
+                className="appearance-none bg-slate-800 hover:bg-slate-750 text-white font-bold text-xs sm:text-sm pl-9 pr-3 py-2 rounded-xl border-2 border-teal-500/60 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/40 cursor-pointer shadow-sm transition-all"
+              >
+                {schools.map((sch) => {
+                  let statusBadge = '🟢 מאושר';
+                  if (sch.status === 'pending') statusBadge = '🟡 ממתין';
+                  else if (sch.status === 'suspended' || sch.isSuspended) statusBadge = '🔴 מוקפא';
+                  else if (sch.status === 'cancelled') statusBadge = '⚫ מבוטל';
+                  return (
+                    <option key={sch.id} value={sch.id} className="bg-slate-900 text-white py-1">
+                      {sch.name} — ({statusBadge})
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="w-4 h-4 text-teal-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Tabs for one-click switching */}
+        <div className="flex items-center justify-between gap-2 mb-2 px-1">
+          <span className="text-xs font-bold text-slate-300">
+            מעבר מהיר בלחיצה בין כרטיסיות בתי הספר:
+          </span>
           <span className="text-[11px] text-slate-400 font-medium">
             {schools.length} בתי ספר מחוברים
           </span>
@@ -831,12 +1037,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           {schools.map((school) => {
             const isSelected = school.id === selectedSchoolId;
+            const schStatus = school.status || (school.isSuspended ? 'suspended' : 'active');
             return (
               <button
                 key={school.id}
                 type="button"
                 onClick={() => handleSelectSchool(school.id)}
-                className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2.5 shrink-0 border cursor-pointer ${
+                className={`px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 border cursor-pointer ${
                   isSelected
                     ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-md font-black ring-2 ring-teal-300/40'
                     : 'bg-slate-800/90 text-slate-200 border-slate-700/80 hover:bg-slate-800 hover:text-white'
@@ -844,11 +1051,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               >
                 <Building2 className={`w-4 h-4 ${isSelected ? 'text-slate-950' : 'text-slate-400'}`} />
                 <span>{school.name}</span>
-                {school.isSuspended ? (
+                {schStatus === 'suspended' && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white">
                     מוקפא 🔴
                   </span>
-                ) : (
+                )}
+                {schStatus === 'pending' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
+                    ממתין 🟡
+                  </span>
+                )}
+                {schStatus === 'cancelled' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-700 text-slate-200">
+                    מבוטל ⚫
+                  </span>
+                )}
+                {schStatus === 'active' && (
                   <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-emerald-400'} shrink-0`} />
                 )}
               </button>
@@ -865,56 +1083,167 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
           </button>
         </div>
 
-        {/* Selected School Context & Isolated Quick Actions */}
+        {/* Selected School Context, Subscription Status & Activation Code Box */}
         {currentSchool && (
-          <div className="mt-3 pt-3 border-t border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">כרטיסייה פעילה כעת:</span>
-              <span className="font-extrabold text-teal-300">{currentSchool.name}</span>
-              {currentSchool.city && <span className="text-slate-400 font-normal">({currentSchool.city})</span>}
-              <span
-                className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                  currentSchool.isSuspended ? 'bg-rose-500/30 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
-                }`}
-              >
-                {currentSchool.isSuspended ? '🔴 מנוי מוקפא' : '🟢 מנוי פעיל'}
-              </span>
+          <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">
+            {/* Top Row: School info + The 4 Subscription Status Buttons */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-slate-400 font-semibold">כרטיסייה פעילה:</span>
+                <span className="font-extrabold text-teal-300 text-sm">{currentSchool.name}</span>
+                {currentSchool.city && <span className="text-slate-400">({currentSchool.city})</span>}
+                {currentSchool.contactPerson && (
+                  <span className="text-slate-400 text-[11px] bg-slate-850 px-2 py-0.5 rounded-md border border-slate-750">
+                    איש קשר: {currentSchool.contactPerson}
+                  </span>
+                )}
+              </div>
+
+              {/* 4 Subscription Buttons (מאושר, ממתין, מוקפא, מבוטל) */}
+              <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-2xl border border-slate-800 shrink-0">
+                <span className="text-[11px] font-bold text-slate-400 px-2 hidden sm:inline">
+                  סטטוס מנוי:
+                </span>
+
+                {/* 1. מאושר 🟢 */}
+                <button
+                  type="button"
+                  disabled={isPerformingSchoolAction}
+                  onClick={() => handleSetSchoolStatus(currentSchool.id, 'active')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                    (currentSchool.status === 'active' || (!currentSchool.status && !currentSchool.isSuspended))
+                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-400/80 shadow-md shadow-emerald-950/50'
+                      : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800'
+                  }`}
+                  title="מנוי מאושר ופעיל - כל הצוות עובד כרגיל"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>מאושר 🟢</span>
+                </button>
+
+                {/* 2. ממתין 🟡 */}
+                <button
+                  type="button"
+                  disabled={isPerformingSchoolAction}
+                  onClick={() => handleSetSchoolStatus(currentSchool.id, 'pending')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                    currentSchool.status === 'pending'
+                      ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-md font-black'
+                      : 'text-slate-400 hover:text-amber-300 hover:bg-slate-800'
+                  }`}
+                  title="ממתין להפעלה/תשלום ראשוני - טלפונים של צוות בית הספר ייחסמו עד אישור או הקשת קוד"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>ממתין 🟡</span>
+                </button>
+
+                {/* 3. מוקפא 🔴 */}
+                <button
+                  type="button"
+                  disabled={isPerformingSchoolAction}
+                  onClick={() => handleSetSchoolStatus(currentSchool.id, 'suspended')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                    (currentSchool.status === 'suspended' || currentSchool.isSuspended)
+                      ? 'bg-rose-600 text-white ring-2 ring-rose-400/80 shadow-md shadow-rose-950/50'
+                      : 'text-slate-400 hover:text-rose-300 hover:bg-slate-800'
+                  }`}
+                  title="מוקפא עקב אי-תשלום - חוסם מיידית את כל הטלפונים של בית הספר בזמן אמת!"
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-400" />
+                  <span>מוקפא 🔴</span>
+                </button>
+
+                {/* 4. מבוטל ⚫ */}
+                <button
+                  type="button"
+                  disabled={isPerformingSchoolAction}
+                  onClick={() => handleSetSchoolStatus(currentSchool.id, 'cancelled')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                    currentSchool.status === 'cancelled'
+                      ? 'bg-slate-900 text-slate-100 ring-2 ring-slate-600 shadow-md font-black'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                  }`}
+                  title="מנוי מבוטל לצמיתות - כניסה חסומה"
+                >
+                  <span className="w-2 h-2 rounded-full bg-slate-500" />
+                  <span>מבוטל ⚫</span>
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => handleToggleSuspendSchool(currentSchool.id, !currentSchool.isSuspended)}
-                className={`px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 cursor-pointer transition-colors ${
-                  currentSchool.isSuspended
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    : 'bg-rose-600/80 hover:bg-rose-600 text-white'
-                }`}
-                title={currentSchool.isSuspended ? 'בטל הקפאה וחדש גישה לצוות' : 'הקפא מנוי לבית ספר זה (אי-תשלום)'}
-              >
-                {currentSchool.isSuspended ? <Unlock className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                <span>{currentSchool.isSuspended ? 'בטל הקפאה' : 'הקפא מנוי (אי-תשלום)'}</span>
-              </button>
+            {/* Bottom Row: Activation Code Box + Quick School Tools */}
+            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+              {/* Activation Code Display & Handover */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-850 border border-slate-700/80 rounded-xl">
+                  <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-slate-300 font-semibold">קוד הפעלה בית ספרי (סודי):</span>
+                  <span className="font-mono font-black text-sm text-amber-300 tracking-wider bg-slate-900 px-2 py-0.5 rounded border border-amber-500/30">
+                    {currentSchool.activationCode || '1001'}
+                  </span>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => handleRollSchoolPins(currentSchool.id)}
-                className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 cursor-pointer"
-                title="החלפת קודי גישה לצוות בית ספר זה בלבד"
-              >
-                <Key className="w-3.5 h-3.5 text-blue-400" />
-                <span>החלף קודים</span>
-              </button>
+                {/* Edit Code Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditCodeTargetSchool(currentSchool);
+                    setEditCodeInput(currentSchool.activationCode || '1001');
+                    setEditCodeModalOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="ערוך קוד הפעלה לבית ספר זה"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-teal-400" />
+                  <span>ערוך קוד</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => handleClearSchoolData(currentSchool.id)}
-                className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-rose-900/40 text-rose-300 border border-rose-800/50 flex items-center gap-1 cursor-pointer"
-                title="איפוס תלמידים ואישורים של בית ספר זה בלבד"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>איפוס נתונים</span>
-              </button>
+                {/* Copy WhatsApp Handover Button */}
+                <button
+                  type="button"
+                  onClick={() => handleCopyWhatsAppHandover(currentSchool)}
+                  className={`px-3 py-1.5 rounded-xl font-extrabold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all ${
+                    copiedHandoverSchoolId === currentSchool.id
+                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                      : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
+                  }`}
+                  title="העתק הודעה מנוסחת מוכנה לשליחה לאחראי בית הספר בוואטסאפ"
+                >
+                  {copiedHandoverSchoolId === currentSchool.id ? (
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-emerald-300" />
+                  )}
+                  <span>
+                    {copiedHandoverSchoolId === currentSchool.id
+                      ? 'הועתק לוואטסאפ! ✓'
+                      : '📱 העתק נוסח לוואטסאפ'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Maintenance Tools (Roll Pins, Clear Data) */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleRollSchoolPins(currentSchool.id)}
+                  className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 flex items-center gap-1 cursor-pointer"
+                  title="החלפת קודי גישה לצוות בית ספר זה בלבד"
+                >
+                  <Key className="w-3.5 h-3.5 text-blue-400" />
+                  <span>החלף קודים</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleClearSchoolData(currentSchool.id)}
+                  className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-rose-950/60 text-rose-300 border border-rose-900/50 flex items-center gap-1 cursor-pointer"
+                  title="איפוס תלמידים ואישורים של בית ספר זה בלבד"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>איפוס נתונים</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1873,6 +2202,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                           </button>
                         </div>
 
+                        {member.phone && (
+                          <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
+                            <Phone className="w-3.5 h-3.5 text-teal-600" />
+                            <span className="font-mono">{member.phone}</span>
+                          </div>
+                        )}
+
                         {member.role === 'teacher' && (
                           <div className="flex items-center gap-1">
                             <span>כיתות:</span>
@@ -1914,18 +2250,30 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                       </div>
                     </div>
 
-                    {/* Toggle Active Switch */}
-                    <button
-                      type="button"
-                      onClick={() => handleToggleStaffActive(member.id)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
-                        member.isActive
-                          ? 'text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100'
-                          : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
-                      }`}
-                    >
-                      {member.isActive ? 'בטל קוד' : 'הפעל קוד'}
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSendStaffWhatsApp(member)}
+                        className="px-2.5 py-1.5 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="שלח קישור וקוד סודי ישירות לוואטסאפ של המורה/שומר"
+                      >
+                        <Send className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>📱 שלח בוואטסאפ</span>
+                      </button>
+
+                      {/* Toggle Active Switch */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStaffActive(member.id)}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                          member.isActive
+                            ? 'text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100'
+                            : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                      >
+                        {member.isActive ? 'בטל קוד' : 'הפעל קוד'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2300,45 +2648,186 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">עיר / יישוב:</label>
-                  <input
-                    type="text"
-                    value={newSchoolCity}
-                    onChange={(e) => setNewSchoolCity(e.target.value)}
-                    placeholder="לדוגמה: נצרת, חיפה, ראמה"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
-                  />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">עיר / יישוב:</label>
+                <input
+                  type="text"
+                  value={newSchoolCity}
+                  onChange={(e) => setNewSchoolCity(e.target.value)}
+                  placeholder="לדוגמה: נצרת, חיפה, ראמה, עכו"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                />
+              </div>
+
+              {/* Coordinator / School Contact Person Section */}
+              <div className="p-3.5 bg-indigo-50/70 border border-indigo-200/90 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
+                      👤
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-bold text-indigo-950">
+                        איש קשר ואחראי מערכת בבית הספר
+                      </h4>
+                      <p className="text-[11px] text-indigo-700">
+                        יוגדר אוטומטית כסגן מנהל / מזכירה מוסמכת שיוכלו להוסיף מורים ושומרים
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">שם איש קשר (מנהל/סגן):</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                      שם פרטי: <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newSchoolContactFirstName}
+                      onChange={(e) => setNewSchoolContactFirstName(e.target.value)}
+                      placeholder="לדוגמה: יוסף / פאטמה"
+                      className="w-full p-2 bg-white border border-indigo-200 rounded-xl text-xs font-medium text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                      שם משפחה: <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newSchoolContactLastName}
+                      onChange={(e) => setNewSchoolContactLastName(e.target.value)}
+                      placeholder="לדוגמה: ח׳ורי / עבאס"
+                      className="w-full p-2 bg-white border border-indigo-200 rounded-xl text-xs font-medium text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                      תפקיד איש הקשר:
+                    </label>
+                    <select
+                      value={newSchoolContactRole}
+                      onChange={(e) => setNewSchoolContactRole(e.target.value as 'vice_principal' | 'secretary')}
+                      className="w-full p-2 bg-white border border-indigo-200 rounded-xl text-xs font-semibold text-slate-800"
+                    >
+                      <option value="vice_principal">סגן מנהל / אחראי שחרורים</option>
+                      <option value="secretary">מזכירת בית הספר</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                      טלפון נייד (לוואטסאפ):
+                    </label>
+                    <input
+                      type="tel"
+                      value={newSchoolPhone}
+                      onChange={(e) => setNewSchoolPhone(e.target.value)}
+                      placeholder="לדוגמה: 050-1234567"
+                      className="w-full p-2 bg-white border border-indigo-200 rounded-xl text-xs font-mono font-medium text-slate-800"
+                      dir="ltr"
+                    />
+                  </div>
+                </div>
+
+                {/* Coordinator Personal Access PIN */}
+                <div className="p-2.5 bg-white border border-indigo-200 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-indigo-950">
+                      🔐 קוד כניסה אישי שתקבע לאחראי בית הספר:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setNewSchoolContactPin(Math.floor(3000 + Math.random() * 900).toString())}
+                      className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+                    >
+                      הגרל קוד חדש
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    value={newSchoolContact}
-                    onChange={(e) => setNewSchoolContact(e.target.value)}
-                    placeholder="לדוגמה: מנהל בית הספר"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    required
+                    value={newSchoolContactPin}
+                    onChange={(e) => setNewSchoolContactPin(e.target.value.trim())}
+                    placeholder="לדוגמה: 3001"
+                    className="w-full p-2 bg-indigo-50/50 border border-indigo-300 rounded-xl text-sm font-mono font-black text-indigo-950 tracking-widest text-center"
                   />
+                  <p className="text-[10px] text-indigo-700">
+                    זהו הקוד האישי שאיתו יוכל הסגן/מזכירה להתחבר מיד למערכת בטלפון ולהתחיל להזין מורים ושומרים.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">טלפון ליצירת קשר:</label>
+              {/* School Activation Code Input */}
+              <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-amber-950">
+                    🔑 קוד הפעלה בית ספרי סודי (שיימסר להנהלה):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setNewSchoolActivationCode(Math.floor(1000 + Math.random() * 9000).toString())}
+                    className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                  >
+                    הגרל קוד חדש
+                  </button>
+                </div>
                 <input
                   type="text"
-                  value={newSchoolPhone}
-                  onChange={(e) => setNewSchoolPhone(e.target.value)}
-                  placeholder="לדוגמה: 050-1234567"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                  required
+                  value={newSchoolActivationCode}
+                  onChange={(e) => setNewSchoolActivationCode(e.target.value.trim())}
+                  placeholder="לדוגמה: 4920 או 2026"
+                  className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-sm font-mono font-black text-amber-900 tracking-widest text-center"
                 />
+                <p className="text-[11px] text-amber-800">
+                  כל מורה, שומר או סגן מנהל בבית ספר זה יצטרך להקיש קוד זה בכניסה הראשונה בטלפון שלו כדי להפעיל את המערכת.
+                </p>
+              </div>
+
+              {/* Initial Subscription Status */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  סטטוס מנוי ראשוני לבית הספר:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewSchoolStatus('pending')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                      newSchoolStatus === 'pending'
+                        ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-300'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>ממתין להפעלה 🟡</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewSchoolStatus('active')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                      newSchoolStatus === 'active'
+                        ? 'bg-emerald-100 border-emerald-400 text-emerald-900 ring-2 ring-emerald-300'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>מאושר ופעיל מיידית 🟢</span>
+                  </button>
+                </div>
               </div>
 
               <div className="p-3 bg-teal-50 border border-teal-200 rounded-2xl text-[11px] text-teal-950 space-y-1">
                 <strong className="block text-teal-900 font-bold">מה יקרה לאחר היצירה?</strong>
                 <p>
-                  תיווצר כרטיסייה חדשה ונקייה. המערכת תכין עבורה קודים ראשוניים לסגן מנהל ושומר שער. מיד לאחר מכן תוכל להעלות עבור בית ספר זה קובץ אקסל ייעודי בלשונית ״הזנת תלמידים״.
+                  תיווצר כרטיסייה חדשה ומבודדת לחלוטין. תוכל להעתיק בלחיצה אחת נוסח לוואטסאפ עם קישור וקוד הפעלה למסירה למנהל בית הספר, ולהזין תלמידים ומורים ללא שום השפעה על בתי ספר אחרים.
                 </p>
               </div>
 
@@ -2364,6 +2853,80 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                       <span>צור סביבת בית ספר חדשה</span>
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT ACTIVATION CODE ================= */}
+      {editCodeModalOpen && editCodeTargetSchool && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 font-['Rubik']">
+                    עריכת קוד הפעלה בית ספרי
+                  </h3>
+                  <p className="text-xs text-slate-500">עבור {editCodeTargetSchool.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditCodeModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveActivationCode} className="space-y-4 text-xs">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-800">
+                    קוד הפעלה חדש:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditCodeInput(Math.floor(1000 + Math.random() * 9000).toString())}
+                    className="text-[11px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
+                  >
+                    הגרל קוד 4 ספרות
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={editCodeInput}
+                  onChange={(e) => setEditCodeInput(e.target.value.trim())}
+                  placeholder="לדוגמה: 2026"
+                  className="w-full p-3 bg-slate-50 border-2 border-slate-300 focus:border-amber-500 focus:bg-white rounded-xl text-center text-xl font-mono font-black tracking-widest text-slate-900"
+                  autoFocus
+                />
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  הערה: קוד זה נמסר להנהלת בית הספר לצורך הפעלה ראשונית במכשירי הטלפון של הצוות.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditCodeModalOpen(false)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  ביטול
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCode || !editCodeInput.trim()}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl shadow-md cursor-pointer"
+                >
+                  {isSavingCode ? 'שומר...' : 'שמור קוד הפעלה'}
                 </button>
               </div>
             </form>
@@ -2465,6 +3028,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             )}
 
             <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                מספר טלפון נייד (לשליחת קישור וקוד בוואטסאפ):
+              </label>
+              <input
+                type="tel"
+                value={newStaffPhoneInput}
+                onChange={(e) => setNewStaffPhoneInput(e.target.value)}
+                placeholder="לדוגמה: 050-1234567"
+                className="w-full p-2.5 bg-slate-50 border rounded-xl text-xs"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                תוכל לשלוח הודעת וואטסאפ ישירה למורה עם קישור למערכת וקוד הכניסה שלו.
+              </p>
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">קוד אישי סודי (השאר ריק לחילול אוטומטי):</label>
               <input
                 type="text"
@@ -2487,9 +3066,64 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               <button
                 type="button"
                 onClick={handleCreateNewStaff}
-                className="flex-1 py-2.5 bg-teal-600 text-white rounded-xl text-xs font-bold shadow"
+                className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow cursor-pointer"
               >
-                הוסף
+                הוסף ושמור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: IMMEDIATE WHATSAPP INVITE SENDER (ADMIN) ================= */}
+      {createdStaffForInvite && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 text-center">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <Send className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-lg text-slate-900 font-['Rubik']">
+                איש הצוות נוסף בהצלחה!
+              </h3>
+              <p className="text-xs text-slate-600 mt-1">
+                שלח כעת את פרטי ההתחברות (קישור וקוד סודי) לוואטסאפ של <strong>{createdStaffForInvite.fullName}</strong>
+                {createdStaffForInvite.phone ? ` (${createdStaffForInvite.phone})` : ''}
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-right text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">קוד גישה אישי:</span>
+                <span className="font-mono font-black text-base text-teal-850 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  {createdStaffForInvite.pinCode}
+                </span>
+              </div>
+              {createdStaffForInvite.phone && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">טלפון נייד:</span>
+                  <span className="font-mono font-bold text-slate-800">{createdStaffForInvite.phone}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCreatedStaffForInvite(null)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                סגור
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSendStaffWhatsApp(createdStaffForInvite);
+                  setCreatedStaffForInvite(null);
+                }}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>📱 שלח כעת בוואטסאפ</span>
               </button>
             </div>
           </div>

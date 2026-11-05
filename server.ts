@@ -397,13 +397,13 @@ app.post('/api/guard/mark-exit', authenticate, requireRole('guard', 'admin'), (r
 // ==================== ADMIN API ====================
 
 // Get all staff members and their access codes
-app.get('/api/admin/staff', authenticate, requireRole('admin'), (_req: Request, res: Response) => {
+app.get('/api/admin/staff', authenticate, requireRole('admin', 'vice_principal'), (_req: Request, res: Response) => {
   const staff = db.getAllStaff();
   res.json({ staff });
 });
 
 // Update or create staff member
-app.post('/api/admin/staff', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+app.post('/api/admin/staff', authenticate, requireRole('admin', 'vice_principal'), (req: Request, res: Response) => {
   const admin = (req as any).user as Staff;
   const { staffList } = req.body;
 

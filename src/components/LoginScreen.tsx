@@ -1,18 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.ts';
+import { clientStore } from '../lib/clientStore.ts';
 import { User } from '../types.ts';
-import { ShieldCheck, KeyRound, AlertCircle, ArrowLeft, Lock, Delete, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import {
+  ShieldCheck,
+  KeyRound,
+  AlertCircle,
+  ArrowLeft,
+  Lock,
+  Delete,
+  RotateCcw,
+  Eye,
+  EyeOff,
+  Building2,
+  Key,
+  CheckCircle,
+  X,
+  Sparkles,
+  HelpCircle,
+} from 'lucide-react';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
   onOpenSimulator?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpenSimulator }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [pinCode, setPinCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPinText, setShowPinText] = useState(false);
+
+  // School Activation Gate State
+  const [activeSchoolName, setActiveSchoolName] = useState<string>(() => {
+    return clientStore.getActiveSchoolName() || 'בית ספר מקיף';
+  });
+  const [isActivated, setIsActivated] = useState<boolean>(() => {
+    return typeof localStorage !== 'undefined' && !!localStorage.getItem('gate_activated_school_code');
+  });
+
+  const [showActivationModal, setShowActivationModal] = useState(false);
+  const [activationCodeInput, setActivationCodeInput] = useState('');
+  const [isActivating, setIsActivating] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const [activationSuccessMsg, setActivationSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncSchool = () => {
+      const name = clientStore.getActiveSchoolName();
+      if (name) setActiveSchoolName(name);
+      const code = typeof localStorage !== 'undefined' ? localStorage.getItem('gate_activated_school_code') : null;
+      setIsActivated(!!code);
+    };
+    const unsub = clientStore.subscribe(syncSchool);
+    return () => unsub();
+  }, []);
 
   const cleanPinInput = (val: string) => {
     return (val || '')
@@ -37,7 +79,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
       const res = await api.login(clean);
       onLoginSuccess(res.user);
     } catch (err: any) {
-      setErrorMessage(err.message || 'קוד גישה שגוי');
+      const msg = err.message || 'קוד גישה שגוי';
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -60,9 +103,56 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
     setErrorMessage(null);
   };
 
+  const handleActivateSchool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = activationCodeInput.trim();
+    if (!cleanCode) {
+      setActivationError('אנא הזן את קוד ההפעלה הבית ספרי');
+      return;
+    }
+
+    setIsActivating(true);
+    setActivationError(null);
+
+    try {
+      const res = await api.activateSchoolByCode(cleanCode);
+      setActiveSchoolName(res.school.name);
+      setIsActivated(true);
+      setActivationSuccessMsg(`בית הספר "${res.school.name}" הופעל בהצלחה במכשיר זה! כעת צוות בית הספר והשומר יכולים להקליד את קוד הגישה האישי.`);
+      setShowActivationModal(false);
+      setActivationCodeInput('');
+      setErrorMessage(null);
+      setTimeout(() => {
+        setActivationSuccessMsg(null);
+      }, 7000);
+    } catch (err: any) {
+      setActivationError(err.message || 'קוד הפעלה שגוי. אנא ודא את הקוד שקיבלת מעמאר פאעור.');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col justify-center items-center px-4 py-6 sm:py-10 bg-slate-100/70">
-      <div className="w-full max-w-md mx-auto">
+      <div className="w-full max-w-md mx-auto space-y-3">
+        {/* Success Banner if School was just activated */}
+        {activationSuccessMsg && (
+          <div className="p-3.5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl text-emerald-950 text-xs sm:text-sm font-bold flex items-start gap-2.5 shadow-sm animate-in fade-in slide-in-from-top-2">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="block font-black text-emerald-900 mb-0.5">המערכת הופעלה בהצלחה!</span>
+              <span>{activationSuccessMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivationSuccessMsg(null)}
+              className="text-emerald-700 hover:text-emerald-900"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Main Card */}
         <div className="bg-white rounded-3xl shadow-xl border border-slate-200/90 overflow-hidden">
           {/* Header Banner - Executive Deep Blue with Ambient Glow */}
@@ -79,6 +169,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xs mx-auto font-medium">
               מערכת בית ספרית לניהול ואימות יציאת תלמידים בזמן אמת
             </p>
+
+            {/* School Activation Badge in Header */}
+            <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-center gap-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white">
+                <Building2 className="w-3.5 h-3.5 text-teal-400" />
+                <span className="font-bold truncate max-w-[200px]">{activeSchoolName}</span>
+              </div>
+            </div>
           </div>
 
           {/* Form & Keypad Section */}
@@ -134,7 +232,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
                 </div>
               </div>
 
-              {/* Visual PIN dots indicator (Shows number of digits entered) */}
+              {/* Visual PIN dots indicator */}
               <div className="flex items-center justify-center gap-2 py-1">
                 {[0, 1, 2, 3, 4, 5].map((idx) => {
                   const isFilled = idx < pinCode.length;
@@ -153,13 +251,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
 
               {/* Error Message */}
               {errorMessage && (
-                <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 border-2 border-rose-200 rounded-2xl text-rose-800 text-xs sm:text-sm font-bold shadow-2xs animate-shake">
-                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                  <span>{errorMessage}</span>
+                <div className="p-3.5 bg-rose-50 border-2 border-rose-200 rounded-2xl text-rose-800 text-xs sm:text-sm font-bold shadow-2xs space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                  {(errorMessage.includes('ממתין להפעלה') || errorMessage.includes('קוד הפעלה')) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowActivationModal(true)}
+                      className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                      <span>הזן קוד הפעלה בית ספרי</span>
+                    </button>
+                  )}
                 </div>
               )}
 
-              {/* Enter Button (Prominent Emerald/Teal Action Button) */}
+              {/* Enter Button */}
               <button
                 type="submit"
                 disabled={loading || !pinCode.trim()}
@@ -176,7 +286,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
               </button>
             </form>
 
-            {/* Quick Tactile Numeric Keypad for fast mobile typing */}
+            {/* Quick Tactile Numeric Keypad */}
             <div className="mt-5 pt-4 border-t border-slate-100">
               <div className="text-center text-xs font-bold text-slate-500 mb-2.5">
                 הקשה מהירה בסמארטפון / מסך מגע:
@@ -225,17 +335,114 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onOpen
                 </button>
               </div>
             </div>
+
+            {/* School Activation Button for new phones / schools */}
+            <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+              <button
+                type="button"
+                onClick={() => setShowActivationModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100/80 px-3.5 py-2 rounded-xl border border-teal-200 transition-colors cursor-pointer"
+              >
+                <Key className="w-3.5 h-3.5 text-teal-600" />
+                <span>הפעלת בית ספר / קוד מוסדי</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Security & Confidentiality Notice */}
-        <div className="mt-4 text-center">
+        <div className="text-center">
           <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5 font-semibold">
             <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>הגישה מותרת לצוות בית הספר בלבד · קוד הכניסה אישי וסודי</span>
           </p>
         </div>
       </div>
+
+      {/* ================= MODAL: SCHOOL ACTIVATION CODE GATE ================= */}
+      {showActivationModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 font-['Rubik']">
+                    הפעלת בית ספר במכשיר זה
+                  </h3>
+                  <p className="text-xs text-slate-500">קישור המכשיר לבית הספר שקיבלת</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowActivationModal(false);
+                  setActivationError(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleActivateSchool} className="space-y-4 text-xs">
+              <div className="p-3 bg-teal-50 border border-teal-200 rounded-2xl text-[11px] text-teal-950 space-y-1">
+                <strong className="block text-teal-900 font-bold">איך זה עובד?</strong>
+                <p>
+                  כאשר נמסרת האפליקציה לבית ספר חדש, עמאר פאעור קובע קוד הפעלה בית ספרי סודי. יש להזין אותו כאן פעם אחת בלבד בכל טלפון כדי לאמת את בית הספר.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  קוד הפעלה בית ספרי סודי:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={activationCodeInput}
+                  onChange={(e) => {
+                    setActivationCodeInput(e.target.value);
+                    setActivationError(null);
+                  }}
+                  placeholder="הקלד קוד הפעלה (למשל: 1001, 2026...)"
+                  className="w-full p-3 bg-slate-50 border-2 border-slate-300 focus:border-teal-500 focus:bg-white rounded-xl text-center text-xl font-mono font-black tracking-widest text-slate-900"
+                  autoFocus
+                />
+              </div>
+
+              {activationError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{activationError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowActivationModal(false);
+                    setActivationError(null);
+                  }}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  ביטול
+                </button>
+                <button
+                  type="submit"
+                  disabled={isActivating || !activationCodeInput.trim()}
+                  className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl shadow-md cursor-pointer disabled:bg-slate-300"
+                >
+                  {isActivating ? 'מאמת קוד...' : 'הפעל מכשיר זה'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

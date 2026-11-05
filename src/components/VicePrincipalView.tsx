@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api.ts';
-import { User, GatePass, Student } from '../types.ts';
+import { User, GatePass, Student, StaffMember, UserRole } from '../types.ts';
 import {
   ShieldAlert,
   Search,
@@ -25,7 +25,18 @@ import {
   ChevronRight,
   CalendarDays,
   RotateCcw,
-  History as HistoryIcon
+  History as HistoryIcon,
+  UserPlus,
+  KeyRound,
+  Copy,
+  Check,
+  Plus,
+  Trash2,
+  Users,
+  Send,
+  Building2,
+  ShieldCheck,
+  AlertCircle
 } from 'lucide-react';
 
 interface VicePrincipalViewProps {
@@ -37,6 +48,34 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const [passes, setPasses] = useState<GatePass[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Primary active tab for Vice Principal / School Office
+  const [activeMainTab, setActiveMainTab] = useState<'passes' | 'issue_pass' | 'staff'>('passes');
+
+  // Staff Management State (School Secretary / VP)
+  const [schoolStaff, setSchoolStaff] = useState<StaffMember[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [savingStaff, setSavingStaff] = useState(false);
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
+  const [newStaffModal, setNewStaffModal] = useState(false);
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffRoleType, setNewStaffRoleType] = useState<'homeroom' | 'subject_all' | 'subject_classes' | 'guard'>('homeroom');
+  const [newStaffClass, setNewStaffClass] = useState('ז1');
+  const [newStaffPin, setNewStaffPin] = useState('');
+  const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [createdStaffForInvite, setCreatedStaffForInvite] = useState<StaffMember | null>(null);
+  const [staffFeedback, setStaffFeedback] = useState<{ type: 'success' | 'error'; message: string; pinCopied?: string } | null>(null);
+  const [copiedPinId, setCopiedPinId] = useState<string | null>(null);
+
+  // Quick Pass Issue State (Office / Secretary / VP)
+  const [issueClass, setIssueClass] = useState<string>('');
+  const [issueStudentId, setIssueStudentId] = useState<string>('');
+  const [issueTimeMode, setIssueTimeMode] = useState<'now' | 'custom'>('now');
+  const [issueCustomTime, setIssueCustomTime] = useState<string>('');
+  const [issueReason, setIssueReason] = useState<string>('שחרור מוקדם באישור הורים ומזכירות');
+  const [isIssuingPass, setIsIssuingPass] = useState(false);
+  const [issueSuccessPass, setIssueSuccessPass] = useState<GatePass | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
 
   // Helper date offset
   const getDateOffsetString = (daysAgo: number) => {
@@ -206,6 +245,233 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   useEffect(() => {
     loadPasses(passes.length === 0);
   }, [fromDate, toDate, selectedClass, searchQuery]);
+
+  // Load School Staff
+  const loadSchoolStaff = async (force = false) => {
+    if (force || schoolStaff.length === 0) setLoadingStaff(true);
+    try {
+      const res = await api.getStaff();
+      const mySchoolId = user.schoolId || 'school-main';
+      const filtered = res.staff.filter((s) => {
+        if (s.role === 'admin' || s.pinCode === '160525') return false;
+        return s.schoolId === mySchoolId || (!s.schoolId && mySchoolId === 'school-main') || (mySchoolId === '*' && (s.schoolId === 'school-main' || !s.schoolId));
+      });
+      setSchoolStaff(filtered);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeMainTab === 'staff') {
+      loadSchoolStaff(false);
+    }
+  }, [activeMainTab, syncTick]);
+
+  // Add new staff member
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaffName.trim()) {
+      setStaffFeedback({ type: 'error', message: 'אנא הזן את שם המורה או השומר' });
+      return;
+    }
+
+    const pin = newStaffPin.trim() || Math.floor(1000 + Math.random() * 9000).toString();
+    const mySchoolId = user.schoolId || 'school-main';
+
+    let role: UserRole = 'teacher';
+    let assignedClasses: string[] = ['*'];
+
+    if (newStaffRoleType === 'homeroom') {
+      role = 'teacher';
+      assignedClasses = [newStaffClass.trim() || 'ז1'];
+    } else if (newStaffRoleType === 'subject_all') {
+      role = 'teacher';
+      assignedClasses = ['*'];
+    } else if (newStaffRoleType === 'subject_classes') {
+      role = 'teacher';
+      assignedClasses = newStaffClass.split(/[,;\s]+/).map((c) => c.trim()).filter(Boolean);
+    } else if (newStaffRoleType === 'guard') {
+      role = 'guard';
+      assignedClasses = [];
+    }
+
+    const newMember: StaffMember = {
+      id: `staff-${Date.now()}`,
+      staffCode: `${role[0].toUpperCase()}${schoolStaff.length + 1}`,
+      fullName: newStaffName.trim(),
+      role,
+      pinCode: pin,
+      assignedClasses,
+      isActive: true,
+      phone: newStaffPhone.trim() || undefined,
+      schoolId: mySchoolId,
+    };
+
+    setSavingStaff(true);
+    try {
+      const updated = [...schoolStaff, newMember];
+      setSchoolStaff(updated);
+      await api.saveStaff(updated);
+      setStaffFeedback({
+        type: 'success',
+        message: `איש הצוות ${newMember.fullName} נוסף בהצלחה למערכת!`,
+        pinCopied: pin,
+      });
+      setCreatedStaffForInvite(newMember);
+      setNewStaffModal(false);
+      setNewStaffName('');
+      setNewStaffPhone('');
+      setNewStaffPin('');
+      setNewStaffRoleType('homeroom');
+    } catch (err: any) {
+      setStaffFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה בשמירת איש הצוות',
+      });
+    } finally {
+      setSavingStaff(false);
+    }
+  };
+
+  // Toggle active/inactive
+  const handleToggleStaffActive = async (staffId: string) => {
+    const updated = schoolStaff.map((s) => (s.id === staffId ? { ...s, isActive: !s.isActive } : s));
+    setSchoolStaff(updated);
+    try {
+      await api.saveStaff(updated);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Regenerate PIN in 1-click
+  const handleRegeneratePin = async (staffId: string) => {
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const member = schoolStaff.find((s) => s.id === staffId);
+    const updated = schoolStaff.map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s));
+    setSchoolStaff(updated);
+    try {
+      await api.saveStaff(updated);
+      setStaffFeedback({
+        type: 'success',
+        message: `קוד הגישה עבור ${member?.fullName || 'איש הצוות'} עודכן ל: ${randomPin}`,
+        pinCopied: randomPin,
+      });
+    } catch (err: any) {
+      setStaffFeedback({ type: 'error', message: err.message || 'שגיאה בעדכון קוד' });
+    }
+  };
+
+  // Delete staff member
+  const handleDeleteStaff = async (staffId: string) => {
+    if (!confirm('האם אתה בטוח שברצונך להסיר איש צוות זה מבית הספר?')) return;
+    const updated = schoolStaff.filter((s) => s.id !== staffId);
+    setSchoolStaff(updated);
+    try {
+      await api.saveStaff(updated);
+      setStaffFeedback({ type: 'success', message: 'איש הצוות הוסר בהצלחה מבית הספר' });
+    } catch {
+      // ignore
+    }
+  };
+
+  // Send WhatsApp invite with App URL, Role and personal PIN
+  const handleSendWhatsApp = (member: StaffMember) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const appUrl = origin + pathname;
+    const schoolName = user.schoolName && user.schoolName !== '*' ? user.schoolName : 'בית הספר';
+
+    const roleHebrew =
+      member.role === 'guard'
+        ? 'שומר שער'
+        : member.role === 'vice_principal'
+        ? 'סגן מנהל / אחראי שחרורים'
+        : member.role === 'admin'
+        ? 'הנהלת המערכת'
+        : member.assignedClasses.includes('*')
+        ? 'מורה מקצועי'
+        : `מחנכת כיתה ${member.assignedClasses.join(', ')}`;
+
+    const text = `שלום ${member.fullName},\nנוספת לצוות המערכת ״אישור לשער״ של *${schoolName}*.\n\n` +
+      `📋 *תפקיד:* ${roleHebrew}\n` +
+      `🔗 *קישור ישיר לאפליקציה:*\n${appUrl}\n\n` +
+      `🔑 *קוד הגישה האישי הסודי שלך:* *${member.pinCode}*\n\n` +
+      `היכנס לקישור מהטלפון, הקלד את קוד הגישה האישי שלך והתחל לעבוד מיד!\n` +
+      `שמור את הקוד בסודיות.\nעבודה נעימה!`;
+
+    try {
+      navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+
+    if (member.phone) {
+      let clean = member.phone.replace(/\D/g, '');
+      if (clean.startsWith('0')) {
+        clean = '972' + clean.slice(1);
+      } else if (!clean.startsWith('972')) {
+        clean = '972' + clean;
+      }
+      window.open(`https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(text)}`, '_blank');
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    setCopiedPinId(member.id);
+    setStaffFeedback({
+      type: 'success',
+      message: `נפתח וואטסאפ לשליחת פרטי ההתחברות ל-${member.fullName}! הנוסח הועתק גם ללוח.`,
+      pinCopied: member.pinCode,
+    });
+    setTimeout(() => setCopiedPinId(null), 3500);
+  };
+
+  const handleCopyInviteText = handleSendWhatsApp;
+
+  // Quick Pass Submission by Vice Principal / Office
+  const handleIssuePassSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!issueStudentId) {
+      setIssueError('אנא בחר תלמיד/ה להנפקת אישור שער');
+      return;
+    }
+    setIsIssuingPass(true);
+    setIssueError(null);
+    setIssueSuccessPass(null);
+
+    const nowTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jerusalem',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date());
+
+    const validFrom = issueTimeMode === 'custom' && issueCustomTime ? issueCustomTime : nowTime;
+
+    try {
+      const res = await api.createPasses(
+        [issueStudentId],
+        validFrom,
+        issueReason || 'שחרור מוקדם באישור הורים ומזכירות'
+      );
+
+      if (res.created && res.created.length > 0) {
+        setIssueSuccessPass(res.created[0]);
+        setIssueStudentId('');
+        await loadPasses();
+      } else if (res.errors && res.errors.length > 0) {
+        setIssueError(res.errors[0]);
+      }
+    } catch (err: any) {
+      setIssueError(err.message || 'שגיאה בהנפקת אישור שער');
+    } finally {
+      setIsIssuingPass(false);
+    }
+  };
 
   // Sync tick listener (real-time background update)
   useEffect(() => {
@@ -576,7 +842,56 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         </div>
       </div>
 
-      {/* KPI Statistics Cards - High-Contrast, Clean, Executive Dashboard */}
+      {/* Primary Section Switcher Tabs: Passes vs Quick Pass Issue vs Staff & Access Codes */}
+      <div className="bg-white rounded-3xl p-2 border-2 border-slate-200/90 shadow-sm mb-6 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('passes')}
+          className={`flex-1 py-3 px-3.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeMainTab === 'passes'
+              ? 'bg-slate-900 text-white shadow-md'
+              : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <CalendarDays className={`w-4 h-4 ${activeMainTab === 'passes' ? 'text-amber-400' : 'text-slate-500'}`} />
+          <span>בירור יציאות ומעקב שחרורים</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveMainTab('issue_pass');
+            if (!issueClass && classesOptions.length > 0) {
+              setIssueClass(classesOptions[0]);
+            }
+          }}
+          className={`flex-1 py-3 px-3.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeMainTab === 'issue_pass'
+              ? 'bg-teal-700 text-white shadow-md'
+              : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <DoorOpen className={`w-4 h-4 ${activeMainTab === 'issue_pass' ? 'text-teal-200' : 'text-teal-600'}`} />
+          <span>הנפקת אישור שער מהיר (מזכירות)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('staff')}
+          className={`flex-1 py-3 px-3.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeMainTab === 'staff'
+              ? 'bg-blue-900 text-white shadow-md'
+              : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <KeyRound className={`w-4 h-4 ${activeMainTab === 'staff' ? 'text-blue-300' : 'text-blue-600'}`} />
+          <span>צוות בית הספר וקודי גישה ({schoolStaff.length})</span>
+        </button>
+      </div>
+
+      {activeMainTab === 'passes' && (
+        <>
+          {/* KPI Statistics Cards - High-Contrast, Clean, Executive Dashboard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {/* Total */}
         <div className="bg-white p-4 rounded-2xl border-2 border-slate-200/90 shadow-sm hover:shadow-md transition-all">
@@ -1008,6 +1323,439 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* ================= SECTION 2: QUICK PASS ISSUANCE (OFFICE / SECRETARY / VP) ================= */}
+      {activeMainTab === 'issue_pass' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-teal-200 shadow-md">
+            <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-100">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/20 text-teal-700 border border-teal-500/40 flex items-center justify-center shrink-0 shadow-sm">
+                <DoorOpen className="w-6 h-6 text-teal-700" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-teal-100 text-teal-900 border border-teal-300 px-2.5 py-0.5 rounded-lg font-bold">
+                    עמדת שחרור משרדית
+                  </span>
+                  <span className="text-xs text-slate-500 font-semibold">סגן מנהל / מזכירות</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-['Rubik'] mt-0.5">
+                  הנפקת אישור שער מהיר
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 font-medium mt-0.5">
+                  שחרור תלמיד/ה ישירות מהמזכירות עם סנכרון מיידי לשומר השער ותיעוד אוטומטי של מחנכת הכיתה
+                </p>
+              </div>
+            </div>
+
+            {issueSuccessPass && (
+              <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="font-extrabold text-sm sm:text-base">
+                      האישור הונפק ונשלח לשער בהצלחה עבור {issueSuccessPass.studentName} ({issueSuccessPass.className})!
+                    </div>
+                    <div className="text-xs text-emerald-800">
+                      שעת כניסה לתוקף: <strong className="font-mono">{issueSuccessPass.validFromTime}</strong> · מחנכת הכיתה: {issueSuccessPass.homeroomTeacher || 'מחנכת'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSlipPass(issueSuccessPass)}
+                    className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>הדפס טופס רשמי</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueSuccessPass(null)}
+                    className="px-3 py-2 bg-emerald-200 hover:bg-emerald-300 text-emerald-900 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    הנפק אישור נוסף
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {issueError && (
+              <div className="mb-6 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 flex items-center gap-2.5 text-xs sm:text-sm font-bold">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>{issueError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleIssuePassSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Select Class */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    1. בחר כיתה:
+                  </label>
+                  <select
+                    value={issueClass}
+                    onChange={(e) => {
+                      setIssueClass(e.target.value);
+                      setIssueStudentId('');
+                    }}
+                    className="w-full bg-slate-50 border-2 border-slate-300 focus:border-teal-600 focus:bg-white rounded-2xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">-- בחר כיתה --</option>
+                    {classesOptions.map((cls) => (
+                      <option key={cls} value={cls}>
+                        כיתה {cls}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Select Student */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    2. בחר תלמיד/ה לשחרור:
+                  </label>
+                  <select
+                    value={issueStudentId}
+                    onChange={(e) => setIssueStudentId(e.target.value)}
+                    disabled={!issueClass}
+                    className="w-full bg-slate-50 border-2 border-slate-300 focus:border-teal-600 focus:bg-white rounded-2xl px-4 py-3 text-sm font-bold text-slate-900 focus:outline-none transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="">
+                      {!issueClass ? '-- בחר כיתה תחילה --' : '-- בחר תלמיד/ה מתוך הכיתה --'}
+                    </option>
+                    {studentsList
+                      .filter((s) => s.className === issueClass)
+                      .map((stu) => (
+                        <option key={stu.id} value={stu.id}>
+                          {stu.fullName} {stu.studentCode ? `(${stu.studentCode})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Timing */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  3. מועד היציאה בשער:
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIssueTimeMode('now')}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all cursor-pointer ${
+                      issueTimeMode === 'now'
+                        ? 'bg-teal-600 text-white border-teal-700 shadow-sm'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
+                    }`}
+                  >
+                    שחרור מיידי (עכשיו)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueTimeMode('custom')}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm border-2 transition-all cursor-pointer ${
+                      issueTimeMode === 'custom'
+                        ? 'bg-teal-600 text-white border-teal-700 shadow-sm'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
+                    }`}
+                  >
+                    שעה מותאמת
+                  </button>
+                  {issueTimeMode === 'custom' && (
+                    <input
+                      type="time"
+                      value={issueCustomTime}
+                      onChange={(e) => setIssueCustomTime(e.target.value)}
+                      className="bg-white border-2 border-teal-600 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  4. סיבת השחרור:
+                </label>
+                <input
+                  type="text"
+                  value={issueReason}
+                  onChange={(e) => setIssueReason(e.target.value)}
+                  placeholder="לדוגמה: שחרור מוקדם באישור הורים, בדיקה רפואית, אירוע משפחתי..."
+                  className="w-full bg-slate-50 border-2 border-slate-300 focus:border-teal-600 focus:bg-white rounded-2xl px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                />
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-[11px] text-slate-500 font-bold">סיבות נפוצות לבחירה מהירה:</span>
+                  {[
+                    'שחרור מוקדם באישור הורים ומזכירות',
+                    'בדיקה רפואית / קופת חולים',
+                    'הרגשה רעה ומחלה',
+                    'אירוע משפחתי מאושר',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setIssueReason(preset)}
+                      className="text-[11px] bg-slate-100 hover:bg-teal-50 hover:text-teal-800 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isIssuingPass || !issueStudentId}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-teal-600 hover:bg-teal-500 active:scale-98 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-teal-700/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-teal-100" />
+                  <span>{isIssuingPass ? 'מנפיק אישור שער...' : 'הנפק אישור שער רשמי והעבר לשומר השער'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= SECTION 3: SCHOOL STAFF & PIN CODES (DELEGATED SCHOOL MANAGEMENT) ================= */}
+      {activeMainTab === 'staff' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-blue-200 shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-700 border border-blue-500/40 flex items-center justify-center shrink-0 shadow-sm">
+                  <KeyRound className="w-6 h-6 text-blue-700" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-blue-100 text-blue-900 border border-blue-300 px-2.5 py-0.5 rounded-lg font-bold">
+                      ניהול צוות בית ספרי עצמאי
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {schoolStaff.length} אנשי צוות פעילים
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-['Rubik'] mt-0.5">
+                    צוות בית הספר, מחנכות וקודי גישה
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium mt-0.5">
+                    הוספת מורים, מחנכות כיתה ושומרי שער, יצירת קודי גישה אישיים ומסירתם לצוות (ללא תלות במנהל המערכת)
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setNewStaffModal(true)}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>הוסף מורה / מחנכת / שומר</span>
+              </button>
+            </div>
+
+            {/* Feedback alert */}
+            {staffFeedback && (
+              <div
+                className={`mt-4 p-4 rounded-2xl border-2 flex items-center justify-between gap-3 text-xs sm:text-sm font-bold ${
+                  staffFeedback.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
+                    : 'bg-rose-50 text-rose-950 border-rose-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {staffFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  )}
+                  <span>{staffFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStaffFeedback(null)}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-bold cursor-pointer"
+                >
+                  סגור
+                </button>
+              </div>
+            )}
+
+            {/* Search filter for staff */}
+            <div className="mt-5 mb-4 relative">
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={staffSearchQuery}
+                onChange={(e) => setStaffSearchQuery(e.target.value)}
+                placeholder="חיפוש איש צוות לפי שם, כיתה, או קוד..."
+                className="w-full bg-slate-50 border-2 border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl pr-10 pl-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+              />
+            </div>
+
+            {/* Staff Cards Grid */}
+            {loadingStaff && schoolStaff.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 font-bold text-sm">
+                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <span>טוען את צוות בית הספר...</span>
+              </div>
+            ) : schoolStaff.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500">
+                <Users className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                <div className="font-extrabold text-slate-800 text-sm">טרם הוגדרו אנשי צוות לבית ספר זה</div>
+                <p className="text-xs text-slate-500 mt-1">לחץ על ״הוסף מורה / מחנכת / שומר״ כדי להתחיל</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {schoolStaff
+                  .filter((s) => {
+                    if (!staffSearchQuery.trim()) return true;
+                    const q = staffSearchQuery.trim().toLowerCase();
+                    return (
+                      s.fullName.toLowerCase().includes(q) ||
+                      s.pinCode.toLowerCase().includes(q) ||
+                      s.assignedClasses.some((c) => c.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((member) => {
+                    const isGuard = member.role === 'guard';
+                    const isVP = member.role === 'vice_principal';
+                    const isHomeroom = member.role === 'teacher' && !member.assignedClasses.includes('*');
+
+                    return (
+                      <div
+                        key={member.id}
+                        className={`p-4 sm:p-5 rounded-2xl border-2 transition-all ${
+                          !member.isActive
+                            ? 'bg-rose-50/40 border-rose-200 opacity-75'
+                            : isGuard
+                            ? 'bg-slate-50/70 border-slate-300'
+                            : isHomeroom
+                            ? 'bg-teal-50/40 border-teal-200'
+                            : 'bg-blue-50/40 border-blue-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200/80">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-base text-slate-900 font-['Rubik']">
+                                {member.fullName}
+                              </span>
+                              {isGuard ? (
+                                <span className="bg-slate-800 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
+                                  שומר שער
+                                </span>
+                              ) : isVP ? (
+                                <span className="bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
+                                  סגן מנהל / מזכירות
+                                </span>
+                              ) : isHomeroom ? (
+                                <span className="bg-teal-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
+                                  מחנכת כיתה {member.assignedClasses.join(', ')}
+                                </span>
+                              ) : (
+                                <span className="bg-blue-700 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
+                                  מורה מקצועי
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-500 font-semibold mt-1">
+                              {isGuard
+                                ? 'מורשה אימות ובדיקת שחרורים בשער הפיזי'
+                                : `כיתות משויכות: ${member.assignedClasses.includes('*') ? 'כל כיתות בית הספר' : member.assignedClasses.join(', ')}`}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStaffActive(member.id)}
+                              className={`px-2.5 py-1 text-[11px] font-black rounded-lg border transition-all cursor-pointer ${
+                                member.isActive
+                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                                  : 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
+                              }`}
+                              title={member.isActive ? 'לחץ להשבתת המורה' : 'לחץ להפעלת המורה'}
+                            >
+                              {member.isActive ? 'פעיל' : 'מושבת'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStaff(member.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="הסר איש צוות זה מבית הספר"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* PIN Code Box & Actions */}
+                        <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-600">קוד אישי:</span>
+                              <span className="font-mono font-black text-base sm:text-lg tracking-widest text-slate-900 bg-white border border-slate-300 px-2.5 py-0.5 rounded-lg shadow-2xs">
+                                {member.pinCode}
+                              </span>
+                            </div>
+                            {member.phone && (
+                              <span className="text-xs text-slate-600 font-mono bg-white border border-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1 font-bold">
+                                📱 {member.phone}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleSendWhatsApp(member)}
+                              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                                copiedPinId === member.id
+                                  ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                              }`}
+                              title="פתח וואטסאפ ושלח קישור + קוד אישי ישירות לטלפון של המורה"
+                            >
+                              {copiedPinId === member.id ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-white" />
+                                  <span>נשלח לוואטסאפ!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="w-3.5 h-3.5 text-emerald-700" />
+                                  <span>📱 שלח בוואטסאפ</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRegeneratePin(member.id)}
+                              className="px-2 py-1 text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg transition-colors cursor-pointer"
+                              title="הגרל קוד 4 ספרות חדש"
+                            >
+                              הגרל קוד חדש
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Official Gate Pass Inquiry Document Modal (Dialog for Parents/Inquiries) */}
       {selectedSlipPass && (
@@ -1214,6 +1962,227 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
               >
                 <Printer className="w-4 h-4" />
                 <span>הדפס אישור</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ADD STAFF MEMBER (VICE PRINCIPAL / SECRETARY) ================= */}
+      {newStaffModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border-2 border-slate-200 overflow-hidden my-auto">
+            <div className="bg-slate-950 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <UserPlus className="w-5 h-5 text-teal-400" />
+                <h3 className="font-extrabold text-base font-['Rubik']">הוספת איש צוות / מורה לבית הספר</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewStaffModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStaff} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  שם מלא של המורה / השומר:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  placeholder="לדוגמה: מירה לוי / מוחמד ח׳טיב"
+                  className="w-full bg-slate-50 border-2 border-slate-300 focus:border-blue-600 focus:bg-white rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  תפקיד במערכת:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewStaffRoleType('homeroom')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${
+                      newStaffRoleType === 'homeroom'
+                        ? 'bg-teal-700 text-white border-teal-800 shadow-sm'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    מחנכת כיתה
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewStaffRoleType('subject_all')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${
+                      newStaffRoleType === 'subject_all'
+                        ? 'bg-blue-700 text-white border-blue-800 shadow-sm'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    מורה מקצועי
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewStaffRoleType('guard')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer ${
+                      newStaffRoleType === 'guard'
+                        ? 'bg-slate-800 text-white border-slate-900 shadow-sm'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    שומר שער
+                  </button>
+                </div>
+              </div>
+
+              {newStaffRoleType === 'homeroom' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                    איזו כיתה היא מחנכת?
+                  </label>
+                  <input
+                    type="text"
+                    value={newStaffClass}
+                    onChange={(e) => setNewStaffClass(e.target.value)}
+                    placeholder="לדוגמה: ז1, ח2, ט3..."
+                    className="w-full bg-slate-50 border-2 border-slate-300 focus:border-teal-600 focus:bg-white rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:outline-none transition-all"
+                  />
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[11px] text-slate-500 font-bold">בחירה מהירה:</span>
+                    {classesOptions.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewStaffClass(c)}
+                        className="text-xs bg-slate-100 hover:bg-teal-50 hover:text-teal-800 border border-slate-300 px-2.5 py-0.5 rounded-lg font-bold transition-colors cursor-pointer"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  מספר טלפון נייד (לשליחת קישור וקוד בוואטסאפ):
+                </label>
+                <input
+                  type="tel"
+                  value={newStaffPhone}
+                  onChange={(e) => setNewStaffPhone(e.target.value)}
+                  placeholder="לדוגמה: 050-1234567"
+                  className="w-full bg-slate-50 border-2 border-slate-300 focus:border-emerald-600 focus:bg-white rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:outline-none transition-all"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  המספר ישמש לשליחה מיידית של קישור המערכת וקוד הגישה האישי ישירות לוואטסאפ של המורה.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  קוד גישה אישי סודי (4 ספרות):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newStaffPin}
+                    onChange={(e) => setNewStaffPin(e.target.value)}
+                    placeholder="לדוגמה: 1005 (או השאר ריק להגרלה אוטומטית)"
+                    maxLength={6}
+                    className="flex-1 bg-slate-50 border-2 border-slate-300 focus:border-blue-600 focus:bg-white rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-slate-900 focus:outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNewStaffPin(Math.floor(1000 + Math.random() * 9000).toString())}
+                    className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition-colors cursor-pointer"
+                  >
+                    הגרל קוד
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  קוד זה ישמש את המורה לכניסה בטלפון הנייד שלו בלבד.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setNewStaffModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  ביטול
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStaff}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{savingStaff ? 'שומר איש צוות...' : 'שמור והפק קוד למורה'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: IMMEDIATE WHATSAPP INVITE SENDER ================= */}
+      {createdStaffForInvite && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 text-center">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <Send className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-lg text-slate-900 font-['Rubik']">
+                איש הצוות נוסף בהצלחה!
+              </h3>
+              <p className="text-xs text-slate-600 mt-1">
+                שלח כעת את פרטי ההתחברות (קישור וקוד סודי) לוואטסאפ של <strong>{createdStaffForInvite.fullName}</strong>
+                {createdStaffForInvite.phone ? ` (${createdStaffForInvite.phone})` : ''}
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-right text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">קוד גישה אישי:</span>
+                <span className="font-mono font-black text-base text-teal-850 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  {createdStaffForInvite.pinCode}
+                </span>
+              </div>
+              {createdStaffForInvite.phone && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">טלפון נייד:</span>
+                  <span className="font-mono font-bold text-slate-800">{createdStaffForInvite.phone}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCreatedStaffForInvite(null)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                סגור
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSendWhatsApp(createdStaffForInvite);
+                  setCreatedStaffForInvite(null);
+                }}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>📱 שלח כעת בוואטסאפ</span>
               </button>
             </div>
           </div>

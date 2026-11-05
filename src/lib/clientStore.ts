@@ -1,4 +1,4 @@
-import { User, Student, GatePass, GuardSearchResult, StaffMember, UserRole, School } from '../types.ts';
+import { User, Student, GatePass, GuardSearchResult, StaffMember, UserRole, School, SchoolStatus } from '../types.ts';
 import { db as firestoreDb } from './firebase.ts';
 import {
   collection,
@@ -190,6 +190,8 @@ export const INITIAL_SCHOOLS: School[] = [
     name: 'בית ספר מקיף (סניף ראשי)',
     city: 'ראמה / מחוז צפון',
     code: 'SCH-01',
+    activationCode: '1001',
+    status: 'active',
     contactPerson: 'עמאר פאעור',
     phone: '050-1234567',
     isSuspended: false,
@@ -200,6 +202,8 @@ export const INITIAL_SCHOOLS: School[] = [
     name: 'תיכון אבן סינא',
     city: 'נצרת / צפון',
     code: 'SCH-02',
+    activationCode: '2026',
+    status: 'active',
     contactPerson: 'סגן מנהל אחראי',
     phone: '052-7654321',
     isSuspended: false,
@@ -367,6 +371,20 @@ class ClientStorageEngine {
       }
     }
 
+    // Ensure activation codes and subscription statuses are populated
+    for (let i = 0; i < this.schools.length; i++) {
+      const s = this.schools[i];
+      if (!s.activationCode) {
+        s.activationCode = s.id === 'school-main' ? '1001' : s.id === 'school-ibnsina' ? '2026' : `${1000 + i}`;
+        changed = true;
+      }
+      if (!s.status) {
+        s.status = s.isSuspended ? 'suspended' : 'active';
+        changed = true;
+      }
+      s.isSuspended = s.status !== 'active';
+    }
+
     if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
       this.activeSchoolId = defaultSchoolId;
       changed = true;
@@ -443,6 +461,13 @@ class ClientStorageEngine {
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.notify();
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new Event('school_changed'));
+      } catch {
+        // ignore
+      }
+    }
     if (syncChannel) {
       try {
         syncChannel.postMessage({ type: 'UPDATE', timestamp: Date.now() });
@@ -492,40 +517,61 @@ class ClientStorageEngine {
     name: string;
     city?: string;
     code?: string;
+    activationCode?: string;
+    status?: SchoolStatus;
     contactPerson?: string;
+    contactFirstName?: string;
+    contactLastName?: string;
+    contactRole?: string;
+    contactPin?: string;
     phone?: string;
-  }): { success: boolean; school: School } {
+  }): { success: boolean; school: School; coordinatorPin: string } {
     if (!data.name || !data.name.trim()) {
       throw new Error('שם בית הספר הינו שדה חובה');
     }
 
     const schoolId = `school-${Date.now()}`;
+    const initialStatus = data.status || 'pending';
+    const activationCode = data.activationCode?.trim() || Math.floor(1000 + Math.random() * 9000).toString();
+
+    const fullNameContact = (data.contactFirstName || data.contactLastName)
+      ? `${data.contactFirstName || ''} ${data.contactLastName || ''}`.trim()
+      : (data.contactPerson?.trim() || '');
+
     const newSchool: School = {
       id: schoolId,
       name: data.name.trim(),
       city: data.city?.trim() || '',
       code: data.code?.trim() || `SCH-${(this.schools.length + 1).toString().padStart(2, '0')}`,
-      contactPerson: data.contactPerson?.trim() || '',
+      activationCode,
+      status: initialStatus,
+      contactPerson: fullNameContact,
       phone: data.phone?.trim() || '',
-      isSuspended: false,
+      isSuspended: initialStatus !== 'active',
       createdAt: new Date().toISOString(),
     };
 
     this.schools.push(newSchool);
 
-    // Automatically create a default Vice Principal & Guard for the new school so it is immediately operational
-    const vpPin = `${3000 + this.schools.length}`;
+    // Coordinator (Vice Principal / Secretary) assigned personal PIN chosen by Amar Faour
+    const vpPin = data.contactPin?.trim() || `${3000 + this.schools.length}`;
     const guardPin = `${2000 + this.schools.length}`;
+    const vpTitle = data.contactRole?.trim() || 'סגן מנהל / אחראי מערכת';
+    const coordinatorDisplay = fullNameContact ? `${fullNameContact} (${vpTitle})` : `${vpTitle} (${newSchool.name})`;
+
+    // External staff start active ONLY if school status is 'active', otherwise blocked until Amar Faour approves!
+    const staffShouldBeActive = initialStatus === 'active';
 
     this.staff.push(
       {
         id: `staff-vp-${schoolId}`,
         staffCode: `VP0${this.schools.length}`,
-        fullName: `סגן מנהל (${newSchool.name})`,
+        fullName: coordinatorDisplay,
         role: 'vice_principal',
         pinCode: vpPin,
+        phone: data.phone?.trim() || '',
         assignedClasses: ['*'],
-        isActive: true,
+        isActive: staffShouldBeActive,
         schoolId: schoolId,
       },
       {
@@ -535,15 +581,16 @@ class ClientStorageEngine {
         role: 'guard',
         pinCode: guardPin,
         assignedClasses: [],
-        isActive: true,
+        isActive: staffShouldBeActive,
         schoolId: schoolId,
       }
     );
 
     this.activeSchoolId = schoolId;
     this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+    this.save(STORAGE_KEY_STAFF, this.staff);
     this.broadcastChange();
-    return { success: true, school: newSchool };
+    return { success: true, school: newSchool, coordinatorPin: vpPin };
   }
 
   public updateSchool(schoolId: string, data: Partial<School>): { success: boolean; school: School } {
@@ -597,6 +644,7 @@ class ClientStorageEngine {
     }
 
     school.isSuspended = suspend;
+    school.status = suspend ? 'suspended' : 'active';
 
     // Suspend/unsuspend staff belonging to this school only
     for (const member of this.staff) {
@@ -612,6 +660,110 @@ class ClientStorageEngine {
       message: suspend
         ? `המנוי עבור "${school.name}" הוקפא עקב אי-תשלום! גישת הצוות בבית ספר זה נחסמה לחלוטין. בתי ספר אחרים פועלים כרגיל.`
         : `ההקפאה בוטלה עבור "${school.name}"! גישת צוות בית הספר חודשה בהצלחה.`,
+    };
+  }
+
+  public setSchoolStatus(schoolId: string, status: SchoolStatus): { success: boolean; school: School; message: string } {
+    const school = this.schools.find((s) => s.id === schoolId);
+    if (!school) {
+      throw new Error('בית ספר לא נמצא');
+    }
+
+    school.status = status;
+    school.isSuspended = status !== 'active';
+
+    // Update staff active status based on school subscription status
+    const shouldStaffBeActive = status === 'active';
+    for (const member of this.staff) {
+      if (member.schoolId === schoolId && member.pinCode !== '160525' && member.role !== 'admin') {
+        member.isActive = shouldStaffBeActive;
+      }
+    }
+
+    this.broadcastChange();
+    let message = '';
+    switch (status) {
+      case 'active':
+        message = `סטטוס המנוי עבור "${school.name}" עודכן ל: מאושר ופעיל 🟢. כל צוות בית הספר יכול לעבוד כרגיל.`;
+        break;
+      case 'pending':
+        message = `סטטוס המנוי עבור "${school.name}" עודכן ל: ממתין להפעלה 🟡. לא תתאפשר כניסה עד מסירת קוד הפעלה או אישור.`;
+        break;
+      case 'suspended':
+        message = `סטטוס המנוי עבור "${school.name}" עודכן ל: מוקפא 🔴 (עקב אי-תשלום). הגישה בניידים נחסמה מיידית!`;
+        break;
+      case 'cancelled':
+        message = `סטטוס המנוי עבור "${school.name}" עודכן ל: מבוטל ⚫. הגישה לבית ספר זה נסגרה.`;
+        break;
+    }
+
+    return { success: true, school, message };
+  }
+
+  public updateSchoolActivationCode(schoolId: string, newCode: string): { success: boolean; school: School; message: string } {
+    const school = this.schools.find((s) => s.id === schoolId);
+    if (!school) {
+      throw new Error('בית ספר לא נמצא');
+    }
+    if (!newCode || !newCode.trim()) {
+      throw new Error('קוד הפעלה לא יכול להיות ריק');
+    }
+
+    school.activationCode = newCode.trim();
+    this.broadcastChange();
+    return {
+      success: true,
+      school,
+      message: `קוד ההפעלה של "${school.name}" עודכן בהצלחה ל: ${school.activationCode}`,
+    };
+  }
+
+  public activateSchoolByCode(code: string): { success: boolean; school: School; message: string } {
+    const clean = code.trim().toUpperCase();
+    if (!clean) {
+      throw new Error('אנא הזן קוד הפעלה בית ספרי');
+    }
+
+    const school = this.schools.find(
+      (s) => (s.activationCode || '').toUpperCase() === clean || (s.code || '').toUpperCase() === clean
+    );
+
+    if (!school) {
+      throw new Error('קוד הפעלה בית ספרי שגוי. אנא ודא את הקוד שקיבלת מעמאר פאעור.');
+    }
+
+    if (school.status === 'suspended') {
+      throw new Error(`מנוי בית הספר "${school.name}" מוקפא עקב אי-תשלום. לחידוש המנוי יש לפנות לעמאר פאעור.`);
+    }
+
+    if (school.status === 'cancelled') {
+      throw new Error(`מנוי בית הספר "${school.name}" בוטל לצמיתות.`);
+    }
+
+    // Auto-approve if pending
+    if (school.status === 'pending') {
+      school.status = 'active';
+      school.isSuspended = false;
+      for (const member of this.staff) {
+        if (member.schoolId === school.id && member.pinCode !== '160525' && member.role !== 'admin') {
+          member.isActive = true;
+        }
+      }
+    }
+
+    this.activeSchoolId = school.id;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_SCHOOL, school.id);
+      localStorage.setItem('gate_school_name', school.name);
+      localStorage.setItem('gate_activated_school_id', school.id);
+      localStorage.setItem('gate_activated_school_code', school.activationCode);
+    }
+
+    this.broadcastChange();
+    return {
+      success: true,
+      school,
+      message: `בית הספר "${school.name}" הופעל בהצלחה במכשיר זה! כעת ניתן להיכנס עם הקוד האישי שלך.`,
     };
   }
 
@@ -726,9 +878,17 @@ class ClientStorageEngine {
     const schoolId = member.schoolId || this.activeSchoolId || 'school-main';
     const school = this.schools.find((s) => s.id === schoolId);
 
-    // Check if the school is suspended (Lockout for non-payment)
-    if (school && school.isSuspended) {
-      throw new Error('המערכת הושעתה ע״י מנהל המערכת (עמאר פאעור). לחידוש הגישה יש לפנות לעמאר פאעור.');
+    // Check school subscription status
+    if (school) {
+      if (school.status === 'pending') {
+        throw new Error(`המנוי עבור "${school.name}" ממתין להפעלה. אנא הזן קוד הפעלה מוסדי או פנה לעמאר פאעור.`);
+      }
+      if (school.status === 'suspended' || school.isSuspended) {
+        throw new Error(`המערכת הושעתה ע״י מנהל המערכת (עמאר פאעור) עקב אי-תשלום. לחידוש הגישה יש לפנות לעמאר פאעור.`);
+      }
+      if (school.status === 'cancelled') {
+        throw new Error(`מנוי בית הספר "${school.name}" בוטל לצמיתות.`);
+      }
     }
 
     if (!member.isActive) {
@@ -759,6 +919,21 @@ class ClientStorageEngine {
         try {
           const user = JSON.parse(sess) as User;
           if (user.role !== 'admin') {
+            const school = this.schools.find((s) => s.id === user.schoolId);
+            if (school) {
+              if (school.status === 'pending') {
+                localStorage.removeItem(STORAGE_KEY_SESSION);
+                throw new Error('המנוי עבור בית הספר ממתין להפעלה ואישור תשלום. השימוש באפליקציה חסום.');
+              }
+              if (school.status === 'suspended' || school.isSuspended) {
+                localStorage.removeItem(STORAGE_KEY_SESSION);
+                throw new Error('גישת בית הספר למערכת הושעתה ע״י מנהל המערכת (עמאר פאעור). השימוש באפליקציה חסום.');
+              }
+              if (school.status === 'cancelled') {
+                localStorage.removeItem(STORAGE_KEY_SESSION);
+                throw new Error('מנוי בית הספר בוטל לצמיתות.');
+              }
+            }
             const member = this.staff.find((s) => s.id === user.id);
             if (member && !member.isActive) {
               localStorage.removeItem(STORAGE_KEY_SESSION);

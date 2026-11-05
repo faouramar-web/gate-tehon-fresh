@@ -1,10 +1,14 @@
 export type UserRole = 'teacher' | 'guard' | 'vice_principal' | 'admin';
 
+export type SchoolStatus = 'active' | 'pending' | 'suspended' | 'cancelled';
+
 export interface School {
   id: string;
   name: string;
   city?: string;
   code?: string;
+  activationCode: string; // Master activation code set by Amar Faour
+  status: SchoolStatus;   // 'active' (מאושר) | 'pending' (ממתין) | 'suspended' (מוקפא) | 'cancelled' (מבוטל)
   contactPerson?: string;
   phone?: string;
   isSuspended: boolean;
