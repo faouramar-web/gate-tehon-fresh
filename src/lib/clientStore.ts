@@ -610,18 +610,39 @@ class ClientStorageEngine {
   }
 
   public deleteSchool(schoolId: string): { success: boolean; message: string } {
-    if (this.schools.length <= 1) {
-      throw new Error('לא ניתן למחוק את בית הספר היחיד במערכת. צור בית ספר אחר תחילה.');
-    }
     const target = this.schools.find((s) => s.id === schoolId);
     if (!target) {
-      throw new Error('בית הספר המבוקש למחיקה לא נמצא');
+      throw new Error('בית הספר המבוקש למחיקה לא נמצא במערכת');
     }
 
-    // Delete school
+    if (this.schools.length <= 1) {
+      // Deleting the only remaining school -> complete clean purge and blank slate
+      const freshSchool: School = {
+        id: `school-${Date.now()}`,
+        name: 'בית ספר חדש (ריק)',
+        city: '',
+        code: 'SCH-01',
+        activationCode: Math.floor(1000 + Math.random() * 9000).toString(),
+        status: 'pending',
+        isSuspended: false,
+        createdAt: new Date().toISOString(),
+      };
+      this.schools = [freshSchool];
+      this.activeSchoolId = freshSchool.id;
+      this.students = [];
+      this.passes = [];
+      this.staff = this.staff.filter((m) => m.pinCode === '160525' || m.role === 'admin');
+      this.broadcastChange();
+      return {
+        success: true,
+        message: `בית הספר "${target.name}" נמחק לחלוטין (DELETE) עם כל הנתונים, המורים, התלמידים והאישורים! מורי בית ספר זה חסומים. נוצר מאגר ריק ונקי.`,
+      };
+    }
+
+    // Delete school from schools list
     this.schools = this.schools.filter((s) => s.id !== schoolId);
 
-    // Delete isolated data of THIS school only (leave other schools 100% untouched!)
+    // Delete all isolated data of THIS school only (other schools stay 100% untouched)
     this.students = this.students.filter((s) => s.schoolId !== schoolId);
     this.passes = this.passes.filter((p) => p.schoolId !== schoolId);
     this.staff = this.staff.filter((m) => m.schoolId !== schoolId || m.pinCode === '160525');
@@ -633,7 +654,7 @@ class ClientStorageEngine {
     this.broadcastChange();
     return {
       success: true,
-      message: `בית הספר "${target.name}" נמחק בהצלחה יחד עם נתוניו. שאר בתי הספר פועלים כרגיל ללא פגיעה.`,
+      message: `בית הספר "${target.name}" וכל הנתונים שלו נמחקו לחלוטין (DELETE)! כל המורים והצוות נחסמו מיידית מהאפליקציה.`,
     };
   }
 
@@ -867,28 +888,24 @@ class ClientStorageEngine {
     }
 
     if (!member) {
-      // Fallback check in INITIAL_STAFF
-      member = INITIAL_STAFF.find((s) => s.pinCode === clean);
-    }
-
-    if (!member) {
-      throw new Error('קוד אישי שגוי. אנא נסה שוב או פנה למנהל המערכת.');
+      throw new Error('קוד אישי שגוי או שחשבון זה הוסר מהמערכת.');
     }
 
     const schoolId = member.schoolId || this.activeSchoolId || 'school-main';
     const school = this.schools.find((s) => s.id === schoolId);
+    if (!school) {
+      throw new Error('בית ספר זה הוסר מהמערכת והמנוי בוטל לצמיתות.');
+    }
 
     // Check school subscription status
-    if (school) {
-      if (school.status === 'pending') {
-        throw new Error(`המנוי עבור "${school.name}" ממתין להפעלה. אנא הזן קוד הפעלה מוסדי או פנה לעמאר פאעור.`);
-      }
-      if (school.status === 'suspended' || school.isSuspended) {
-        throw new Error(`המערכת הושעתה ע״י מנהל המערכת (עמאר פאעור) עקב אי-תשלום. לחידוש הגישה יש לפנות לעמאר פאעור.`);
-      }
-      if (school.status === 'cancelled') {
-        throw new Error(`מנוי בית הספר "${school.name}" בוטל לצמיתות.`);
-      }
+    if (school.status === 'pending') {
+      throw new Error(`המנוי עבור "${school.name}" ממתין להפעלה. אנא הזן קוד הפעלה מוסדי או פנה לעמאר פאעור.`);
+    }
+    if (school.status === 'suspended' || school.isSuspended) {
+      throw new Error(`המערכת הושעתה ע״י מנהל המערכת (עמאר פאעור) עקב אי-תשלום. לחידוש הגישה יש לפנות לעמאר פאעור.`);
+    }
+    if (school.status === 'cancelled') {
+      throw new Error(`מנוי בית הספר "${school.name}" בוטל לצמיתות.`);
     }
 
     if (!member.isActive) {
@@ -902,7 +919,7 @@ class ClientStorageEngine {
       role: member.role,
       assignedClasses: member.assignedClasses,
       schoolId: schoolId,
-      schoolName: school?.name || 'בית ספר מקיף',
+      schoolName: school.name,
     };
 
     const token = `client_tok_${Date.now()}_${member.id}`;
@@ -920,24 +937,27 @@ class ClientStorageEngine {
           const user = JSON.parse(sess) as User;
           if (user.role !== 'admin') {
             const school = this.schools.find((s) => s.id === user.schoolId);
-            if (school) {
-              if (school.status === 'pending') {
-                localStorage.removeItem(STORAGE_KEY_SESSION);
-                throw new Error('המנוי עבור בית הספר ממתין להפעלה ואישור תשלום. השימוש באפליקציה חסום.');
-              }
-              if (school.status === 'suspended' || school.isSuspended) {
-                localStorage.removeItem(STORAGE_KEY_SESSION);
-                throw new Error('גישת בית הספר למערכת הושעתה ע״י מנהל המערכת (עמאר פאעור). השימוש באפליקציה חסום.');
-              }
-              if (school.status === 'cancelled') {
-                localStorage.removeItem(STORAGE_KEY_SESSION);
-                throw new Error('מנוי בית הספר בוטל לצמיתות.');
-              }
-            }
-            const member = this.staff.find((s) => s.id === user.id);
-            if (member && !member.isActive) {
+            if (!school) {
               localStorage.removeItem(STORAGE_KEY_SESSION);
-              throw new Error('גישת בית הספר למערכת הושעתה ע״י מנהל המערכת (עמאר פאעור). יש לפנות לעמאר פאעור.');
+              throw new Error('בית ספר זה הוסר מהמערכת והמנוי בוטל לצמיתות. השימוש באפליקציה חסום.');
+            }
+            if (school.status === 'pending') {
+              localStorage.removeItem(STORAGE_KEY_SESSION);
+              throw new Error('המנוי עבור בית הספר ממתין להפעלה ואישור תשלום. השימוש באפליקציה חסום.');
+            }
+            if (school.status === 'suspended' || school.isSuspended) {
+              localStorage.removeItem(STORAGE_KEY_SESSION);
+              throw new Error('גישת בית הספר למערכת הושעתה ע״י מנהל המערכת (עמאר פאעור). השימוש באפליקציה חסום.');
+            }
+            if (school.status === 'cancelled') {
+              localStorage.removeItem(STORAGE_KEY_SESSION);
+              throw new Error('מנוי בית הספר בוטל לצמיתות.');
+            }
+
+            const member = this.staff.find((s) => s.id === user.id);
+            if (!member || !member.isActive) {
+              localStorage.removeItem(STORAGE_KEY_SESSION);
+              throw new Error('חשבון זה הוסר או הושבת ע״י מנהל המערכת (עמאר פאעור). הגישה חסומה.');
             }
           }
           return { user };

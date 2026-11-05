@@ -135,6 +135,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [targetActionSchool, setTargetActionSchool] = useState<School | null>(null);
   const [schoolActionType, setSchoolActionType] = useState<'suspend' | 'unsuspend' | 'roll_pins' | 'clear_data' | 'delete' | null>(null);
   const [isPerformingSchoolAction, setIsPerformingSchoolAction] = useState(false);
+  const [deleteSchoolModalOpen, setDeleteSchoolModalOpen] = useState(false);
+  const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
 
   // Edit Activation Code state
   const [editCodeModalOpen, setEditCodeModalOpen] = useState(false);
@@ -404,14 +406,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     }
   };
 
-  const handleDeleteSchool = async (schoolId: string) => {
+  const handleOpenDeleteSchoolModal = (school: School) => {
+    setSchoolToDelete(school);
+    setDeleteSchoolModalOpen(true);
+  };
+
+  const handleConfirmDeleteSchool = async () => {
+    if (!schoolToDelete) return;
     setIsPerformingSchoolAction(true);
     try {
-      const res = await api.deleteSchool(schoolId);
+      const res = await api.deleteSchool(schoolToDelete.id);
       setDeleteFeedback({
         type: 'success',
         message: res.message,
       });
+      setDeleteSchoolModalOpen(false);
+      setSchoolToDelete(null);
       const remainingSchools = await api.getSchools();
       setSchools(remainingSchools.schools);
       setSelectedSchoolId(remainingSchools.activeSchoolId);
@@ -424,8 +434,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       });
     } finally {
       setIsPerformingSchoolAction(false);
-      setTargetActionSchool(null);
-      setSchoolActionType(null);
     }
   };
 
@@ -1171,6 +1179,32 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               </div>
             </div>
 
+            {/* Cancelled subscription banner with instant DELETE shortcut */}
+            {currentSchool.status === 'cancelled' && (
+              <div className="p-3 bg-rose-950/50 border border-rose-800/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚫</span>
+                  <div>
+                    <strong className="text-rose-200 font-bold block text-xs">
+                      מנוי בית הספר בוטל! כל המורים והשומרים חסומים לחלוטין משימוש באפליקציה.
+                    </strong>
+                    <span className="text-rose-300/80 text-[11px]">
+                      ניתן למחוק כעת את כל הכרטיסייה וכל הנתונים לצמיתות כדי לפנות מקום.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenDeleteSchoolModal(currentSchool)}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-md transition-all active:scale-98"
+                  title="מחיקת בית הספר לצמיתות וכל נתוניו"
+                >
+                  <Trash2 className="w-4 h-4 text-white" />
+                  <span>מחק כרטיסייה ונתונים (DELETE)</span>
+                </button>
+              </div>
+            )}
+
             {/* Bottom Row: Activation Code Box + Quick School Tools */}
             <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
               {/* Activation Code Display & Handover */}
@@ -1222,7 +1256,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 </button>
               </div>
 
-              {/* Maintenance Tools (Roll Pins, Clear Data) */}
+              {/* Maintenance Tools (Roll Pins, Clear Data, Delete School) */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
@@ -1242,6 +1276,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                   <span>איפוס נתונים</span>
+                </button>
+
+                {/* Permanent Delete School Button */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenDeleteSchoolModal(currentSchool)}
+                  className="px-2.5 py-1.5 rounded-xl font-bold bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-700/80 flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                  title="מחיקת כרטיסיית בית הספר לצמיתות וכל נתוניו (DELETE)"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>מחק כרטיסייה (DELETE)</span>
                 </button>
               </div>
             </div>
@@ -2584,20 +2629,16 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                         </button>
                       </div>
 
-                      {/* Delete School option */}
-                      {schools.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm(`האם אתה בטוח שברצונך למחוק את בית הספר "${school.name}" לצמיתות? שאר בתי הספר לא ייפגעו כלל.`)) {
-                              handleDeleteSchool(school.id);
-                            }
-                          }}
-                          className="px-3 py-1.5 text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                        >
-                          מחק בית ספר
-                        </button>
-                      )}
+                      {/* Permanent Delete School Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDeleteSchoolModal(school)}
+                        className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                        title="מחיקת בית הספר לצמיתות יחד עם כל התלמידים, המורים והאישורים (DELETE)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-white" />
+                        <span>מחק בית ספר וכל הנתונים לצמיתות (DELETE)</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -2930,6 +2971,94 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PERMANENT SCHOOL DELETION (DELETE) ================= */}
+      {deleteSchoolModalOpen && schoolToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border-2 border-rose-500 animate-in fade-in zoom-in-95 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-rose-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center border border-rose-300">
+                  <Trash2 className="w-6 h-6 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-rose-950 font-['Rubik']">
+                    מחיקת בית ספר לצמיתות (DELETE)
+                  </h3>
+                  <p className="text-xs text-rose-700 font-semibold">
+                    ביטול מנוי מוחלט ומחיקת כל הנתונים
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteSchoolModalOpen(false);
+                  setSchoolToDelete(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-2xl text-xs text-rose-950 space-y-2.5">
+              <div className="font-extrabold text-sm text-rose-900 flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>פעולה בלתי הפיכה עבור: "{schoolToDelete.name}"</span>
+              </div>
+              <p className="font-medium text-rose-900 leading-relaxed">
+                בעת אישור המחיקה, תתבצע מחיקה מוחלטת (DELETE) של בית הספר מכל מסכי האפליקציה:
+              </p>
+              <ul className="space-y-1.5 pr-2 font-semibold text-rose-900 text-[11px]">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-rose-600 font-bold shrink-0">✕</span>
+                  <span><strong>חסימת כל המורים והשומרים:</strong> כל אנשי הצוות של בית ספר זה יימחקו וייחסמו לחלוטין מלהיכנס לאפליקציה בטלפונים שלהם.</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-rose-600 font-bold shrink-0">✕</span>
+                  <span><strong>מחיקת כל התלמידים:</strong> כל מאגר התלמידים והכיתות של בית ספר זה יימחק לצמיתות.</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-rose-600 font-bold shrink-0">✕</span>
+                  <span><strong>מחיקת היסטוריית אישורים:</strong> כל אישורי השער ודוחות היציאה של בית ספר זה יימחקו לחלוטין.</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-rose-600 font-bold shrink-0">✕</span>
+                  <span><strong>הסרת הכרטיסייה:</strong> כרטיסיית בית הספר תימחק מתפריט הניהול שלך.</span>
+                </li>
+                <li className="flex items-start gap-1.5 text-emerald-800">
+                  <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                  <span><strong>הגנה על שאר בתי הספר:</strong> שאר בתי הספר שלך נשארים מבודדים ובטוחים ב-100%, ללא כל השפעה.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isPerformingSchoolAction}
+                onClick={() => {
+                  setDeleteSchoolModalOpen(false);
+                  setSchoolToDelete(null);
+                }}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl cursor-pointer text-xs transition-colors"
+              >
+                ביטול
+              </button>
+              <button
+                type="button"
+                disabled={isPerformingSchoolAction}
+                onClick={handleConfirmDeleteSchool}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black rounded-xl shadow-lg shadow-rose-600/30 cursor-pointer text-xs flex items-center justify-center gap-2 transition-all"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isPerformingSchoolAction ? 'מוחק הכל לצמיתות...' : 'כן, מחק את כל בית הספר והנתונים (DELETE)'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
