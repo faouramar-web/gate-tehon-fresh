@@ -39,6 +39,7 @@ export interface GatePass {
   cancelledAt?: string; // ISO
   cancelledBy?: string;
   reason?: string;
+  schoolId?: string;
 }
 
 export interface AuditLogEntry {
@@ -251,42 +252,7 @@ export const INITIAL_DEMO_DATA: DatabaseSchema = {
     { id: 's-024', studentCode: 'S024', fullName: 'אדם מנסור', className: 'ט1', teacherName: 'רימא ג׳אבר' },
     { id: 's-025', studentCode: 'S025', fullName: 'סוהיל סלאמה', className: 'ט1', teacherName: 'רימא ג׳אבר' },
   ],
-  passes: [
-    {
-      id: 'pass-hist-1',
-      studentId: 's-002',
-      studentCode: 'S002',
-      studentName: 'מרים סאלח',
-      className: 'ז1',
-      teacherId: 'staff-t01',
-      teacherName: 'לינא ח׳ליל',
-      dateStr: '2026-11-02',
-      validFromTime: '12:30',
-      status: 'used',
-      createdAt: '2026-11-02T10:30:00.000Z',
-      createdBy: 'לינא ח׳ליל',
-      usedAt: '2026-11-02T10:38:00.000Z',
-      usedBy: 'אברהם כהן (שומר שער)',
-      reason: 'אירוע משפחתי ותור לרופא',
-    },
-    {
-      id: 'pass-hist-2',
-      studentId: 's-008',
-      studentCode: 'S008',
-      studentName: 'ראמי עיסא',
-      className: 'ז2',
-      teacherId: 'staff-t02',
-      teacherName: 'סוהא מנצור',
-      dateStr: '2026-11-03',
-      validFromTime: '13:15',
-      status: 'used',
-      createdAt: '2026-11-03T11:15:00.000Z',
-      createdBy: 'סוהא מנצור',
-      usedAt: '2026-11-03T11:22:00.000Z',
-      usedBy: 'אברהם כהן (שומר שער)',
-      reason: 'אישור הורים בווטסאפ למחנכת',
-    },
-  ],
+  passes: [],
   auditLogs: [
     {
       id: 'log-seed-1',
@@ -443,9 +409,15 @@ class SchoolDatabase {
     query?: string,
     dateFrom?: string,
     dateTo?: string,
-    className?: string
+    className?: string,
+    schoolId?: string
   ): GatePass[] {
-    let list = [...this.data.passes];
+    let list = [...this.data.passes].filter(
+      (p) => p && p.id !== 'pass-hist-1' && p.id !== 'pass-hist-01' && p.id !== 'pass-hist-2' && p.id !== 'pass-hist-02' && p.studentName !== 'מרים סאלח'
+    );
+    if (schoolId && schoolId !== '*') {
+      list = list.filter((p) => p.schoolId === schoolId);
+    }
     if (className && className !== 'ALL') {
       list = list.filter((p) => p.className === className);
     }

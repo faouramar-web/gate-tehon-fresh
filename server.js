@@ -160,42 +160,7 @@ var INITIAL_DEMO_DATA = {
     { id: "s-024", studentCode: "S024", fullName: "\u05D0\u05D3\u05DD \u05DE\u05E0\u05E1\u05D5\u05E8", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" },
     { id: "s-025", studentCode: "S025", fullName: "\u05E1\u05D5\u05D4\u05D9\u05DC \u05E1\u05DC\u05D0\u05DE\u05D4", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" }
   ],
-  passes: [
-    {
-      id: "pass-hist-1",
-      studentId: "s-002",
-      studentCode: "S002",
-      studentName: "\u05DE\u05E8\u05D9\u05DD \u05E1\u05D0\u05DC\u05D7",
-      className: "\u05D61",
-      teacherId: "staff-t01",
-      teacherName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC",
-      dateStr: "2026-11-02",
-      validFromTime: "12:30",
-      status: "used",
-      createdAt: "2026-11-02T10:30:00.000Z",
-      createdBy: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC",
-      usedAt: "2026-11-02T10:38:00.000Z",
-      usedBy: "\u05D0\u05D1\u05E8\u05D4\u05DD \u05DB\u05D4\u05DF (\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8)",
-      reason: "\u05D0\u05D9\u05E8\u05D5\u05E2 \u05DE\u05E9\u05E4\u05D7\u05EA\u05D9 \u05D5\u05EA\u05D5\u05E8 \u05DC\u05E8\u05D5\u05E4\u05D0"
-    },
-    {
-      id: "pass-hist-2",
-      studentId: "s-008",
-      studentCode: "S008",
-      studentName: "\u05E8\u05D0\u05DE\u05D9 \u05E2\u05D9\u05E1\u05D0",
-      className: "\u05D62",
-      teacherId: "staff-t02",
-      teacherName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8",
-      dateStr: "2026-11-03",
-      validFromTime: "13:15",
-      status: "used",
-      createdAt: "2026-11-03T11:15:00.000Z",
-      createdBy: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8",
-      usedAt: "2026-11-03T11:22:00.000Z",
-      usedBy: "\u05D0\u05D1\u05E8\u05D4\u05DD \u05DB\u05D4\u05DF (\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8)",
-      reason: "\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D4\u05D5\u05E8\u05D9\u05DD \u05D1\u05D5\u05D5\u05D8\u05E1\u05D0\u05E4 \u05DC\u05DE\u05D7\u05E0\u05DB\u05EA"
-    }
-  ],
+  passes: [],
   auditLogs: [
     {
       id: "log-seed-1",
@@ -326,8 +291,13 @@ var SchoolDatabase = class {
   getAuditLogs(limit = 100) {
     return [...this.data.auditLogs].reverse().slice(0, limit);
   }
-  searchPassesHistory(query, dateFrom, dateTo, className) {
-    let list = [...this.data.passes];
+  searchPassesHistory(query, dateFrom, dateTo, className, schoolId) {
+    let list = [...this.data.passes].filter(
+      (p) => p && p.id !== "pass-hist-1" && p.id !== "pass-hist-01" && p.id !== "pass-hist-2" && p.id !== "pass-hist-02" && p.studentName !== "\u05DE\u05E8\u05D9\u05DD \u05E1\u05D0\u05DC\u05D7"
+    );
+    if (schoolId && schoolId !== "*") {
+      list = list.filter((p) => p.schoolId === schoolId);
+    }
     if (className && className !== "ALL") {
       list = list.filter((p) => p.className === className);
     }
@@ -1162,7 +1132,8 @@ app.get("/api/admin/history-search", authenticate, (req, res) => {
   const dateFrom = req.query.from;
   const dateTo = req.query.to;
   const className = req.query.class;
-  const results = db.searchPassesHistory(query, dateFrom, dateTo, className);
+  const schoolId = req.query.schoolId;
+  const results = db.searchPassesHistory(query, dateFrom, dateTo, className, schoolId);
   res.json({ passes: results });
 });
 app.get("/api/admin/schools", (_req, res) => {

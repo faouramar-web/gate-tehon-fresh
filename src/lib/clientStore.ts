@@ -163,26 +163,7 @@ const INITIAL_STUDENTS: Student[] = [
   { id: 's-025', studentCode: 'S025', fullName: 'סוהיל סלאמה', className: 'ט1', teacherName: 'רימא ג׳אבר' },
 ];
 
-const INITIAL_PASSES: GatePass[] = [
-  {
-    id: 'pass-hist-1',
-    studentId: 's-002',
-    studentCode: 'S002',
-    studentName: 'מרים סאלח',
-    className: 'ז1',
-    homeroomTeacher: 'לינא ח׳ליל',
-    teacherId: 'staff-t01',
-    teacherName: 'לינא ח׳ליל',
-    dateStr: getClientIsraelDateString(),
-    validFromTime: '11:30',
-    status: 'used',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    createdBy: 'לינא ח׳ליל',
-    usedAt: new Date(Date.now() - 1800000).toISOString(),
-    usedBy: 'אברהם כהן (שומר שער)',
-    reason: 'שחרור מוקדם באישור הורים',
-  },
-];
+const INITIAL_PASSES: GatePass[] = [];
 
 export const INITIAL_SCHOOLS: School[] = [
   {
@@ -262,7 +243,15 @@ class ClientStorageEngine {
       const loadedStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
       this.students = Array.isArray(loadedStudents) ? loadedStudents : [];
       const loadedPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
-      this.passes = Array.isArray(loadedPasses) ? loadedPasses : [];
+      this.passes = (Array.isArray(loadedPasses) ? loadedPasses : []).filter(
+        (p) =>
+          p &&
+          p.id !== 'pass-hist-1' &&
+          p.id !== 'pass-hist-01' &&
+          p.id !== 'pass-hist-2' &&
+          p.id !== 'pass-hist-02' &&
+          p.studentName !== 'מרים סאלח'
+      );
     }
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
@@ -439,7 +428,15 @@ class ClientStorageEngine {
     const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
     this.students = Array.isArray(rawStudents) ? rawStudents : [];
     const rawPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
-    this.passes = Array.isArray(rawPasses) ? rawPasses : [];
+    this.passes = (Array.isArray(rawPasses) ? rawPasses : []).filter(
+      (p) =>
+        p &&
+        p.id !== 'pass-hist-1' &&
+        p.id !== 'pass-hist-01' &&
+        p.id !== 'pass-hist-2' &&
+        p.id !== 'pass-hist-02' &&
+        p.studentName !== 'מרים סאלח'
+    );
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
   }
@@ -628,8 +625,26 @@ class ClientStorageEngine {
           this.syncStudentToFirestore(stud);
         }
       }
+      // Delete legacy demo passes from Firestore
+      try {
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-1')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-01')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-2')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-02')).catch(() => {});
+      } catch {
+        // ignore
+      }
+
       for (const p of this.passes) {
-        if (p && p.id) {
+        if (
+          p &&
+          p.id &&
+          p.id !== 'pass-hist-1' &&
+          p.id !== 'pass-hist-01' &&
+          p.id !== 'pass-hist-2' &&
+          p.id !== 'pass-hist-02' &&
+          p.studentName !== 'מרים סאלח'
+        ) {
           this.syncPassToFirestore(p);
         }
       }
@@ -1482,11 +1497,19 @@ class ClientStorageEngine {
     className?: string;
     schoolId?: string;
   } = {}): { passes: GatePass[] } {
-    let list = [...this.passes];
+    let list = this.passes.filter(
+      (p) =>
+        p &&
+        p.id !== 'pass-hist-1' &&
+        p.id !== 'pass-hist-01' &&
+        p.id !== 'pass-hist-2' &&
+        p.id !== 'pass-hist-02' &&
+        p.studentName !== 'מרים סאלח'
+    );
 
     const targetSchoolId = params.schoolId || this.activeSchoolId;
     if (targetSchoolId && targetSchoolId !== '*') {
-      list = list.filter((p) => (p.schoolId || 'school-main') === targetSchoolId);
+      list = list.filter((p) => p.schoolId === targetSchoolId);
     }
 
     if (params.className && params.className !== 'ALL') {

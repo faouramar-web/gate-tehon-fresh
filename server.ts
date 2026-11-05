@@ -492,8 +492,9 @@ app.get('/api/admin/history-search', authenticate, (req: Request, res: Response)
   const dateFrom = req.query.from as string | undefined;
   const dateTo = req.query.to as string | undefined;
   const className = req.query.class as string | undefined;
+  const schoolId = req.query.schoolId as string | undefined;
 
-  const results = db.searchPassesHistory(query, dateFrom, dateTo, className);
+  const results = db.searchPassesHistory(query, dateFrom, dateTo, className, schoolId);
   res.json({ passes: results });
 });
 

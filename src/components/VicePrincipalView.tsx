@@ -233,8 +233,18 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         to: toDate || undefined,
         className: selectedClass !== 'ALL' ? selectedClass : undefined,
         q: searchQuery.trim() || undefined,
+        schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined,
       });
-      setPasses(res.passes || []);
+      const valid = (res.passes || []).filter(
+        (p) =>
+          p &&
+          p.id !== 'pass-hist-1' &&
+          p.id !== 'pass-hist-01' &&
+          p.id !== 'pass-hist-2' &&
+          p.id !== 'pass-hist-02' &&
+          p.studentName !== 'מרים סאלח'
+      );
+      setPasses(valid);
     } catch {
       // ignore
     } finally {

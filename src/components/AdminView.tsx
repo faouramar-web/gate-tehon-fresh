@@ -293,8 +293,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       const res = await api.getSchools();
       const schoolList = Array.isArray(res?.schools) ? res.schools : [];
       setSchools(schoolList);
-      if (!selectedSchoolId) {
-        setSelectedSchoolId(res?.activeSchoolId || schoolList[0]?.id || 'school-main');
+      if (!selectedSchoolId || !schoolList.some((s) => s.id === selectedSchoolId)) {
+        const nextId = res?.activeSchoolId && schoolList.some((s) => s.id === res.activeSchoolId)
+          ? res.activeSchoolId
+          : schoolList[0]?.id || '';
+        setSelectedSchoolId(nextId);
       }
     } catch {
       setSchools([]);
@@ -318,16 +321,26 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const loadHistory = async (forceSpinner = false) => {
     try {
       if (forceSpinner || historyPasses.length === 0) setLoadingHistory(true);
+      const effectiveSchoolId = selectedSchoolId || schools[0]?.id || undefined;
       const res = await api.searchHistory({
         q: historyQuery.trim() || undefined,
         from: historyFromDate || undefined,
         to: historyToDate || undefined,
         className: historyClass || undefined,
-        schoolId: selectedSchoolId || undefined,
+        schoolId: effectiveSchoolId,
       });
-      setHistoryPasses(Array.isArray(res?.passes) ? res.passes : []);
+      const validPasses = (Array.isArray(res?.passes) ? res.passes : []).filter(
+        (p) =>
+          p &&
+          p.id !== 'pass-hist-1' &&
+          p.id !== 'pass-hist-01' &&
+          p.id !== 'pass-hist-2' &&
+          p.id !== 'pass-hist-02' &&
+          p.studentName !== 'מרים סאלח'
+      );
+      setHistoryPasses(validPasses);
     } catch {
-      // ignore
+      setHistoryPasses([]);
     } finally {
       setLoadingHistory(false);
     }
