@@ -207,27 +207,44 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
         if (fromTitleRow.teacherName && !sheetTeacherName) sheetTeacherName = fromTitleRow.teacherName;
       }
 
-      // Check if this row is the column headers
+      // Check candidate column headers on THIS row:
+      let curFirstNameCol = -1;
+      let curLastNameCol = -1;
+      let curFullNameCol = -1;
+      let curCodeCol = -1;
+      let curRowNumCol = -1;
+      let curClassCol = -1;
+      let curSectionCol = -1;
+      let curTeacherCol = -1;
+
       for (let c = 0; c < row.length; c++) {
         const cell = cleanStr(row[c]);
         if (!cell) continue;
 
-        if (isFirstNameHeader(cell)) firstNameColIndex = c;
-        else if (isLastNameHeader(cell)) lastNameColIndex = c;
-        else if (isStudentNameHeader(cell)) fullNameColIndex = c;
+        if (isFirstNameHeader(cell)) curFirstNameCol = c;
+        else if (isLastNameHeader(cell)) curLastNameCol = c;
+        else if (isStudentNameHeader(cell)) curFullNameCol = c;
 
-        if (isStudentCodeHeader(cell)) codeColIndex = c;
-        else if (isRowNumberHeader(cell)) rowNumColIndex = c;
+        if (isStudentCodeHeader(cell)) curCodeCol = c;
+        else if (isRowNumberHeader(cell)) curRowNumCol = c;
 
-        if (isSectionHeader(cell)) sectionColIndex = c;
-        else if (isClassHeader(cell)) classColIndex = c;
+        if (isSectionHeader(cell)) curSectionCol = c;
+        else if (isClassHeader(cell)) curClassCol = c;
 
-        if (isTeacherHeader(cell)) teacherColIndex = c;
+        if (isTeacherHeader(cell)) curTeacherCol = c;
       }
 
-      // Detected if we have a full name column OR first name (+ optional last name)
-      if (fullNameColIndex !== -1 || firstNameColIndex !== -1) {
+      // Detected if this row is the table header:
+      if (curFullNameCol !== -1 || curFirstNameCol !== -1) {
         tableHeaderRowIndex = r;
+        firstNameColIndex = curFirstNameCol;
+        lastNameColIndex = curLastNameCol;
+        fullNameColIndex = curFullNameCol;
+        codeColIndex = curCodeCol;
+        rowNumColIndex = curRowNumCol;
+        classColIndex = curClassCol;
+        sectionColIndex = curSectionCol;
+        teacherColIndex = curTeacherCol;
         break;
       }
     }
@@ -387,35 +404,38 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
   };
 }
 
-// Helper to generate a downloadable Excel template for users
+// Helper to generate a downloadable Excel template for users matching standard Israeli school format
 export function generateSampleExcelWorkbook(): Uint8Array {
   const wb = XLSX.utils.book_new();
 
-  // Sheet 1: כיתה ז1
-  const wsZ1Data = [
-    ['כיתה ז1 | לינא ח׳ליל'],
-    ['מזהה תלמיד', 'שם התלמיד'],
-    ['S001', 'אדם נאסר'],
-    ['S002', 'מרים סאלח'],
-    ['S003', 'יוסף חמדאן'],
-    ['S004', 'נור עבדאללה'],
-    ['S005', 'ליאן סעיד'],
+  // Sheet 1: כיתה י1 קסיס האני
+  const wsY1Data = [
+    ['', '', '', '', 'כיתה י1 קסיס האני'],
+    ['מספר', 'שם פרטי (עברית)', 'שם משפחה (עברית)', 'כיתה', 'מקבילה'],
+    [1, 'גדי', 'ביסאן', 'י', 1],
+    [2, 'תולין', 'ביבאר', 'י', 1],
+    [3, 'רימאס', 'בריק', 'י', 1],
+    [4, 'ויסאם', 'זיאדה', 'י', 1],
+    [5, 'מלאק', 'פרג׳', 'י', 1],
+    [6, 'לין', 'פרג׳', 'י', 1],
+    [7, 'תמיר', 'פרג׳', 'י', 1],
+    [8, 'עדן', 'זאהר', 'י', 1],
   ];
-  const wsZ1 = XLSX.utils.aoa_to_sheet(wsZ1Data);
-  XLSX.utils.book_append_sheet(wb, wsZ1, 'כיתה ז1');
+  const wsY1 = XLSX.utils.aoa_to_sheet(wsY1Data);
+  XLSX.utils.book_append_sheet(wb, wsY1, 'כיתה י1 קסיס האני');
 
-  // Sheet 2: כיתה ז2
-  const wsZ2Data = [
-    ['כיתה ז2 | סוהא מנצור'],
-    ['מזהה תלמיד', 'שם התלמיד'],
-    ['S006', 'אמיר חורי'],
-    ['S007', 'תאלה חנא'],
-    ['S008', 'ראמי עיסא'],
-    ['S009', 'דינה סלים'],
-    ['S010', 'סאמר עבוד'],
+  // Sheet 2: כיתה י2 ביבאר גומאנה
+  const wsY2Data = [
+    ['', '', '', '', 'כיתה י2 ביבאר גומאנה'],
+    ['מספר', 'שם פרטי (עברית)', 'שם משפחה (עברית)', 'כיתה', 'מקבילה'],
+    [1, 'אמיר', 'זיאד', 'י', 2],
+    [2, 'תאלה', 'סעד', 'י', 2],
+    [3, 'ראמי', 'סלים', 'י', 2],
+    [4, 'דינה', 'עיסא', 'י', 2],
+    [5, 'סאמר', 'עבוד', 'י', 2],
   ];
-  const wsZ2 = XLSX.utils.aoa_to_sheet(wsZ2Data);
-  XLSX.utils.book_append_sheet(wb, wsZ2, 'כיתה ז2');
+  const wsY2 = XLSX.utils.aoa_to_sheet(wsY2Data);
+  XLSX.utils.book_append_sheet(wb, wsY2, 'כיתה י2 ביבאר גומאנה');
 
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   return new Uint8Array(out);
