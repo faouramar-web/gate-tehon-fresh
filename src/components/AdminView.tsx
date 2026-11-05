@@ -289,14 +289,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       const res = await api.getSchools();
       const schoolList = Array.isArray(res?.schools) ? res.schools : [];
       setSchools(schoolList);
-      if (!selectedSchoolId || !schoolList.some((s) => s.id === selectedSchoolId)) {
-        const nextId = res?.activeSchoolId && schoolList.some((s) => s.id === res.activeSchoolId)
-          ? res.activeSchoolId
-          : schoolList[0]?.id || '';
-        setSelectedSchoolId(nextId);
+      const activeId = clientStore.getActiveSchoolId();
+      if (activeId && schoolList.some((s) => s.id === activeId)) {
+        setSelectedSchoolId(activeId);
+      } else if (schoolList.length > 0 && selectedSchoolId && schoolList.some((s) => s.id === selectedSchoolId)) {
+        // retain valid current selection
+      } else {
+        setSelectedSchoolId(schoolList[0]?.id || '');
       }
     } catch {
       setSchools([]);
+      setSelectedSchoolId('');
     }
   };
 
@@ -304,10 +307,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     loadSchools();
   }, []);
 
+  useEffect(() => {
+    const handleSync = () => {
+      const activeId = clientStore.getActiveSchoolId();
+      setSelectedSchoolId(activeId);
+    };
+    window.addEventListener('school_changed', handleSync);
+    return () => {
+      window.removeEventListener('school_changed', handleSync);
+    };
+  }, []);
+
   const handleSelectSchool = async (schoolId: string) => {
     setSelectedSchoolId(schoolId);
     try {
       await api.setActiveSchoolId(schoolId);
+      window.dispatchEvent(new Event('school_changed'));
     } catch {
       // ignore
     }
@@ -591,9 +606,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       setNewSchoolContactPin(Math.floor(3000 + Math.random() * 900).toString());
       setNewSchoolPhone('');
       setNewSchoolActivationCode(Math.floor(1000 + Math.random() * 9000).toString());
-      setNewSchoolStatus('pending');
       await loadSchools();
       setSelectedSchoolId(res.school.id);
+      try {
+        await api.setActiveSchoolId(res.school.id);
+      } catch {}
+      window.dispatchEvent(new Event('school_changed'));
       await loadStaff(true);
       await loadHistory(true);
     } catch (err: any) {
@@ -640,21 +658,36 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
 
   // Confirm import and save to server
   const handleConfirmImport = async () => {
-    if (!parseResult || importing) return;
+    const currentParse = parseResult;
+    if (!currentParse || importing) return;
+
+    let targetSchoolId = selectedSchoolId;
+    if (!targetSchoolId) {
+      if (schools.length === 1) {
+        targetSchoolId = schools[0].id;
+        setSelectedSchoolId(schools[0].id);
+      } else if (schools.length === 0) {
+        setImportError('אין כרגע בית ספר במערכת. לחץ תחילה על ״הוסף בית ספר חדש״ (למשל: רב תחומי עמל יאנוח-ג׳ת), ולאחר מכן העלה את קובץ האקסל.');
+        return;
+      } else {
+        setImportError('אנא בחר בית ספר ספציפי מהרשימה שלמעלה עבורו מיועד קובץ זה.');
+        return;
+      }
+    }
 
     setImporting(true);
     setImportError(null);
 
     try {
-      const classesTeachers = parseResult.classesSummary.map((c) => ({
+      const classesTeachers = currentParse.classesSummary.map((c) => ({
         className: c.className,
         teacherName: c.teacherName,
       }));
 
-      const res = await api.importData(parseResult.students, classesTeachers, replaceExistingDemo, selectedSchoolId);
+      const res = await api.importData(currentParse.students, classesTeachers, replaceExistingDemo, targetSchoolId);
       setImportSuccess(
         replaceExistingDemo
-          ? `המאגר הוחלף בהצלחה עבור בית הספר הנבחר! נקלטו ${res.added} תלמידים חדשים מתוך הקובץ. שאר בתי הספר נותרו ללא פגע. סה״כ בבית ספר זה: ${res.total}`
+          ? `המאגר הוחלף בהצלחה עבור בית הספר הנבחר! נקלטו ${res.added} תלמידים חדשים מתוך הקובץ. סה״כ בבית ספר זה: ${res.total}`
           : `הייבוא הושלם בהצלחה! ${res.added} תלמידים חדשים נוספו, ${res.updated} עודכנו. סה״כ בבית ספר זה: ${res.total}`
       );
       setParseResult(null);
@@ -886,10 +919,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       const res = await api.clearAllDemoData();
       setDeleteFeedback({
         type: 'success',
-        message: res.message || 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי!',
+        message: res.message || 'כל בתי הספר, התלמידים, הצוותים והאישורים אופסו בהצלחה ללוח חלק ונקי!',
       });
       setClearDemoModalOpen(false);
+      setSelectedSchoolId('');
+      setSchools([]);
       setSchoolDirectory({ classesSummary: [], totalStudents: 0, totalClasses: 0 });
+      window.dispatchEvent(new Event('school_changed'));
       await loadDirectory();
       await loadHistory(true);
       await loadStaff(true);
@@ -1017,20 +1053,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               type="button"
               onClick={() => setClearDemoModalOpen(true)}
               className="text-xs font-bold bg-rose-600/25 hover:bg-rose-600/35 active:scale-98 text-rose-200 border border-rose-500/50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-              title="מחיקת כל נתוני הדמו והאישורים ללוח חלק ונקי"
+              title="מחיקת כל הנתונים, בתי הספר והאישורים ללוח חלק ונקי"
             >
               <Trash2 className="w-3.5 h-3.5 text-rose-400 stroke-[2.2]" />
               <span>איפוס למאגר נקי</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setResetDemoModalOpen(true)}
-              disabled={resetting}
-              className="text-xs font-semibold bg-white/10 hover:bg-white/20 active:scale-98 text-slate-200 border border-white/20 px-3 py-2.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="שחזור נתוני הדמו המקוריים"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">שחזר דמו</span>
             </button>
           </div>
         </div>
@@ -1045,10 +1071,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black text-white font-['Rubik']">
-                אין כרגע בתי ספר מחוברים למערכת
+                אין כרגע בתי ספר במערכת — המאגר נקי לחלוטין!
               </h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-                מחקת את בתי הספר או שהמאגר ריק. כרטיסיות הניהול, קוד ההפעלה, סטטוס המנוי ומחיקת הכרטיסייה יופיעו אוטומטית ברגע שתרשום בית ספר חדש.
+                המאגר אופס ללוח חלק. לחץ על ״הוסף בית ספר חדש עכשיו״ כדי לקלוט את בית הספר הראשון (לדוגמה: רב תחומי עמל יאנוח-ג׳ת), להגדיר קוד הפעלה, ולקלוט את קובץ האקסל שלו.
               </p>
             </div>
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
@@ -1060,30 +1086,32 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>הוסף בית ספר חדש עכשיו</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setResetDemoModalOpen(true)}
-                className="px-4 py-2.5 rounded-2xl text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                <span>שחזר בתי ספר לדוגמה (דמו)</span>
-              </button>
             </div>
           </div>
         ) : (
           <>
             {/* Dropdown with down arrow + status */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-800/80 px-1">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-500/30">
                   <SchoolIcon className="w-4 h-4 text-teal-400" />
                 </div>
                 <div>
                   <span className="text-[11px] text-teal-300 font-bold block">בית ספר פעיל המוצג כרגע בניהול:</span>
                   <span className="text-sm sm:text-base font-extrabold text-white tracking-wide">
-                    {currentSchool?.name || 'בחר בית ספר...'}
+                    {currentSchool?.name || '🏛️ כלל בתי הספר (סקירה כוללת)'}
                   </span>
                 </div>
+                {currentSchool && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSchool('')}
+                    className="mr-2 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer flex items-center gap-1"
+                    title="יציאה מניהול בית ספר זה וחזרה לסקירת כלל בתי הספר"
+                  >
+                    <span>✕ יציאה לכלל בתי הספר</span>
+                  </button>
+                )}
               </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -1097,6 +1125,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 onChange={(e) => handleSelectSchool(e.target.value)}
                 className="appearance-none bg-slate-800 hover:bg-slate-750 text-white font-bold text-xs sm:text-sm pl-9 pr-3 py-2 rounded-xl border-2 border-teal-500/60 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/40 cursor-pointer shadow-sm transition-all"
               >
+                <option value="" className="bg-slate-900 text-teal-300 font-bold">
+                  🏛️ כלל בתי הספר (סקירה כוללת וניהול על)
+                </option>
                 {schools.map((sch) => {
                   let statusBadge = '🟢 מאושר';
                   if (sch.status === 'pending') statusBadge = '🟡 ממתין';
@@ -1125,6 +1156,19 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <button
+            type="button"
+            onClick={() => handleSelectSchool('')}
+            className={`px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 border cursor-pointer ${
+              !selectedSchoolId
+                ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-md font-black ring-2 ring-teal-300/40'
+                : 'bg-slate-800/90 text-slate-200 border-slate-700/80 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Building2 className={`w-4 h-4 ${!selectedSchoolId ? 'text-slate-950' : 'text-slate-400'}`} />
+            <span>🏛️ כלל בתי הספר</span>
+          </button>
+
           {schools.map((school) => {
             const isSelected = school.id === selectedSchoolId;
             const schStatus = school.status || (school.isSuspended ? 'suspended' : 'active');

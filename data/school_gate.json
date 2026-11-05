@@ -1,23 +1,10 @@
 {
   "settings": {
-    "schoolName": "רב תחומי עמל יאנוח-ג'ת",
-    "lastUpdated": "2026-11-05T00:00:00.000Z"
+    "schoolName": "מערכת אישור לשער",
+    "lastUpdated": "2026-11-05T12:00:00.000Z"
   },
-  "schools": [
-    {
-      "id": "school-yanuh",
-      "name": "רב תחומי עמל יאנוח-ג'ת",
-      "city": "יאנוח-ג'ת / מחוז צפון",
-      "code": "5940",
-      "activationCode": "5940",
-      "status": "active",
-      "contactPerson": "תיראן סעד",
-      "phone": "",
-      "isSuspended": false,
-      "createdAt": "2026-11-05T00:00:00.000Z"
-    }
-  ],
-  "activeSchoolId": "school-yanuh",
+  "schools": [],
+  "activeSchoolId": "",
   "staff": [
     {
       "id": "staff-admin-amar",
@@ -30,28 +17,6 @@
       ],
       "isActive": true,
       "schoolId": "*"
-    },
-    {
-      "id": "staff-vp-yanuh",
-      "staffCode": "VP01",
-      "fullName": "תיראן סעד (סגן מנהל / אחראי מערכת)",
-      "role": "vice_principal",
-      "pinCode": "5940",
-      "assignedClasses": [
-        "*"
-      ],
-      "isActive": true,
-      "schoolId": "school-yanuh"
-    },
-    {
-      "id": "staff-guard-yanuh",
-      "staffCode": "G01",
-      "fullName": "שומר שער (יאנוח-ג'ת)",
-      "role": "guard",
-      "pinCode": "2001",
-      "assignedClasses": [],
-      "isActive": true,
-      "schoolId": "school-yanuh"
     }
   ],
   "students": [],

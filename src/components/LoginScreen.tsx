@@ -33,7 +33,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   // School Activation Gate State
   const [activeSchoolName, setActiveSchoolName] = useState<string>(() => {
-    return clientStore.getActiveSchoolName() || "רב תחומי עמל יאנוח-ג'ת";
+    return clientStore.getActiveSchoolName() || '';
   });
   const [isActivated, setIsActivated] = useState<boolean>(() => {
     return typeof localStorage !== 'undefined' && !!localStorage.getItem('gate_activated_school_code');
@@ -196,8 +196,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             {/* School Activation Badge in Header */}
             <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-center gap-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white">
-                <Building2 className="w-3.5 h-3.5 text-teal-400" />
-                <span className="font-bold truncate max-w-[200px]">{activeSchoolName}</span>
+                {activeSchoolName ? (
+                  <>
+                    <Building2 className="w-3.5 h-3.5 text-teal-400" />
+                    <span className="font-bold truncate max-w-[200px]">{activeSchoolName}</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                    <span className="font-bold text-slate-200">כניסה מאובטחת באמצעות קוד אישי</span>
+                  </>
+                )}
               </div>
             </div>
           </div>

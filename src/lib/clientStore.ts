@@ -97,46 +97,13 @@ const INITIAL_STAFF: StaffMember[] = [
     isActive: true,
     schoolId: '*',
   },
-  {
-    id: 'staff-vp-yanuh',
-    staffCode: 'VP01',
-    fullName: 'תיראן סעד (סגן מנהל / אחראי שחרורים)',
-    role: 'vice_principal',
-    pinCode: '5940',
-    assignedClasses: ['*'],
-    isActive: true,
-    schoolId: 'school-yanuh',
-  },
-  {
-    id: 'staff-guard-yanuh',
-    staffCode: 'G01',
-    fullName: 'שומר שער (יאנוח-ג\'ת)',
-    role: 'guard',
-    pinCode: '2001',
-    assignedClasses: [],
-    isActive: true,
-    schoolId: 'school-yanuh',
-  },
 ];
 
 const INITIAL_STUDENTS: Student[] = [];
 
 const INITIAL_PASSES: GatePass[] = [];
 
-export const INITIAL_SCHOOLS: School[] = [
-  {
-    id: 'school-yanuh',
-    name: "רב תחומי עמל יאנוח-ג'ת",
-    city: "יאנוח-ג'ת / מחוז צפון",
-    code: '5940',
-    activationCode: '5940',
-    status: 'active',
-    contactPerson: 'תיראן סעד',
-    phone: '',
-    isSuspended: false,
-    createdAt: '2026-11-05T00:00:00.000Z',
-  },
-];
+export const INITIAL_SCHOOLS: School[] = [];
 
 // Storage keys
 const STORAGE_KEY_SCHOOLS = 'gatepass_client_schools_v3';
@@ -145,7 +112,7 @@ const STORAGE_KEY_STAFF = 'gatepass_client_staff_v2';
 const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v2';
 const STORAGE_KEY_PASSES = 'gatepass_client_passes_v2';
 const STORAGE_KEY_SESSION = 'gatepass_client_session_v2';
-const STORAGE_SEED_KEY = 'gatepass_seeded_v20';
+const STORAGE_SEED_KEY = 'gatepass_seeded_v36_clean_slate_zero_schools';
 
 // BroadcastChannel for cross-tab live synchronization on static host (GitHub Pages)
 let syncChannel: BroadcastChannel | null = null;
@@ -168,11 +135,11 @@ class ClientStorageEngine {
   constructor() {
     const isSeeded = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_SEED_KEY) === 'true';
     if (!isSeeded) {
-      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-      this.activeSchoolId = 'school-yanuh';
+      this.schools = [];
+      this.activeSchoolId = '';
       this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
-      this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
-      this.passes = JSON.parse(JSON.stringify(INITIAL_PASSES));
+      this.students = [];
+      this.passes = [];
       this.save(STORAGE_KEY_SCHOOLS, this.schools);
       this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
       this.save(STORAGE_KEY_STAFF, this.staff);
@@ -180,8 +147,8 @@ class ClientStorageEngine {
       this.save(STORAGE_KEY_PASSES, this.passes);
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_SEED_KEY, 'true');
-        localStorage.setItem('gate_activated_school_code', '5940');
-        localStorage.setItem('gate_school_name', "רב תחומי עמל יאנוח-ג'ת");
+        localStorage.removeItem('gate_activated_school_code');
+        localStorage.removeItem('gate_school_name');
       }
     } else {
       const loadedSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
@@ -196,12 +163,11 @@ class ClientStorageEngine {
               !s.name.includes('תיכון אבן סינא')
           )
         : [];
-      if (this.schools.length === 0) {
-        this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-      }
-      this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || 'school-yanuh');
-      if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
-        this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
+      this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+      if (this.schools.length > 0 && !this.schools.some((s) => s.id === this.activeSchoolId)) {
+        this.activeSchoolId = this.schools[0].id;
+      } else if (this.schools.length === 0) {
+        this.activeSchoolId = '';
       }
 
       const loadedStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
@@ -480,11 +446,12 @@ class ClientStorageEngine {
     }
 
     if (this.schools.length === 0) {
-      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-      this.activeSchoolId = 'school-yanuh';
-      changed = true;
+      if (this.activeSchoolId !== '') {
+        this.activeSchoolId = '';
+        changed = true;
+      }
     } else if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
-      this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
+      this.activeSchoolId = this.schools[0]?.id || '';
       changed = true;
     }
 
@@ -511,26 +478,16 @@ class ClientStorageEngine {
   private ensureEssentialStaff() {
     let changed = false;
 
-    // Filter out legacy demo staff
+    // Filter out legacy demo staff or staff belonging to deleted schools
+    const validSchoolIds = new Set(this.schools.map((s) => s.id));
     const prevCount = this.staff.length;
-    this.staff = this.staff.filter(
-      (s) =>
-        s &&
-        s.id !== 'staff-t01' &&
-        s.id !== 'staff-t02' &&
-        s.id !== 'staff-t03' &&
-        s.id !== 'staff-t04' &&
-        s.id !== 'staff-t05' &&
-        s.id !== 'staff-t06' &&
-        s.id !== 'staff-g01' &&
-        s.id !== 'staff-g02' &&
-        s.id !== 'staff-vp01' &&
-        !s.fullName.includes('לינא ח׳ליל') &&
-        !s.fullName.includes('סוהא מנצור') &&
-        !s.fullName.includes('אברהם כהן') &&
-        s.schoolId !== 'school-main' &&
-        s.schoolId !== 'school-ibnsina'
-    );
+    this.staff = this.staff.filter((s: StaffMember) => {
+      if (!s) return false;
+      if (s.role === 'admin' && s.pinCode === '160525') return true;
+      if (isDemoStaff(s)) return false;
+      if (s.schoolId && s.schoolId !== '*' && !validSchoolIds.has(s.schoolId)) return false;
+      return true;
+    });
     if (this.staff.length !== prevCount) {
       changed = true;
     }
@@ -552,38 +509,7 @@ class ClientStorageEngine {
     } else {
       amar.isActive = true;
       amar.schoolId = '*';
-    }
-
-    // If Yanuh-Jat is present, ensure Tiran Saad and Guard Yanuh
-    if (this.schools.some((s) => s.id === 'school-yanuh')) {
-      const tiran = this.staff.find((s) => s.schoolId === 'school-yanuh' && (s.pinCode === '5940' || s.role === 'vice_principal'));
-      if (!tiran) {
-        this.staff.push({
-          id: 'staff-vp-yanuh',
-          staffCode: 'VP01',
-          fullName: 'תיראן סעד (סגן מנהל / אחראי שחרורים)',
-          role: 'vice_principal',
-          pinCode: '5940',
-          assignedClasses: ['*'],
-          isActive: true,
-          schoolId: 'school-yanuh',
-        });
-        changed = true;
-      }
-      const guard = this.staff.find((s) => s.schoolId === 'school-yanuh' && (s.pinCode === '2001' || s.role === 'guard'));
-      if (!guard) {
-        this.staff.push({
-          id: 'staff-guard-yanuh',
-          staffCode: 'G01',
-          fullName: 'שומר שער (יאנוח-ג\'ת)',
-          role: 'guard',
-          pinCode: '2001',
-          assignedClasses: [],
-          isActive: true,
-          schoolId: 'school-yanuh',
-        });
-        changed = true;
-      }
+      amar.role = 'admin';
     }
 
     if (changed) {
@@ -812,12 +738,24 @@ class ClientStorageEngine {
     if (school?.name) return school.name;
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem('gate_school_name');
-      if (stored && !stored.includes('בית ספר מקיף') && !stored.includes('תיכון אבן סינא')) return stored;
+      if (stored && !stored.includes('בית ספר מקיף') && !stored.includes('תיכון אבן סינא')) {
+        const match = this.schools.find((s) => s.name === stored);
+        if (match) return match.name;
+      }
     }
-    return this.schools[0]?.name || "רב תחומי עמל יאנוח-ג'ת";
+    return this.schools[0]?.name || '';
   }
 
   public setActiveSchoolId(schoolId: string): { success: boolean; activeSchoolId: string; activeSchoolName: string } {
+    if (!schoolId) {
+      this.activeSchoolId = '';
+      this.save(STORAGE_KEY_ACTIVE_SCHOOL, '');
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('gate_school_name');
+      }
+      this.broadcastChange();
+      return { success: true, activeSchoolId: '', activeSchoolName: '' };
+    }
     const school = this.schools.find((s) => s.id === schoolId);
     if (!school) {
       throw new Error(`בית ספר לא נמצא במערכת: ${schoolId}`);
@@ -1836,17 +1774,30 @@ class ClientStorageEngine {
   }
 
   public async clearAllDemoData(): Promise<{ success: boolean; message: string }> {
+    this.schools = [];
+    this.activeSchoolId = '';
     this.students = [];
     this.passes = [];
-    this.staff = this.staff.filter((s) => s.pinCode === '160525' || s.pinCode === '5940' || s.pinCode === '2001');
+    this.staff = this.staff.filter((s: StaffMember) => s.role === 'admin' && s.pinCode === '160525');
     this.ensureEssentialStaff();
+    this.save(STORAGE_KEY_SCHOOLS, this.schools);
+    this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.save(STORAGE_KEY_PASSES, this.passes);
     this.save(STORAGE_KEY_STAFF, this.staff);
 
-    // Delete all students and passes from Firestore!
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('gate_school_name');
+      localStorage.removeItem('gate_activated_school_code');
+    }
+
+    // Delete all schools, students, passes, and non-admin staff from Firestore!
     try {
       if (firestoreDb) {
+        const schoolDocs = await getDocs(collection(firestoreDb, 'schools'));
+        for (const d of schoolDocs.docs) {
+          deleteDoc(d.ref).catch(() => {});
+        }
         const studentDocs = await getDocs(collection(firestoreDb, 'students'));
         for (const d of studentDocs.docs) {
           deleteDoc(d.ref).catch(() => {});
@@ -1858,7 +1809,7 @@ class ClientStorageEngine {
         const staffDocs = await getDocs(collection(firestoreDb, 'staff'));
         for (const d of staffDocs.docs) {
           const st = d.data() as StaffMember;
-          if (st && isDemoStaff(st)) {
+          if (st && (st.id !== 'staff-admin-amar' && st.pinCode !== '160525')) {
             deleteDoc(d.ref).catch(() => {});
           }
         }
@@ -1868,7 +1819,7 @@ class ClientStorageEngine {
     }
 
     this.broadcastChange();
-    return { success: true, message: 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי (כולל סילוק מלא מהענן)' };
+    return { success: true, message: 'כל בתי הספר, התלמידים, הצוותים והאישורים אופסו בהצלחה ללוח חלק ונקי לחלוטין!' };
   }
 
   public async resetDemo(): Promise<{ success: boolean; message: string }> {

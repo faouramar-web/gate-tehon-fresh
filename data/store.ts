@@ -122,24 +122,11 @@ const DB_FILE = path.resolve(DATA_DIR, 'school_gate.json');
 // Exact demo data extracted from the user's provided PDF files
 export const INITIAL_DEMO_DATA: DatabaseSchema = {
   settings: {
-    schoolName: 'רב תחומי עמל יאנוח-ג\'ת',
+    schoolName: 'מערכת אישור לשער',
     lastUpdated: new Date().toISOString(),
   },
-  schools: [
-    {
-      id: 'school-yanuh',
-      name: 'רב תחומי עמל יאנוח-ג\'ת',
-      city: 'יאנוח-ג\'ת / מחוז צפון',
-      code: '5940',
-      activationCode: '5940',
-      status: 'active',
-      contactPerson: 'תיראן סעד',
-      phone: '',
-      isSuspended: false,
-      createdAt: '2026-11-05T00:00:00.000Z',
-    },
-  ],
-  activeSchoolId: 'school-yanuh',
+  schools: [],
+  activeSchoolId: '',
   staff: [
     {
       id: 'staff-admin-amar',
@@ -151,40 +138,10 @@ export const INITIAL_DEMO_DATA: DatabaseSchema = {
       isActive: true,
       schoolId: '*',
     },
-    {
-      id: 'staff-vp-yanuh',
-      staffCode: 'VP01',
-      fullName: 'תיראן סעד (סגן מנהל / אחראי מערכת)',
-      role: 'vice_principal',
-      pinCode: '5940',
-      assignedClasses: ['*'],
-      isActive: true,
-      schoolId: 'school-yanuh',
-    },
-    {
-      id: 'staff-guard-yanuh',
-      staffCode: 'G01',
-      fullName: 'שומר שער (יאנוח-ג\'ת)',
-      role: 'guard',
-      pinCode: '2001',
-      assignedClasses: [],
-      isActive: true,
-      schoolId: 'school-yanuh',
-    },
   ],
   students: [],
   passes: [],
-  auditLogs: [
-    {
-      id: 'log-seed-1',
-      timestamp: new Date().toISOString(),
-      actionType: 'RESET_DEMO',
-      actorId: 'system',
-      actorName: 'מערכת',
-      actorRole: 'system',
-      details: 'טעינה ראשונית של נתוני כיתות, מחנכות ותלמידים',
-    },
-  ],
+  auditLogs: [],
 };
 
 class SchoolDatabase {
@@ -571,10 +528,10 @@ class SchoolDatabase {
     this.mutate((data) => {
       data.students = [];
       data.passes = [];
-      // Keep Amar Faour admin active
-      const amarExists = data.staff.some((s) => s.role === 'admin' && s.pinCode === '160525');
-      if (!amarExists) {
-        data.staff.unshift({
+      data.schools = [];
+      data.activeSchoolId = '';
+      data.staff = [
+        {
           id: 'staff-admin-amar',
           staffCode: 'ADMIN',
           fullName: 'עמאר פאעור (מנהל המערכת)',
@@ -582,17 +539,20 @@ class SchoolDatabase {
           pinCode: '160525',
           assignedClasses: ['*'],
           isActive: true,
-        });
-      }
-      data.auditLogs.push({
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        actionType: 'RESET_DEMO',
-        actorId: actor.id,
-        actorName: actor.fullName,
-        actorRole: actor.role,
-        details: 'איפוס מלא של מאגר התלמידים והאישורים ללוח נקי',
-      });
+          schoolId: '*',
+        },
+      ];
+      data.auditLogs = [
+        {
+          id: `log-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          actionType: 'RESET_DEMO',
+          actorId: actor.id,
+          actorName: actor.fullName,
+          actorRole: actor.role,
+          details: 'איפוס מלא של כל בתי הספר, התלמידים, הצוותים והאישורים ללוח חלק ונקי',
+        },
+      ];
     });
   }
 
@@ -807,23 +767,12 @@ class SchoolDatabase {
   }
 
   public getSchools(): { schools: ServerSchool[]; activeSchoolId: string } {
-    if (!this.data.schools || !Array.isArray(this.data.schools) || this.data.schools.length === 0) {
-      this.data.schools = [
-        {
-          id: 'school-yanuh',
-          name: this.data.settings?.schoolName || "רב תחומי עמל יאנוח-ג'ת",
-          city: "יאנוח-ג'ת / מחוז צפון",
-          code: '5940',
-          activationCode: '5940',
-          status: 'active',
-          contactPerson: 'תיראן סעד',
-          createdAt: new Date().toISOString(),
-        },
-      ];
+    if (!this.data.schools || !Array.isArray(this.data.schools)) {
+      this.data.schools = [];
     }
     return {
       schools: this.data.schools,
-      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || 'school-yanuh',
+      activeSchoolId: this.data.activeSchoolId || (this.data.schools.length > 0 ? this.data.schools[0].id : ''),
     };
   }
 

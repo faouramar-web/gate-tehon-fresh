@@ -24,28 +24,37 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (user?.schoolName && user.schoolName !== '*' && user.schoolName !== 'מנהל כל בתי הספר') {
       return user.schoolName;
     }
-    return clientStore.getActiveSchoolName();
+    const active = clientStore.getActiveSchoolName();
+    if (active && !active.includes('בית ספר מקיף') && !active.includes('תיכון אבן סינא')) {
+      return active;
+    }
+    return '';
   });
 
   useEffect(() => {
     const syncName = () => {
+      // Clean up legacy demo strings from localStorage
+      if (typeof localStorage !== 'undefined') {
+        const local = localStorage.getItem('gate_school_name');
+        if (local && (local.includes('בית ספר מקיף') || local.includes('תיכון אבן סינא'))) {
+          localStorage.removeItem('gate_school_name');
+        }
+      }
+
       if (user?.schoolName && user.schoolName !== '*' && user.schoolName !== 'מנהל כל בתי הספר') {
         setDisplaySchoolName(user.schoolName);
         return;
       }
       try {
         const name = clientStore.getActiveSchoolName();
-        if (name) {
+        if (name && !name.includes('בית ספר מקיף') && !name.includes('תיכון אבן סינא')) {
           setDisplaySchoolName(name);
           return;
         }
       } catch {
         // ignore
       }
-      const local = typeof localStorage !== 'undefined' ? localStorage.getItem('gate_school_name') : null;
-      if (local) {
-        setDisplaySchoolName(local);
-      }
+      setDisplaySchoolName('');
     };
 
     syncName();
@@ -58,6 +67,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       window.removeEventListener('school_changed', syncName);
     };
   }, [user]);
+
+  const handleExitSchool = () => {
+    clientStore.setActiveSchoolId('');
+    setDisplaySchoolName('');
+    window.dispatchEvent(new Event('school_changed'));
+  };
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
@@ -90,14 +105,47 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Center: Full School Name in Crisp Prominent White (as requested) */}
+        {/* Center: Dynamically reflects active school or general admin dashboard */}
         <div className="flex-1 flex items-center justify-center text-center px-2 min-w-0">
-          <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-slate-800/80 border border-slate-700/80 rounded-xl shadow-inner">
-            <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
-            <span className="text-white font-bold sm:font-extrabold text-xs sm:text-sm md:text-base font-['Rubik'] tracking-wide truncate drop-shadow">
-              {displaySchoolName && displaySchoolName !== 'בית ספר חדש (ריק)' ? displaySchoolName : 'מערכת אישור לשער'}
-            </span>
-          </div>
+          {user?.role === 'admin' ? (
+            displaySchoolName ? (
+              <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-teal-950/80 border border-teal-500/50 rounded-xl shadow-inner">
+                <Building2 className="w-4 h-4 text-teal-300 shrink-0" />
+                <span className="text-teal-200 font-extrabold text-xs sm:text-sm font-['Rubik'] tracking-wide truncate">
+                  בית ספר פעיל: {displaySchoolName}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExitSchool}
+                  className="mr-1 px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white border border-slate-700 hover:border-rose-500/50 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                  title="יציאה מבית הספר הנוכחי וחזרה לתצוגת כלל בתי הספר"
+                >
+                  <span>✕ יציאה מבית הספר</span>
+                </button>
+              </div>
+            ) : (
+              <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-slate-800/80 border border-slate-700/80 rounded-xl shadow-inner">
+                <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
+                <span className="text-slate-100 font-bold text-xs sm:text-sm font-['Rubik'] tracking-wide truncate">
+                  🏛️ פאנל ניהול על · כלל בתי הספר
+                </span>
+              </div>
+            )
+          ) : user ? (
+            <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-slate-800/80 border border-slate-700/80 rounded-xl shadow-inner">
+              <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
+              <span className="text-white font-extrabold text-xs sm:text-sm font-['Rubik'] tracking-wide truncate">
+                {user.schoolName || displaySchoolName || 'מערכת אישור לשער'}
+              </span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-slate-800/80 border border-slate-700/80 rounded-xl shadow-inner">
+              <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
+              <span className="text-white font-bold text-xs sm:text-sm font-['Rubik'] tracking-wide truncate">
+                מערכת אישור לשער
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Left Status & Quick Actions */}

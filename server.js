@@ -33,24 +33,11 @@ var DATA_DIR = path.resolve(process.cwd(), "data");
 var DB_FILE = path.resolve(DATA_DIR, "school_gate.json");
 var INITIAL_DEMO_DATA = {
   settings: {
-    schoolName: "\u05E8\u05D1 \u05EA\u05D7\u05D5\u05DE\u05D9 \u05E2\u05DE\u05DC \u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA",
+    schoolName: "\u05DE\u05E2\u05E8\u05DB\u05EA \u05D0\u05D9\u05E9\u05D5\u05E8 \u05DC\u05E9\u05E2\u05E8",
     lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
   },
-  schools: [
-    {
-      id: "school-yanuh",
-      name: "\u05E8\u05D1 \u05EA\u05D7\u05D5\u05DE\u05D9 \u05E2\u05DE\u05DC \u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA",
-      city: "\u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA / \u05DE\u05D7\u05D5\u05D6 \u05E6\u05E4\u05D5\u05DF",
-      code: "5940",
-      activationCode: "5940",
-      status: "active",
-      contactPerson: "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D3",
-      phone: "",
-      isSuspended: false,
-      createdAt: "2026-11-05T00:00:00.000Z"
-    }
-  ],
-  activeSchoolId: "school-yanuh",
+  schools: [],
+  activeSchoolId: "",
   staff: [
     {
       id: "staff-admin-amar",
@@ -61,41 +48,11 @@ var INITIAL_DEMO_DATA = {
       assignedClasses: ["*"],
       isActive: true,
       schoolId: "*"
-    },
-    {
-      id: "staff-vp-yanuh",
-      staffCode: "VP01",
-      fullName: "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D3 (\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC / \u05D0\u05D7\u05E8\u05D0\u05D9 \u05DE\u05E2\u05E8\u05DB\u05EA)",
-      role: "vice_principal",
-      pinCode: "5940",
-      assignedClasses: ["*"],
-      isActive: true,
-      schoolId: "school-yanuh"
-    },
-    {
-      id: "staff-guard-yanuh",
-      staffCode: "G01",
-      fullName: "\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8 (\u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA)",
-      role: "guard",
-      pinCode: "2001",
-      assignedClasses: [],
-      isActive: true,
-      schoolId: "school-yanuh"
     }
   ],
   students: [],
   passes: [],
-  auditLogs: [
-    {
-      id: "log-seed-1",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      actionType: "RESET_DEMO",
-      actorId: "system",
-      actorName: "\u05DE\u05E2\u05E8\u05DB\u05EA",
-      actorRole: "system",
-      details: "\u05D8\u05E2\u05D9\u05E0\u05D4 \u05E8\u05D0\u05E9\u05D5\u05E0\u05D9\u05EA \u05E9\u05DC \u05E0\u05EA\u05D5\u05E0\u05D9 \u05DB\u05D9\u05EA\u05D5\u05EA, \u05DE\u05D7\u05E0\u05DB\u05D5\u05EA \u05D5\u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD"
-    }
-  ]
+  auditLogs: []
 };
 var SchoolDatabase = class {
   constructor() {
@@ -401,27 +358,31 @@ var SchoolDatabase = class {
     this.mutate((data) => {
       data.students = [];
       data.passes = [];
-      const amarExists = data.staff.some((s) => s.role === "admin" && s.pinCode === "160525");
-      if (!amarExists) {
-        data.staff.unshift({
+      data.schools = [];
+      data.activeSchoolId = "";
+      data.staff = [
+        {
           id: "staff-admin-amar",
           staffCode: "ADMIN",
           fullName: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8 (\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA)",
           role: "admin",
           pinCode: "160525",
           assignedClasses: ["*"],
-          isActive: true
-        });
-      }
-      data.auditLogs.push({
-        id: `log-${Date.now()}`,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        actionType: "RESET_DEMO",
-        actorId: actor.id,
-        actorName: actor.fullName,
-        actorRole: actor.role,
-        details: "\u05D0\u05D9\u05E4\u05D5\u05E1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05DE\u05D0\u05D2\u05E8 \u05D4\u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD \u05D5\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8\u05D9\u05DD \u05DC\u05DC\u05D5\u05D7 \u05E0\u05E7\u05D9"
-      });
+          isActive: true,
+          schoolId: "*"
+        }
+      ];
+      data.auditLogs = [
+        {
+          id: `log-${Date.now()}`,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+          actionType: "RESET_DEMO",
+          actorId: actor.id,
+          actorName: actor.fullName,
+          actorRole: actor.role,
+          details: "\u05D0\u05D9\u05E4\u05D5\u05E1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05DB\u05DC \u05D1\u05EA\u05D9 \u05D4\u05E1\u05E4\u05E8, \u05D4\u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD, \u05D4\u05E6\u05D5\u05D5\u05EA\u05D9\u05DD \u05D5\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8\u05D9\u05DD \u05DC\u05DC\u05D5\u05D7 \u05D7\u05DC\u05E7 \u05D5\u05E0\u05E7\u05D9"
+        }
+      ];
     });
   }
   importStudentsData(newStudents, classesTeachers, actor, replaceExisting) {
@@ -603,23 +564,12 @@ var SchoolDatabase = class {
     });
   }
   getSchools() {
-    if (!this.data.schools || !Array.isArray(this.data.schools) || this.data.schools.length === 0) {
-      this.data.schools = [
-        {
-          id: "school-yanuh",
-          name: this.data.settings?.schoolName || "\u05E8\u05D1 \u05EA\u05D7\u05D5\u05DE\u05D9 \u05E2\u05DE\u05DC \u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA",
-          city: "\u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA / \u05DE\u05D7\u05D5\u05D6 \u05E6\u05E4\u05D5\u05DF",
-          code: "5940",
-          activationCode: "5940",
-          status: "active",
-          contactPerson: "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D3",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString()
-        }
-      ];
+    if (!this.data.schools || !Array.isArray(this.data.schools)) {
+      this.data.schools = [];
     }
     return {
       schools: this.data.schools,
-      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || "school-yanuh"
+      activeSchoolId: this.data.activeSchoolId || (this.data.schools.length > 0 ? this.data.schools[0].id : "")
     };
   }
   setActiveSchoolId(id) {
