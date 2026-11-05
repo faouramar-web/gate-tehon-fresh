@@ -1438,6 +1438,51 @@ class ClientStorageEngine {
     return { success: true, added, updated, total: schoolTotal };
   }
 
+  public getSchoolDirectory(targetSchoolId?: string): {
+    classesSummary: Array<{
+      className: string;
+      teacherName: string;
+      count: number;
+      students: Student[];
+    }>;
+    totalStudents: number;
+    totalClasses: number;
+  } {
+    const schoolId = targetSchoolId || this.activeSchoolId || 'school-main';
+    const schoolStudents = this.students.filter((s) => (s.schoolId || 'school-main') === schoolId);
+
+    // Group by class
+    const classMap = new Map<string, { className: string; teacherName: string; count: number; students: Student[] }>();
+
+    for (const st of schoolStudents) {
+      const cls = st.className || 'ללא כיתה';
+      if (!classMap.has(cls)) {
+        const teacherStaff = this.staff.find(
+          (m) => (m.schoolId || 'school-main') === schoolId && m.assignedClasses?.includes(cls)
+        );
+        classMap.set(cls, {
+          className: cls,
+          teacherName: st.teacherName || teacherStaff?.fullName || '',
+          count: 0,
+          students: [],
+        });
+      }
+      const entry = classMap.get(cls)!;
+      entry.count++;
+      entry.students.push(st);
+      if (!entry.teacherName && st.teacherName) {
+        entry.teacherName = st.teacherName;
+      }
+    }
+
+    const classesSummary = Array.from(classMap.values()).sort((a, b) => a.className.localeCompare(b.className, 'he'));
+    return {
+      classesSummary,
+      totalStudents: schoolStudents.length,
+      totalClasses: classesSummary.length,
+    };
+  }
+
   public clearAllDemoData(): { success: boolean; message: string } {
     this.students = [];
     this.passes = [];

@@ -311,6 +311,19 @@ export const api = {
     }
   },
 
+  async getSchoolDirectory(targetSchoolId?: string): Promise<{
+    classesSummary: Array<{
+      className: string;
+      teacherName: string;
+      count: number;
+      students: any[];
+    }>;
+    totalStudents: number;
+    totalClasses: number;
+  }> {
+    return clientStore.getSchoolDirectory(targetSchoolId);
+  },
+
   async clearAllDemoData(): Promise<{ success: boolean; message: string }> {
     if (isStaticHost) {
       return clientStore.clearAllDemoData();

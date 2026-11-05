@@ -164,6 +164,29 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // School Directory state (Amar Faour)
+  const [schoolDirectory, setSchoolDirectory] = useState<{
+    classesSummary: Array<{
+      className: string;
+      teacherName: string;
+      count: number;
+      students: any[];
+    }>;
+    totalStudents: number;
+    totalClasses: number;
+  } | null>(null);
+  const [selectedDirClass, setSelectedDirClass] = useState<string>('all');
+  const [dirSearchQuery, setDirSearchQuery] = useState<string>('');
+
+  const loadDirectory = async () => {
+    try {
+      const dir = await api.getSchoolDirectory(selectedSchoolId);
+      setSchoolDirectory(dir);
+    } catch {
+      // ignore
+    }
+  };
+
   // Homeroom & Authorizer helpers
   const getHomeroomTeacher = (className: string, fallback?: string) => {
     if (fallback) return fallback;
@@ -338,6 +361,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     if (activeTab === 'history') loadHistory(false);
     if (activeTab === 'staff') loadStaff(false);
     if (activeTab === 'audit') loadAudit(false);
+    loadDirectory();
   }, [activeTab, historyFromDate, historyToDate, historyClass, selectedSchoolId, syncTick]);
 
   // Multi-School Management handlers (Amar Faour)
@@ -622,6 +646,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       if (fileInputRef.current) fileInputRef.current.value = '';
       await loadStaff(true);
       await loadHistory(true);
+      await loadDirectory();
     } catch (err: any) {
       setImportError(err.message || 'שגיאה בשמירת הנתונים בשרת');
     } finally {
@@ -2138,6 +2163,164 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               </div>
             </div>
           )}
+
+          {/* ================= LIVE SCHOOL DIRECTORY / VERIFICATION ================= */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 font-['Rubik'] flex items-center gap-2">
+                    <Users className="w-5 h-5 text-teal-600" />
+                    <span>מאגר התלמידים והכיתות הפעילים בבית הספר</span>
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  בית ספר מוצג: <strong className="text-slate-800">{currentSchool?.name || 'בית ספר'}</strong> · כאן תוכל לוודא ולחפש כל תלמיד וכיתה שנקלטו במערכת
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 px-3 py-1.5 rounded-xl">
+                  סה״כ: {schoolDirectory?.totalStudents || 0} תלמידים
+                </span>
+                <span className="text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200 px-3 py-1.5 rounded-xl">
+                  {schoolDirectory?.totalClasses || 0} כיתות
+                </span>
+                <button
+                  type="button"
+                  onClick={() => loadDirectory()}
+                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="רענן מאגר תלמידים"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {(!schoolDirectory || schoolDirectory.totalStudents === 0) ? (
+              <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div className="text-sm font-bold text-slate-700">טרם נקלטו תלמידים בבית ספר זה</div>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  העלה את קובץ האקסל של בית הספר בתיבה למעלה כדי לקלוט את כל התלמידים והכיתות בבת אחת.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Class Filters & Search */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  {/* Class Filter Chips */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDirClass('all')}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                        selectedDirClass === 'all'
+                          ? 'bg-teal-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      כל הכיתות ({schoolDirectory.totalStudents})
+                    </button>
+                    {schoolDirectory.classesSummary.map((cls) => (
+                      <button
+                        key={cls.className}
+                        type="button"
+                        onClick={() => setSelectedDirClass(cls.className)}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                          selectedDirClass === cls.className
+                            ? 'bg-teal-600 text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        כיתה {cls.className} ({cls.count})
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative min-w-[200px] sm:min-w-[240px]">
+                    <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={dirSearchQuery}
+                      onChange={(e) => setDirSearchQuery(e.target.value)}
+                      placeholder="חיפוש תלמיד או מחנכת..."
+                      className="w-full pl-3 pr-9 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-teal-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Students Table */}
+                {(() => {
+                  let filteredList: any[] = [];
+                  if (selectedDirClass === 'all') {
+                    filteredList = schoolDirectory.classesSummary.flatMap((c) => c.students);
+                  } else {
+                    const match = schoolDirectory.classesSummary.find((c) => c.className === selectedDirClass);
+                    filteredList = match ? match.students : [];
+                  }
+
+                  if (dirSearchQuery.trim()) {
+                    const q = dirSearchQuery.trim().toLowerCase();
+                    filteredList = filteredList.filter(
+                      (s) =>
+                        (s.fullName || '').toLowerCase().includes(q) ||
+                        (s.studentCode || '').toLowerCase().includes(q) ||
+                        (s.className || '').toLowerCase().includes(q) ||
+                        (s.teacherName || '').toLowerCase().includes(q)
+                    );
+                  }
+
+                  if (filteredList.length === 0) {
+                    return (
+                      <div className="text-center py-6 text-xs text-slate-500 bg-slate-50 rounded-xl">
+                        לא נמצאו תלמידים התואמים את החיפוש.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-2xl">
+                      <table className="w-full text-right text-xs">
+                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 shadow-2xs">
+                          <tr>
+                            <th className="p-2.5">מספר / קוד</th>
+                            <th className="p-2.5">שם התלמיד</th>
+                            <th className="p-2.5">כיתה</th>
+                            <th className="p-2.5">מחנך/ת</th>
+                            <th className="p-2.5">סטטוס במערכת</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredList.map((st, i) => (
+                            <tr key={st.id || i} className="hover:bg-teal-50/40 transition-colors">
+                              <td className="p-2.5 font-mono text-slate-600 font-semibold">{st.studentCode || `${i + 1}`}</td>
+                              <td className="p-2.5 font-bold text-slate-900">{st.fullName}</td>
+                              <td className="p-2.5">
+                                <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md font-semibold">
+                                  {st.className}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-slate-600">{st.teacherName || '-'}</td>
+                              <td className="p-2.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  <span>פעיל במאגר</span>
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
