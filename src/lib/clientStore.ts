@@ -42,153 +42,46 @@ const INITIAL_STAFF: StaffMember[] = [
     pinCode: '160525',
     assignedClasses: ['*'],
     isActive: true,
+    schoolId: '*',
   },
   {
-    id: 'staff-vp01',
+    id: 'staff-vp-yanuh',
     staffCode: 'VP01',
-    fullName: 'סגן מנהל (אחראי שחרורים)',
+    fullName: 'תיראן סעד (סגן מנהל / אחראי שחרורים)',
     role: 'vice_principal',
-    pinCode: '3001',
+    pinCode: '5940',
     assignedClasses: ['*'],
     isActive: true,
+    schoolId: 'school-yanuh',
   },
   {
-    id: 'staff-t01',
-    staffCode: 'T01',
-    fullName: 'לינא ח׳ליל',
-    role: 'teacher',
-    pinCode: '1001',
-    assignedClasses: ['ז1'],
-    isActive: true,
-  },
-  {
-    id: 'staff-t02',
-    staffCode: 'T02',
-    fullName: 'סוהא מנצור',
-    role: 'teacher',
-    pinCode: '1002',
-    assignedClasses: ['ז2'],
-    isActive: true,
-  },
-  {
-    id: 'staff-t03',
-    staffCode: 'T03',
-    fullName: 'דלאל חביב',
-    role: 'teacher',
-    pinCode: '1003',
-    assignedClasses: ['ח1'],
-    isActive: true,
-  },
-  {
-    id: 'staff-t04',
-    staffCode: 'T04',
-    fullName: 'נאדיה סרחאן',
-    role: 'teacher',
-    pinCode: '1004',
-    assignedClasses: ['ח2'],
-    isActive: true,
-  },
-  {
-    id: 'staff-t05',
-    staffCode: 'T05',
-    fullName: 'רימא ג׳אבר',
-    role: 'teacher',
-    pinCode: '1005',
-    assignedClasses: ['ט1'],
-    isActive: true,
-  },
-  {
-    id: 'staff-t06',
-    staffCode: 'T06',
-    fullName: 'מוחמד עלי (מורה מקצועי)',
-    role: 'teacher',
-    pinCode: '1010',
-    assignedClasses: ['*'],
-    isActive: true,
-  },
-  {
-    id: 'staff-g01',
+    id: 'staff-guard-yanuh',
     staffCode: 'G01',
-    fullName: 'אברהם כהן (שומר שער)',
+    fullName: 'שומר שער (יאנוח-ג\'ת)',
     role: 'guard',
     pinCode: '2001',
     assignedClasses: [],
     isActive: true,
-  },
-  {
-    id: 'staff-g02',
-    staffCode: 'G02',
-    fullName: 'יוסי לוי (שומר מחליף)',
-    role: 'guard',
-    pinCode: '2002',
-    assignedClasses: [],
-    isActive: true,
+    schoolId: 'school-yanuh',
   },
 ];
 
-const INITIAL_STUDENTS: Student[] = [
-  // כיתה ז1 | לינא ח׳ליל
-  { id: 's-001', studentCode: 'S001', fullName: 'אדם נאסר', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-  { id: 's-002', studentCode: 'S002', fullName: 'מרים סאלח', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-  { id: 's-003', studentCode: 'S003', fullName: 'יוסף חמדאן', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-  { id: 's-004', studentCode: 'S004', fullName: 'נור עבדאללה', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-  { id: 's-005', studentCode: 'S005', fullName: 'ליאן סעיד', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-
-  // כיתה ז2 | סוהא מנצור
-  { id: 's-006', studentCode: 'S006', fullName: 'אמיר חורי', className: 'ז2', teacherName: 'סוהא מנצור' },
-  { id: 's-007', studentCode: 'S007', fullName: 'תאלה חנא', className: 'ז2', teacherName: 'סוהא מנצור' },
-  { id: 's-008', studentCode: 'S008', fullName: 'ראמי עיסא', className: 'ז2', teacherName: 'סוהא מנצור' },
-  { id: 's-009', studentCode: 'S009', fullName: 'דינה סלים', className: 'ז2', teacherName: 'סוהא מנצור' },
-  { id: 's-010', studentCode: 'S010', fullName: 'סאמר עבוד', className: 'ז2', teacherName: 'סוהא מנצור' },
-
-  // כיתה ח1 | דלאל חביב
-  { id: 's-011', studentCode: 'S011', fullName: 'רים זידאן', className: 'ח1', teacherName: 'דלאל חביב' },
-  { id: 's-012', studentCode: 'S012', fullName: 'איאד חלבי', className: 'ח1', teacherName: 'דלאל חביב' },
-  { id: 's-013', studentCode: 'S013', fullName: 'סלמא עזאם', className: 'ח1', teacherName: 'דלאל חביב' },
-  { id: 's-014', studentCode: 'S014', fullName: 'נדים שאהין', className: 'ח1', teacherName: 'דלאל חביב' },
-  { id: 's-015', studentCode: 'S015', fullName: 'מאיה יעקוב', className: 'ח1', teacherName: 'דלאל חביב' },
-
-  // כיתה ח2 | נאדיה סרחאן
-  { id: 's-016', studentCode: 'S016', fullName: 'האני ח׳טיב', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-  { id: 's-017', studentCode: 'S017', fullName: 'ליאן חסן', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-  { id: 's-018', studentCode: 'S018', fullName: 'אמל דאהר', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-  { id: 's-019', studentCode: 'S019', fullName: 'כרים עלי', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-  { id: 's-020', studentCode: 'S020', fullName: 'נור פארס', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-
-  // כיתה ט1 | רימא ג׳אבר
-  { id: 's-021', studentCode: 'S021', fullName: 'לין סעד', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-  { id: 's-022', studentCode: 'S022', fullName: 'מאלכ איברהים', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-  { id: 's-023', studentCode: 'S023', fullName: 'ג׳נא עודה', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-  { id: 's-024', studentCode: 'S024', fullName: 'אדם מנסור', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-  { id: 's-025', studentCode: 'S025', fullName: 'סוהיל סלאמה', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-];
+const INITIAL_STUDENTS: Student[] = [];
 
 const INITIAL_PASSES: GatePass[] = [];
 
 export const INITIAL_SCHOOLS: School[] = [
   {
-    id: 'school-main',
-    name: 'בית ספר מקיף (סניף ראשי)',
-    city: 'ראמה / מחוז צפון',
-    code: 'SCH-01',
-    activationCode: '1001',
+    id: 'school-yanuh',
+    name: "רב תחומי עמל יאנוח-ג'ת",
+    city: "יאנוח-ג'ת / מחוז צפון",
+    code: '5940',
+    activationCode: '5940',
     status: 'active',
-    contactPerson: 'עמאר פאעור',
-    phone: '050-1234567',
+    contactPerson: 'תיראן סעד',
+    phone: '',
     isSuspended: false,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'school-ibnsina',
-    name: 'תיכון אבן סינא',
-    city: 'נצרת / צפון',
-    code: 'SCH-02',
-    activationCode: '2026',
-    status: 'active',
-    contactPerson: 'סגן מנהל אחראי',
-    phone: '052-7654321',
-    isSuspended: false,
-    createdAt: '2026-02-01T00:00:00.000Z',
+    createdAt: '2026-11-05T00:00:00.000Z',
   },
 ];
 
@@ -199,6 +92,7 @@ const STORAGE_KEY_STAFF = 'gatepass_client_staff_v2';
 const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v2';
 const STORAGE_KEY_PASSES = 'gatepass_client_passes_v2';
 const STORAGE_KEY_SESSION = 'gatepass_client_session_v2';
+const STORAGE_SEED_KEY = 'gatepass_seeded_v12';
 
 // BroadcastChannel for cross-tab live synchronization on static host (GitHub Pages)
 let syncChannel: BroadcastChannel | null = null;
@@ -219,10 +113,10 @@ class ClientStorageEngine {
   private listeners: Array<() => void> = [];
 
   constructor() {
-    const isSeeded = typeof localStorage !== 'undefined' && localStorage.getItem('gatepass_seeded_v5') === 'true';
+    const isSeeded = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_SEED_KEY) === 'true';
     if (!isSeeded) {
       this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-      this.activeSchoolId = this.schools[0]?.id || 'school-main';
+      this.activeSchoolId = 'school-yanuh';
       this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
       this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
       this.passes = JSON.parse(JSON.stringify(INITIAL_PASSES));
@@ -232,16 +126,63 @@ class ClientStorageEngine {
       this.save(STORAGE_KEY_STUDENTS, this.students);
       this.save(STORAGE_KEY_PASSES, this.passes);
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('gatepass_seeded_v5', 'true');
+        localStorage.setItem(STORAGE_SEED_KEY, 'true');
+        localStorage.setItem('gate_activated_school_code', '5940');
+        localStorage.setItem('gate_school_name', "רב תחומי עמל יאנוח-ג'ת");
       }
     } else {
       const loadedSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
-      this.schools = Array.isArray(loadedSchools) ? loadedSchools.filter((s) => s && s.name !== 'בית ספר חדש (ריק)') : [];
-      this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+      this.schools = Array.isArray(loadedSchools)
+        ? loadedSchools.filter(
+            (s) =>
+              s &&
+              s.id !== 'school-main' &&
+              s.id !== 'school-ibnsina' &&
+              s.name !== 'בית ספר חדש (ריק)' &&
+              !s.name.includes('בית ספר מקיף (סניף ראשי)') &&
+              !s.name.includes('תיכון אבן סינא')
+          )
+        : [];
+      if (this.schools.length === 0) {
+        this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+      }
+      this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || 'school-yanuh');
+      if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
+        this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
+      }
+
       const loadedStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
-      this.staff = Array.isArray(loadedStaff) ? loadedStaff : JSON.parse(JSON.stringify(INITIAL_STAFF));
+      this.staff = (Array.isArray(loadedStaff) ? loadedStaff : JSON.parse(JSON.stringify(INITIAL_STAFF))).filter(
+        (s: StaffMember) =>
+          s &&
+          s.id !== 'staff-t01' &&
+          s.id !== 'staff-t02' &&
+          s.id !== 'staff-t03' &&
+          s.id !== 'staff-t04' &&
+          s.id !== 'staff-t05' &&
+          s.id !== 'staff-t06' &&
+          s.id !== 'staff-g01' &&
+          s.id !== 'staff-g02' &&
+          s.id !== 'staff-vp01' &&
+          !s.fullName.includes('לינא ח׳ליל') &&
+          !s.fullName.includes('סוהא מנצור') &&
+          !s.fullName.includes('אברהם כהן') &&
+          s.schoolId !== 'school-main' &&
+          s.schoolId !== 'school-ibnsina'
+      );
+
       const loadedStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
-      this.students = Array.isArray(loadedStudents) ? loadedStudents : [];
+      this.students = (Array.isArray(loadedStudents) ? loadedStudents : []).filter(
+        (st) =>
+          st &&
+          st.id !== 's-001' &&
+          st.id !== 's-002' &&
+          st.fullName !== 'מרים סאלח' &&
+          st.fullName !== 'אדם נאסר' &&
+          st.schoolId !== 'school-main' &&
+          st.schoolId !== 'school-ibnsina'
+      );
+
       const loadedPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
       this.passes = (Array.isArray(loadedPasses) ? loadedPasses : []).filter(
         (p) =>
@@ -250,7 +191,9 @@ class ClientStorageEngine {
           p.id !== 'pass-hist-01' &&
           p.id !== 'pass-hist-2' &&
           p.id !== 'pass-hist-02' &&
-          p.studentName !== 'מרים סאלח'
+          p.studentName !== 'מרים סאלח' &&
+          p.schoolId !== 'school-main' &&
+          p.schoolId !== 'school-ibnsina'
       );
     }
     this.ensureSchoolIntegrity();
@@ -294,16 +237,34 @@ class ClientStorageEngine {
               const remoteSchools: School[] = [];
               snapshot.forEach((docSnap) => {
                 const s = docSnap.data() as School;
-                if (s && s.id && s.name && s.name !== 'בית ספר חדש (ריק)') {
-                  remoteSchools.push(s);
+                if (!s || !s.id) return;
+                // Actively purge demo schools from Firestore
+                if (
+                  s.id === 'school-main' ||
+                  s.id === 'school-ibnsina' ||
+                  s.name === 'בית ספר חדש (ריק)' ||
+                  s.name.includes('בית ספר מקיף (סניף ראשי)') ||
+                  s.name.includes('תיכון אבן סינא')
+                ) {
+                  deleteDoc(doc(firestoreDb, 'schools', s.id)).catch(() => {});
+                  return;
                 }
+                remoteSchools.push(s);
               });
               if (remoteSchools.length > 0) {
                 const map = new Map(this.schools.map((s) => [s.id, s]));
                 for (const rs of remoteSchools) {
                   map.set(rs.id, rs);
                 }
-                this.schools = Array.from(map.values()).filter((s) => s.name !== 'בית ספר חדש (ריק)');
+                this.schools = Array.from(map.values()).filter(
+                  (s) =>
+                    s &&
+                    s.id !== 'school-main' &&
+                    s.id !== 'school-ibnsina' &&
+                    s.name !== 'בית ספר חדש (ריק)' &&
+                    !s.name.includes('בית ספר מקיף (סניף ראשי)') &&
+                    !s.name.includes('תיכון אבן סינא')
+                );
                 this.ensureSchoolIntegrity();
                 this.save(STORAGE_KEY_SCHOOLS, this.schools);
                 this.notify();
@@ -322,7 +283,22 @@ class ClientStorageEngine {
               const remoteStaff: StaffMember[] = [];
               snapshot.forEach((docSnap) => {
                 const st = docSnap.data() as StaffMember;
-                if (st && st.id) remoteStaff.push(st);
+                if (!st || !st.id) return;
+                // Actively purge demo staff from Firestore
+                if (
+                  st.id.startsWith('staff-t0') ||
+                  st.id === 'staff-g01' ||
+                  st.id === 'staff-g02' ||
+                  st.id === 'staff-vp01' ||
+                  st.fullName.includes('לינא ח׳ליל') ||
+                  st.fullName.includes('סוהא מנצור') ||
+                  st.schoolId === 'school-main' ||
+                  st.schoolId === 'school-ibnsina'
+                ) {
+                  deleteDoc(doc(firestoreDb, 'staff', st.id)).catch(() => {});
+                  return;
+                }
+                remoteStaff.push(st);
               });
               if (remoteStaff.length > 0) {
                 const map = new Map(this.staff.map((s) => [s.id, s]));
@@ -348,14 +324,31 @@ class ClientStorageEngine {
               const remoteStudents: Student[] = [];
               snapshot.forEach((docSnap) => {
                 const stud = docSnap.data() as Student;
-                if (stud && stud.id) remoteStudents.push(stud);
+                if (!stud || !stud.id) return;
+                // Actively purge demo students from Firestore
+                if (
+                  stud.fullName === 'מרים סאלח' ||
+                  stud.fullName === 'אדם נאסר' ||
+                  stud.schoolId === 'school-main' ||
+                  stud.schoolId === 'school-ibnsina'
+                ) {
+                  deleteDoc(doc(firestoreDb, 'students', stud.id)).catch(() => {});
+                  return;
+                }
+                remoteStudents.push(stud);
               });
               if (remoteStudents.length > 0) {
                 const map = new Map(this.students.map((s) => [s.id, s]));
                 for (const rstud of remoteStudents) {
                   map.set(rstud.id, rstud);
                 }
-                this.students = Array.from(map.values());
+                this.students = Array.from(map.values()).filter(
+                  (st) =>
+                    st &&
+                    st.fullName !== 'מרים סאלח' &&
+                    st.schoolId !== 'school-main' &&
+                    st.schoolId !== 'school-ibnsina'
+                );
                 this.save(STORAGE_KEY_STUDENTS, this.students);
                 this.notify();
               }
@@ -374,16 +367,35 @@ class ClientStorageEngine {
               const remotePasses: GatePass[] = [];
               snapshot.forEach((docSnap) => {
                 const data = docSnap.data() as GatePass;
-                if (data && data.id) remotePasses.push(data);
+                if (!data || !data.id) return;
+                if (
+                  data.id === 'pass-hist-1' ||
+                  data.id === 'pass-hist-01' ||
+                  data.id === 'pass-hist-2' ||
+                  data.id === 'pass-hist-02' ||
+                  data.studentName === 'מרים סאלח' ||
+                  data.schoolId === 'school-main' ||
+                  data.schoolId === 'school-ibnsina'
+                ) {
+                  deleteDoc(doc(firestoreDb, 'gatepasses', data.id)).catch(() => {});
+                  return;
+                }
+                remotePasses.push(data);
               });
               if (remotePasses.length > 0) {
                 const existingMap = new Map(this.passes.map((p) => [p.id, p]));
                 for (const rp of remotePasses) {
                   existingMap.set(rp.id, rp);
                 }
-                this.passes = Array.from(existingMap.values()).sort((a, b) =>
-                  b.createdAt.localeCompare(a.createdAt)
-                );
+                this.passes = Array.from(existingMap.values())
+                  .filter(
+                    (p) =>
+                      p &&
+                      p.studentName !== 'מרים סאלח' &&
+                      p.schoolId !== 'school-main' &&
+                      p.schoolId !== 'school-ibnsina'
+                  )
+                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
                 this.save(STORAGE_KEY_PASSES, this.passes);
                 this.notify();
               }
@@ -421,12 +433,55 @@ class ClientStorageEngine {
 
   private reloadFromStorage() {
     const rawSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
-    this.schools = Array.isArray(rawSchools) ? rawSchools.filter((s) => s && s.name !== 'בית ספר חדש (ריק)') : [];
-    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+    this.schools = Array.isArray(rawSchools)
+      ? rawSchools.filter(
+          (s) =>
+            s &&
+            s.id !== 'school-main' &&
+            s.id !== 'school-ibnsina' &&
+            s.name !== 'בית ספר חדש (ריק)' &&
+            !s.name.includes('בית ספר מקיף (סניף ראשי)') &&
+            !s.name.includes('תיכון אבן סינא')
+        )
+      : [];
+    if (this.schools.length === 0) {
+      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+    }
+    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || 'school-yanuh');
+    if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
+      this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
+    }
+
     const rawStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
-    this.staff = Array.isArray(rawStaff) ? rawStaff : JSON.parse(JSON.stringify(INITIAL_STAFF));
+    this.staff = (Array.isArray(rawStaff) ? rawStaff : JSON.parse(JSON.stringify(INITIAL_STAFF))).filter(
+      (s: StaffMember) =>
+        s &&
+        s.id !== 'staff-t01' &&
+        s.id !== 'staff-t02' &&
+        s.id !== 'staff-t03' &&
+        s.id !== 'staff-t04' &&
+        s.id !== 'staff-t05' &&
+        s.id !== 'staff-t06' &&
+        s.id !== 'staff-g01' &&
+        s.id !== 'staff-g02' &&
+        s.id !== 'staff-vp01' &&
+        !s.fullName.includes('לינא ח׳ליל') &&
+        !s.fullName.includes('סוהא מנצור') &&
+        !s.fullName.includes('אברהם כהן') &&
+        s.schoolId !== 'school-main' &&
+        s.schoolId !== 'school-ibnsina'
+    );
+
     const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
-    this.students = Array.isArray(rawStudents) ? rawStudents : [];
+    this.students = (Array.isArray(rawStudents) ? rawStudents : []).filter(
+      (st) =>
+        st &&
+        st.fullName !== 'מרים סאלח' &&
+        st.fullName !== 'אדם נאסר' &&
+        st.schoolId !== 'school-main' &&
+        st.schoolId !== 'school-ibnsina'
+    );
+
     const rawPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
     this.passes = (Array.isArray(rawPasses) ? rawPasses : []).filter(
       (p) =>
@@ -435,7 +490,9 @@ class ClientStorageEngine {
         p.id !== 'pass-hist-01' &&
         p.id !== 'pass-hist-2' &&
         p.id !== 'pass-hist-02' &&
-        p.studentName !== 'מרים סאלח'
+        p.studentName !== 'מרים סאלח' &&
+        p.schoolId !== 'school-main' &&
+        p.schoolId !== 'school-ibnsina'
     );
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
@@ -444,28 +501,27 @@ class ClientStorageEngine {
   private ensureSchoolIntegrity() {
     let changed = false;
 
-    // Filter out any dummy placeholder
+    // Filter out any dummy placeholder or old demo schools
     const prevCount = this.schools.length;
-    this.schools = this.schools.filter((s) => s.name !== 'בית ספר חדש (ריק)');
+    this.schools = this.schools.filter(
+      (s) =>
+        s &&
+        s.id !== 'school-main' &&
+        s.id !== 'school-ibnsina' &&
+        s.name !== 'בית ספר חדש (ריק)' &&
+        !s.name.includes('בית ספר מקיף (סניף ראשי)') &&
+        !s.name.includes('תיכון אבן סינא')
+    );
     if (this.schools.length !== prevCount) {
       changed = true;
     }
 
     if (this.schools.length === 0) {
-      if (this.activeSchoolId !== '') {
-        this.activeSchoolId = '';
-        changed = true;
-      }
-      if (changed) {
-        this.save(STORAGE_KEY_SCHOOLS, this.schools);
-        this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
-      }
-      return;
-    }
-
-    const defaultSchoolId = this.schools[0]?.id || '';
-    if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
-      this.activeSchoolId = defaultSchoolId;
+      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+      this.activeSchoolId = 'school-yanuh';
+      changed = true;
+    } else if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
+      this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
       changed = true;
     }
 
@@ -491,18 +547,31 @@ class ClientStorageEngine {
 
   private ensureEssentialStaff() {
     let changed = false;
-    for (const initStaff of INITIAL_STAFF) {
-      const exists = this.staff.some(
-        (s) => s.pinCode === initStaff.pinCode || s.id === initStaff.id
-      );
-      if (!exists) {
-        this.staff.push({
-          ...initStaff,
-          schoolId: initStaff.role === 'admin' ? '*' : 'school-main',
-        });
-        changed = true;
-      }
+
+    // Filter out legacy demo staff
+    const prevCount = this.staff.length;
+    this.staff = this.staff.filter(
+      (s) =>
+        s &&
+        s.id !== 'staff-t01' &&
+        s.id !== 'staff-t02' &&
+        s.id !== 'staff-t03' &&
+        s.id !== 'staff-t04' &&
+        s.id !== 'staff-t05' &&
+        s.id !== 'staff-t06' &&
+        s.id !== 'staff-g01' &&
+        s.id !== 'staff-g02' &&
+        s.id !== 'staff-vp01' &&
+        !s.fullName.includes('לינא ח׳ליל') &&
+        !s.fullName.includes('סוהא מנצור') &&
+        !s.fullName.includes('אברהם כהן') &&
+        s.schoolId !== 'school-main' &&
+        s.schoolId !== 'school-ibnsina'
+    );
+    if (this.staff.length !== prevCount) {
+      changed = true;
     }
+
     // Double check Amar Faour is active and has pin 160525
     const amar = this.staff.find((s) => s.pinCode === '160525');
     if (!amar) {
@@ -520,6 +589,38 @@ class ClientStorageEngine {
     } else {
       amar.isActive = true;
       amar.schoolId = '*';
+    }
+
+    // If Yanuh-Jat is present, ensure Tiran Saad and Guard Yanuh
+    if (this.schools.some((s) => s.id === 'school-yanuh')) {
+      const tiran = this.staff.find((s) => s.schoolId === 'school-yanuh' && (s.pinCode === '5940' || s.role === 'vice_principal'));
+      if (!tiran) {
+        this.staff.push({
+          id: 'staff-vp-yanuh',
+          staffCode: 'VP01',
+          fullName: 'תיראן סעד (סגן מנהל / אחראי שחרורים)',
+          role: 'vice_principal',
+          pinCode: '5940',
+          assignedClasses: ['*'],
+          isActive: true,
+          schoolId: 'school-yanuh',
+        });
+        changed = true;
+      }
+      const guard = this.staff.find((s) => s.schoolId === 'school-yanuh' && (s.pinCode === '2001' || s.role === 'guard'));
+      if (!guard) {
+        this.staff.push({
+          id: 'staff-guard-yanuh',
+          staffCode: 'G01',
+          fullName: 'שומר שער (יאנוח-ג\'ת)',
+          role: 'guard',
+          pinCode: '2001',
+          assignedClasses: [],
+          isActive: true,
+          schoolId: 'school-yanuh',
+        });
+        changed = true;
+      }
     }
 
     if (changed) {
@@ -610,18 +711,61 @@ class ClientStorageEngine {
   public syncLocalToCloud(): void {
     try {
       if (!firestoreDb) return;
+
+      // Delete legacy demo documents from Firestore so they never resurrect
+      try {
+        deleteDoc(doc(firestoreDb, 'schools', 'school-main')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'schools', 'school-ibnsina')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-vp01')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-t01')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-t02')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-t03')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-t04')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-t05')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-t06')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-g01')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'staff', 'staff-g02')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-1')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-01')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-2')).catch(() => {});
+        deleteDoc(doc(firestoreDb, 'gatepasses', 'pass-hist-02')).catch(() => {});
+      } catch {
+        // ignore
+      }
+
       for (const s of this.schools) {
-        if (s && s.id && s.name && s.name !== 'בית ספר חדש (ריק)') {
+        if (
+          s &&
+          s.id &&
+          s.id !== 'school-main' &&
+          s.id !== 'school-ibnsina' &&
+          s.name &&
+          s.name !== 'בית ספר חדש (ריק)' &&
+          !s.name.includes('בית ספר מקיף (סניף ראשי)') &&
+          !s.name.includes('תיכון אבן סינא')
+        ) {
           this.syncSchoolToFirestore(s);
         }
       }
       for (const st of this.staff) {
-        if (st && st.id) {
+        if (
+          st &&
+          st.id &&
+          st.schoolId !== 'school-main' &&
+          st.schoolId !== 'school-ibnsina' &&
+          !st.id.startsWith('staff-t0')
+        ) {
           this.syncStaffToFirestore(st);
         }
       }
       for (const stud of this.students) {
-        if (stud && stud.id) {
+        if (
+          stud &&
+          stud.id &&
+          stud.fullName !== 'מרים סאלח' &&
+          stud.schoolId !== 'school-main' &&
+          stud.schoolId !== 'school-ibnsina'
+        ) {
           this.syncStudentToFirestore(stud);
         }
       }
@@ -694,9 +838,9 @@ class ClientStorageEngine {
     if (school?.name) return school.name;
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem('gate_school_name');
-      if (stored) return stored;
+      if (stored && !stored.includes('בית ספר מקיף') && !stored.includes('תיכון אבן סינא')) return stored;
     }
-    return this.schools[0]?.name || 'בית ספר מקיף (סניף ראשי)';
+    return this.schools[0]?.name || "רב תחומי עמל יאנוח-ג'ת";
   }
 
   public setActiveSchoolId(schoolId: string): { success: boolean; activeSchoolId: string; activeSchoolName: string } {
@@ -1099,7 +1243,7 @@ class ClientStorageEngine {
       throw new Error('קוד אישי שגוי או שחשבון זה הוסר מהמערכת.');
     }
 
-    const schoolId = member.schoolId || this.activeSchoolId || 'school-main';
+    const schoolId = member.schoolId && member.schoolId !== '*' ? member.schoolId : (this.activeSchoolId || this.schools[0]?.id || 'school-yanuh');
     const school = this.schools.find((s) => s.id === schoolId);
     if (!school) {
       throw new Error('בית ספר זה הוסר מהמערכת והמנוי בוטל לצמיתות.');
@@ -1196,9 +1340,10 @@ class ClientStorageEngine {
     const hasAll = isSuper || user.assignedClasses.includes('*') || user.assignedClasses.includes('כל הכיתות');
 
     const schoolScope = user.schoolId && user.schoolId !== '*' ? user.schoolId : null;
+    const defaultScope = this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
 
     let students = schoolScope
-      ? this.students.filter((s) => (s.schoolId || 'school-main') === schoolScope)
+      ? this.students.filter((s) => (s.schoolId || defaultScope) === schoolScope)
       : this.students;
 
     if (!hasAll) {
@@ -1213,7 +1358,7 @@ class ClientStorageEngine {
     const today = getClientIsraelDateString();
     const todayPasses = this.passes.filter((p) => {
       if (p.dateStr !== today) return false;
-      if (schoolScope && (p.schoolId || 'school-main') !== schoolScope) return false;
+      if (schoolScope && (p.schoolId || defaultScope) !== schoolScope) return false;
       return true;
     });
     const passByStudent = new Map(todayPasses.map((p) => [p.studentId, p]));
@@ -1236,10 +1381,11 @@ class ClientStorageEngine {
     const today = getClientIsraelDateString();
     const isSuper = user.role === 'admin' || user.role === 'vice_principal';
     const schoolScope = user.schoolId && user.schoolId !== '*' ? user.schoolId : null;
+    const defaultScope = this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
 
     const passes = this.passes.filter((p) => {
       if (p.dateStr !== today) return false;
-      if (schoolScope && (p.schoolId || 'school-main') !== schoolScope) return false;
+      if (schoolScope && (p.schoolId || defaultScope) !== schoolScope) return false;
       if (isSuper || user.assignedClasses.includes('*')) return true;
       return p.teacherId === user.id || user.assignedClasses.includes(p.className);
     });
@@ -1261,7 +1407,7 @@ class ClientStorageEngine {
     const created: GatePass[] = [];
     const errors: string[] = [];
 
-    const effectiveSchoolId = user.schoolId && user.schoolId !== '*' ? user.schoolId : (this.activeSchoolId || 'school-main');
+    const effectiveSchoolId = user.schoolId && user.schoolId !== '*' ? user.schoolId : (this.activeSchoolId || this.schools[0]?.id || 'school-yanuh');
 
     for (const sid of studentIds) {
       const student = this.students.find((s) => s.id === sid);
@@ -1464,10 +1610,10 @@ class ClientStorageEngine {
 
   // --- Admin & Staff ---
   public getStaff(schoolId?: string): { staff: StaffMember[] } {
-    const target = schoolId || this.activeSchoolId;
+    const target = schoolId || this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     if (target && target !== '*') {
       return {
-        staff: this.staff.filter((s) => s.schoolId === '*' || (s.schoolId || 'school-main') === target),
+        staff: this.staff.filter((s) => s.schoolId === '*' || (s.schoolId || target) === target),
       };
     }
     return { staff: this.staff };
@@ -1475,10 +1621,10 @@ class ClientStorageEngine {
 
   public saveStaff(staffList: StaffMember[]): { success: boolean; staff: StaffMember[] } {
     // Preserve staff from other schools that might not be in the current view
-    const currentSchoolId = this.activeSchoolId;
+    const currentSchoolId = this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     if (currentSchoolId && currentSchoolId !== '*') {
       const otherStaff = this.staff.filter(
-        (s) => (s.schoolId || 'school-main') !== currentSchoolId && s.schoolId !== '*'
+        (s) => (s.schoolId || currentSchoolId) !== currentSchoolId && s.schoolId !== '*'
       );
       this.staff = [...otherStaff, ...staffList];
     } else {
@@ -1545,13 +1691,13 @@ class ClientStorageEngine {
     toDate?: string;
     schoolId?: string;
   }): { success: boolean; deletedCount: number } {
-    const targetSchoolId = options.schoolId || this.activeSchoolId;
+    const targetSchoolId = options.schoolId || this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     let toDelete: GatePass[] = [];
 
     if (options.all) {
       if (targetSchoolId && targetSchoolId !== '*') {
-        toDelete = this.passes.filter((p) => (p.schoolId || 'school-main') === targetSchoolId);
-        this.passes = this.passes.filter((p) => (p.schoolId || 'school-main') !== targetSchoolId);
+        toDelete = this.passes.filter((p) => (p.schoolId || targetSchoolId) === targetSchoolId);
+        this.passes = this.passes.filter((p) => (p.schoolId || targetSchoolId) !== targetSchoolId);
       } else {
         toDelete = [...this.passes];
         this.passes = [];
@@ -1562,7 +1708,7 @@ class ClientStorageEngine {
       this.passes = this.passes.filter((p) => !idSet.has(p.id));
     } else if (options.fromDate || options.toDate) {
       toDelete = this.passes.filter((p) => {
-        if (targetSchoolId && targetSchoolId !== '*' && (p.schoolId || 'school-main') !== targetSchoolId) return false;
+        if (targetSchoolId && targetSchoolId !== '*' && (p.schoolId || targetSchoolId) !== targetSchoolId) return false;
         if (options.fromDate && p.dateStr < options.fromDate) return false;
         if (options.toDate && p.dateStr > options.toDate) return false;
         return true;
@@ -1595,21 +1741,21 @@ class ClientStorageEngine {
     replaceExisting?: boolean,
     targetSchoolId?: string
   ): { success: boolean; added: number; updated: number; total: number } {
-    const schoolId = targetSchoolId || this.activeSchoolId || 'school-main';
+    const schoolId = targetSchoolId || this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     let added = 0;
     let updated = 0;
 
     if (replaceExisting) {
       // ONLY delete students and passes of THIS school!
-      this.students = this.students.filter((s) => (s.schoolId || 'school-main') !== schoolId);
-      this.passes = this.passes.filter((p) => (p.schoolId || 'school-main') !== schoolId);
+      this.students = this.students.filter((s) => (s.schoolId || schoolId) !== schoolId);
+      this.passes = this.passes.filter((p) => (p.schoolId || schoolId) !== schoolId);
       this.save(STORAGE_KEY_PASSES, this.passes);
     }
 
     for (const item of newStudents) {
       const existing = this.students.find(
         (s) =>
-          (s.schoolId || 'school-main') === schoolId &&
+          (s.schoolId || schoolId) === schoolId &&
           ((item.studentCode && s.studentCode === item.studentCode) ||
             (s.fullName.trim() === item.fullName.trim() && s.className.trim() === item.className.trim()))
       );
@@ -1640,7 +1786,7 @@ class ClientStorageEngine {
       if (ct.teacherName && ct.teacherName.trim()) {
         const tName = ct.teacherName.trim();
         const existingStaff = this.staff.find(
-          (m) => (m.schoolId || 'school-main') === schoolId && m.fullName.trim() === tName
+          (m) => (m.schoolId || schoolId) === schoolId && m.fullName.trim() === tName
         );
         if (!existingStaff) {
           const pin = Math.floor(1000 + Math.random() * 9000).toString();
@@ -1663,7 +1809,7 @@ class ClientStorageEngine {
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.broadcastChange();
-    const schoolTotal = this.students.filter((s) => (s.schoolId || 'school-main') === schoolId).length;
+    const schoolTotal = this.students.filter((s) => (s.schoolId || schoolId) === schoolId).length;
     return { success: true, added, updated, total: schoolTotal };
   }
 
@@ -1677,10 +1823,10 @@ class ClientStorageEngine {
     totalStudents: number;
     totalClasses: number;
   } {
-    const schoolId = targetSchoolId || this.activeSchoolId || 'school-main';
+    const schoolId = targetSchoolId || this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     const studentsArr = Array.isArray(this.students) ? this.students : [];
     const staffArr = Array.isArray(this.staff) ? this.staff : [];
-    const schoolStudents = studentsArr.filter((s) => s && (s.schoolId || 'school-main') === schoolId);
+    const schoolStudents = studentsArr.filter((s) => s && (s.schoolId || schoolId) === schoolId);
 
     // Group by class
     const classMap = new Map<string, { className: string; teacherName: string; count: number; students: Student[] }>();
@@ -1690,7 +1836,7 @@ class ClientStorageEngine {
       const cls = st.className || 'ללא כיתה';
       if (!classMap.has(cls)) {
         const teacherStaff = staffArr.find(
-          (m) => m && (m.schoolId || 'school-main') === schoolId && m.assignedClasses?.includes(cls)
+          (m) => m && (m.schoolId || schoolId) === schoolId && m.assignedClasses?.includes(cls)
         );
         classMap.set(cls, {
           className: cls,
@@ -1728,7 +1874,7 @@ class ClientStorageEngine {
 
   public resetDemo(): { success: boolean; message: string } {
     this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-    this.activeSchoolId = this.schools[0]?.id || 'school-main';
+    this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
     this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
     this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
     this.passes = JSON.parse(JSON.stringify(INITIAL_PASSES));

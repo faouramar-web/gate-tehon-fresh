@@ -33,91 +33,25 @@ var DATA_DIR = path.resolve(process.cwd(), "data");
 var DB_FILE = path.resolve(DATA_DIR, "school_gate.json");
 var INITIAL_DEMO_DATA = {
   settings: {
-    schoolName: "\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05DE\u05E7\u05D9\u05E3",
+    schoolName: "\u05E8\u05D1 \u05EA\u05D7\u05D5\u05DE\u05D9 \u05E2\u05DE\u05DC \u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA",
     lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
   },
+  schools: [
+    {
+      id: "school-yanuh",
+      name: "\u05E8\u05D1 \u05EA\u05D7\u05D5\u05DE\u05D9 \u05E2\u05DE\u05DC \u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA",
+      city: "\u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA / \u05DE\u05D7\u05D5\u05D6 \u05E6\u05E4\u05D5\u05DF",
+      code: "5940",
+      activationCode: "5940",
+      status: "active",
+      contactPerson: "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D3",
+      phone: "",
+      isSuspended: false,
+      createdAt: "2026-11-05T00:00:00.000Z"
+    }
+  ],
+  activeSchoolId: "school-yanuh",
   staff: [
-    {
-      id: "staff-t01",
-      staffCode: "T01",
-      fullName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC",
-      role: "teacher",
-      pinCode: "1001",
-      assignedClasses: ["\u05D61"],
-      isActive: true
-    },
-    {
-      id: "staff-t02",
-      staffCode: "T02",
-      fullName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8",
-      role: "teacher",
-      pinCode: "1002",
-      assignedClasses: ["\u05D62"],
-      isActive: true
-    },
-    {
-      id: "staff-t03",
-      staffCode: "T03",
-      fullName: "\u05D3\u05DC\u05D0\u05DC \u05D7\u05D1\u05D9\u05D1",
-      role: "teacher",
-      pinCode: "1003",
-      assignedClasses: ["\u05D71"],
-      isActive: true
-    },
-    {
-      id: "staff-t04",
-      staffCode: "T04",
-      fullName: "\u05E0\u05D0\u05D3\u05D9\u05D4 \u05E1\u05E8\u05D7\u05D0\u05DF",
-      role: "teacher",
-      pinCode: "1004",
-      assignedClasses: ["\u05D72"],
-      isActive: true
-    },
-    {
-      id: "staff-t05",
-      staffCode: "T05",
-      fullName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8",
-      role: "teacher",
-      pinCode: "1005",
-      assignedClasses: ["\u05D81"],
-      isActive: true
-    },
-    {
-      id: "staff-t06",
-      staffCode: "T06",
-      fullName: "\u05DE\u05D5\u05D7\u05DE\u05D3 \u05E2\u05DC\u05D9 (\u05DE\u05D5\u05E8\u05D4 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9)",
-      role: "teacher",
-      pinCode: "1010",
-      assignedClasses: ["*"],
-      isActive: true
-    },
-    {
-      id: "staff-g01",
-      staffCode: "G01",
-      fullName: "\u05D0\u05D1\u05E8\u05D4\u05DD \u05DB\u05D4\u05DF (\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8)",
-      role: "guard",
-      pinCode: "2001",
-      assignedClasses: [],
-      isActive: true
-    },
-    {
-      id: "staff-g02",
-      staffCode: "G02",
-      fullName: "\u05D9\u05D5\u05E1\u05D9 \u05DC\u05D5\u05D9 (\u05E9\u05D5\u05DE\u05E8 \u05DE\u05D7\u05DC\u05D9\u05E3)",
-      role: "guard",
-      pinCode: "2002",
-      assignedClasses: [],
-      isActive: true
-    },
-    {
-      id: "staff-vp01",
-      staffCode: "VP01",
-      fullName: "\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC (\u05D0\u05D7\u05E8\u05D0\u05D9 \u05E9\u05D7\u05E8\u05D5\u05E8\u05D9\u05DD)",
-      role: "vice_principal",
-      pinCode: "3001",
-      assignedClasses: ["*"],
-      isActive: true
-    },
     {
       id: "staff-admin-amar",
       staffCode: "ADMIN",
@@ -125,41 +59,31 @@ var INITIAL_DEMO_DATA = {
       role: "admin",
       pinCode: "160525",
       assignedClasses: ["*"],
-      isActive: true
+      isActive: true,
+      schoolId: "*"
+    },
+    {
+      id: "staff-vp-yanuh",
+      staffCode: "VP01",
+      fullName: "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D3 (\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC / \u05D0\u05D7\u05E8\u05D0\u05D9 \u05DE\u05E2\u05E8\u05DB\u05EA)",
+      role: "vice_principal",
+      pinCode: "5940",
+      assignedClasses: ["*"],
+      isActive: true,
+      schoolId: "school-yanuh"
+    },
+    {
+      id: "staff-guard-yanuh",
+      staffCode: "G01",
+      fullName: "\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8 (\u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA)",
+      role: "guard",
+      pinCode: "2001",
+      assignedClasses: [],
+      isActive: true,
+      schoolId: "school-yanuh"
     }
   ],
-  students: [
-    // כיתה ז1 | לינא ח׳ליל
-    { id: "s-001", studentCode: "S001", fullName: "\u05D0\u05D3\u05DD \u05E0\u05D0\u05E1\u05E8", className: "\u05D61", teacherName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC" },
-    { id: "s-002", studentCode: "S002", fullName: "\u05DE\u05E8\u05D9\u05DD \u05E1\u05D0\u05DC\u05D7", className: "\u05D61", teacherName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC" },
-    { id: "s-003", studentCode: "S003", fullName: "\u05D9\u05D5\u05E1\u05E3 \u05D7\u05DE\u05D3\u05D0\u05DF", className: "\u05D61", teacherName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC" },
-    { id: "s-004", studentCode: "S004", fullName: "\u05E0\u05D5\u05E8 \u05E2\u05D1\u05D3\u05D0\u05DC\u05DC\u05D4", className: "\u05D61", teacherName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC" },
-    { id: "s-005", studentCode: "S005", fullName: "\u05DC\u05D9\u05D0\u05DF \u05E1\u05E2\u05D9\u05D3", className: "\u05D61", teacherName: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC" },
-    // כיתה ז2 | סוהא מנצור
-    { id: "s-006", studentCode: "S006", fullName: "\u05D0\u05DE\u05D9\u05E8 \u05D7\u05D5\u05E8\u05D9", className: "\u05D62", teacherName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8" },
-    { id: "s-007", studentCode: "S007", fullName: "\u05EA\u05D0\u05DC\u05D4 \u05D7\u05E0\u05D0", className: "\u05D62", teacherName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8" },
-    { id: "s-008", studentCode: "S008", fullName: "\u05E8\u05D0\u05DE\u05D9 \u05E2\u05D9\u05E1\u05D0", className: "\u05D62", teacherName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8" },
-    { id: "s-009", studentCode: "S009", fullName: "\u05D3\u05D9\u05E0\u05D4 \u05E1\u05DC\u05D9\u05DD", className: "\u05D62", teacherName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8" },
-    { id: "s-010", studentCode: "S010", fullName: "\u05E1\u05D0\u05DE\u05E8 \u05E2\u05D1\u05D5\u05D3", className: "\u05D62", teacherName: "\u05E1\u05D5\u05D4\u05D0 \u05DE\u05E0\u05E6\u05D5\u05E8" },
-    // כיתה ח1 | דלאל חביב
-    { id: "s-011", studentCode: "S011", fullName: "\u05E8\u05D9\u05DD \u05D6\u05D9\u05D3\u05D0\u05DF", className: "\u05D71", teacherName: "\u05D3\u05DC\u05D0\u05DC \u05D7\u05D1\u05D9\u05D1" },
-    { id: "s-012", studentCode: "S012", fullName: "\u05D0\u05D9\u05D0\u05D3 \u05D7\u05DC\u05D1\u05D9", className: "\u05D71", teacherName: "\u05D3\u05DC\u05D0\u05DC \u05D7\u05D1\u05D9\u05D1" },
-    { id: "s-013", studentCode: "S013", fullName: "\u05E1\u05DC\u05DE\u05D0 \u05E2\u05D6\u05D0\u05DD", className: "\u05D71", teacherName: "\u05D3\u05DC\u05D0\u05DC \u05D7\u05D1\u05D9\u05D1" },
-    { id: "s-014", studentCode: "S014", fullName: "\u05E0\u05D3\u05D9\u05DD \u05E9\u05D0\u05D4\u05D9\u05DF", className: "\u05D71", teacherName: "\u05D3\u05DC\u05D0\u05DC \u05D7\u05D1\u05D9\u05D1" },
-    { id: "s-015", studentCode: "S015", fullName: "\u05DE\u05D0\u05D9\u05D4 \u05D9\u05E2\u05E7\u05D5\u05D1", className: "\u05D71", teacherName: "\u05D3\u05DC\u05D0\u05DC \u05D7\u05D1\u05D9\u05D1" },
-    // כיתה ח2 | נאדיה סרחאן
-    { id: "s-016", studentCode: "S016", fullName: "\u05D4\u05D0\u05E0\u05D9 \u05D7\u05F3\u05D8\u05D9\u05D1", className: "\u05D72", teacherName: "\u05E0\u05D0\u05D3\u05D9\u05D4 \u05E1\u05E8\u05D7\u05D0\u05DF" },
-    { id: "s-017", studentCode: "S017", fullName: "\u05DC\u05D9\u05D0\u05DF \u05D7\u05E1\u05DF", className: "\u05D72", teacherName: "\u05E0\u05D0\u05D3\u05D9\u05D4 \u05E1\u05E8\u05D7\u05D0\u05DF" },
-    { id: "s-018", studentCode: "S018", fullName: "\u05D0\u05DE\u05DC \u05D3\u05D0\u05D4\u05E8", className: "\u05D72", teacherName: "\u05E0\u05D0\u05D3\u05D9\u05D4 \u05E1\u05E8\u05D7\u05D0\u05DF" },
-    { id: "s-019", studentCode: "S019", fullName: "\u05DB\u05E8\u05D9\u05DD \u05E2\u05DC\u05D9", className: "\u05D72", teacherName: "\u05E0\u05D0\u05D3\u05D9\u05D4 \u05E1\u05E8\u05D7\u05D0\u05DF" },
-    { id: "s-020", studentCode: "S020", fullName: "\u05E0\u05D5\u05E8 \u05E4\u05D0\u05E8\u05E1", className: "\u05D72", teacherName: "\u05E0\u05D0\u05D3\u05D9\u05D4 \u05E1\u05E8\u05D7\u05D0\u05DF" },
-    // כיתה ט1 | רימא ג׳אבר
-    { id: "s-021", studentCode: "S021", fullName: "\u05DC\u05D9\u05DF \u05E1\u05E2\u05D3", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" },
-    { id: "s-022", studentCode: "S022", fullName: "\u05DE\u05D0\u05DC\u05DB \u05D0\u05D9\u05D1\u05E8\u05D4\u05D9\u05DD", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" },
-    { id: "s-023", studentCode: "S023", fullName: "\u05D2\u05F3\u05E0\u05D0 \u05E2\u05D5\u05D3\u05D4", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" },
-    { id: "s-024", studentCode: "S024", fullName: "\u05D0\u05D3\u05DD \u05DE\u05E0\u05E1\u05D5\u05E8", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" },
-    { id: "s-025", studentCode: "S025", fullName: "\u05E1\u05D5\u05D4\u05D9\u05DC \u05E1\u05DC\u05D0\u05DE\u05D4", className: "\u05D81", teacherName: "\u05E8\u05D9\u05DE\u05D0 \u05D2\u05F3\u05D0\u05D1\u05E8" }
-  ],
+  students: [],
   passes: [],
   auditLogs: [
     {
@@ -682,20 +606,20 @@ var SchoolDatabase = class {
     if (!this.data.schools || !Array.isArray(this.data.schools) || this.data.schools.length === 0) {
       this.data.schools = [
         {
-          id: "school-main",
-          name: this.data.settings?.schoolName || "\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05DE\u05E7\u05D9\u05E3",
-          city: "\u05DE\u05D7\u05D5\u05D6 \u05E6\u05E4\u05D5\u05DF",
-          code: "SCH-01",
-          activationCode: "1001",
+          id: "school-yanuh",
+          name: this.data.settings?.schoolName || "\u05E8\u05D1 \u05EA\u05D7\u05D5\u05DE\u05D9 \u05E2\u05DE\u05DC \u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA",
+          city: "\u05D9\u05D0\u05E0\u05D5\u05D7-\u05D2'\u05EA / \u05DE\u05D7\u05D5\u05D6 \u05E6\u05E4\u05D5\u05DF",
+          code: "5940",
+          activationCode: "5940",
           status: "active",
-          contactPerson: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8",
+          contactPerson: "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D3",
           createdAt: (/* @__PURE__ */ new Date()).toISOString()
         }
       ];
     }
     return {
       schools: this.data.schools,
-      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || "school-main"
+      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || "school-yanuh"
     };
   }
   setActiveSchoolId(id) {
@@ -853,7 +777,16 @@ app.post("/api/auth/login", (req, res) => {
     res.status(400).json({ error: "\u05D0\u05E0\u05D0 \u05D4\u05D6\u05DF \u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9" });
     return;
   }
-  const staff = db.getStaffByPin(pinCode);
+  let staff = db.getStaffByPin(pinCode);
+  if (!staff) {
+    try {
+      const act = db.activateSchoolByCode(pinCode);
+      if (act && act.school) {
+        staff = db.getAllStaff().find((s) => s.schoolId === act.school.id && s.role === "vice_principal") || db.getAllStaff().find((s) => s.schoolId === act.school.id);
+      }
+    } catch {
+    }
+  }
   if (!staff) {
     res.status(401).json({
       error: "\u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9 \u05E9\u05D2\u05D5\u05D9 \u05D0\u05D5 \u05E9\u05D4\u05D2\u05D9\u05E9\u05D4 \u05D4\u05D5\u05E9\u05E2\u05EA\u05D4. \u05D0\u05E0\u05D0 \u05E4\u05E0\u05D4 \u05DC\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA (\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8)."

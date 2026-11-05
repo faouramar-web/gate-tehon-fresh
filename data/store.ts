@@ -19,6 +19,7 @@ export interface Staff {
   assignedClasses: string[]; // e.g. ['ז1'] or ['*']
   isActive: boolean;
   phone?: string;
+  schoolId?: string;
 }
 
 export interface GatePass {
@@ -121,91 +122,25 @@ const DB_FILE = path.resolve(DATA_DIR, 'school_gate.json');
 // Exact demo data extracted from the user's provided PDF files
 export const INITIAL_DEMO_DATA: DatabaseSchema = {
   settings: {
-    schoolName: 'בית ספר מקיף',
+    schoolName: 'רב תחומי עמל יאנוח-ג\'ת',
     lastUpdated: new Date().toISOString(),
   },
+  schools: [
+    {
+      id: 'school-yanuh',
+      name: 'רב תחומי עמל יאנוח-ג\'ת',
+      city: 'יאנוח-ג\'ת / מחוז צפון',
+      code: '5940',
+      activationCode: '5940',
+      status: 'active',
+      contactPerson: 'תיראן סעד',
+      phone: '',
+      isSuspended: false,
+      createdAt: '2026-11-05T00:00:00.000Z',
+    },
+  ],
+  activeSchoolId: 'school-yanuh',
   staff: [
-    {
-      id: 'staff-t01',
-      staffCode: 'T01',
-      fullName: 'לינא ח׳ליל',
-      role: 'teacher',
-      pinCode: '1001',
-      assignedClasses: ['ז1'],
-      isActive: true,
-    },
-    {
-      id: 'staff-t02',
-      staffCode: 'T02',
-      fullName: 'סוהא מנצור',
-      role: 'teacher',
-      pinCode: '1002',
-      assignedClasses: ['ז2'],
-      isActive: true,
-    },
-    {
-      id: 'staff-t03',
-      staffCode: 'T03',
-      fullName: 'דלאל חביב',
-      role: 'teacher',
-      pinCode: '1003',
-      assignedClasses: ['ח1'],
-      isActive: true,
-    },
-    {
-      id: 'staff-t04',
-      staffCode: 'T04',
-      fullName: 'נאדיה סרחאן',
-      role: 'teacher',
-      pinCode: '1004',
-      assignedClasses: ['ח2'],
-      isActive: true,
-    },
-    {
-      id: 'staff-t05',
-      staffCode: 'T05',
-      fullName: 'רימא ג׳אבר',
-      role: 'teacher',
-      pinCode: '1005',
-      assignedClasses: ['ט1'],
-      isActive: true,
-    },
-    {
-      id: 'staff-t06',
-      staffCode: 'T06',
-      fullName: 'מוחמד עלי (מורה מקצועי)',
-      role: 'teacher',
-      pinCode: '1010',
-      assignedClasses: ['*'],
-      isActive: true,
-    },
-    {
-      id: 'staff-g01',
-      staffCode: 'G01',
-      fullName: 'אברהם כהן (שומר שער)',
-      role: 'guard',
-      pinCode: '2001',
-      assignedClasses: [],
-      isActive: true,
-    },
-    {
-      id: 'staff-g02',
-      staffCode: 'G02',
-      fullName: 'יוסי לוי (שומר מחליף)',
-      role: 'guard',
-      pinCode: '2002',
-      assignedClasses: [],
-      isActive: true,
-    },
-    {
-      id: 'staff-vp01',
-      staffCode: 'VP01',
-      fullName: 'סגן מנהל (אחראי שחרורים)',
-      role: 'vice_principal',
-      pinCode: '3001',
-      assignedClasses: ['*'],
-      isActive: true,
-    },
     {
       id: 'staff-admin-amar',
       staffCode: 'ADMIN',
@@ -214,44 +149,30 @@ export const INITIAL_DEMO_DATA: DatabaseSchema = {
       pinCode: '160525',
       assignedClasses: ['*'],
       isActive: true,
+      schoolId: '*',
+    },
+    {
+      id: 'staff-vp-yanuh',
+      staffCode: 'VP01',
+      fullName: 'תיראן סעד (סגן מנהל / אחראי מערכת)',
+      role: 'vice_principal',
+      pinCode: '5940',
+      assignedClasses: ['*'],
+      isActive: true,
+      schoolId: 'school-yanuh',
+    },
+    {
+      id: 'staff-guard-yanuh',
+      staffCode: 'G01',
+      fullName: 'שומר שער (יאנוח-ג\'ת)',
+      role: 'guard',
+      pinCode: '2001',
+      assignedClasses: [],
+      isActive: true,
+      schoolId: 'school-yanuh',
     },
   ],
-  students: [
-    // כיתה ז1 | לינא ח׳ליל
-    { id: 's-001', studentCode: 'S001', fullName: 'אדם נאסר', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-    { id: 's-002', studentCode: 'S002', fullName: 'מרים סאלח', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-    { id: 's-003', studentCode: 'S003', fullName: 'יוסף חמדאן', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-    { id: 's-004', studentCode: 'S004', fullName: 'נור עבדאללה', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-    { id: 's-005', studentCode: 'S005', fullName: 'ליאן סעיד', className: 'ז1', teacherName: 'לינא ח׳ליל' },
-
-    // כיתה ז2 | סוהא מנצור
-    { id: 's-006', studentCode: 'S006', fullName: 'אמיר חורי', className: 'ז2', teacherName: 'סוהא מנצור' },
-    { id: 's-007', studentCode: 'S007', fullName: 'תאלה חנא', className: 'ז2', teacherName: 'סוהא מנצור' },
-    { id: 's-008', studentCode: 'S008', fullName: 'ראמי עיסא', className: 'ז2', teacherName: 'סוהא מנצור' },
-    { id: 's-009', studentCode: 'S009', fullName: 'דינה סלים', className: 'ז2', teacherName: 'סוהא מנצור' },
-    { id: 's-010', studentCode: 'S010', fullName: 'סאמר עבוד', className: 'ז2', teacherName: 'סוהא מנצור' },
-
-    // כיתה ח1 | דלאל חביב
-    { id: 's-011', studentCode: 'S011', fullName: 'רים זידאן', className: 'ח1', teacherName: 'דלאל חביב' },
-    { id: 's-012', studentCode: 'S012', fullName: 'איאד חלבי', className: 'ח1', teacherName: 'דלאל חביב' },
-    { id: 's-013', studentCode: 'S013', fullName: 'סלמא עזאם', className: 'ח1', teacherName: 'דלאל חביב' },
-    { id: 's-014', studentCode: 'S014', fullName: 'נדים שאהין', className: 'ח1', teacherName: 'דלאל חביב' },
-    { id: 's-015', studentCode: 'S015', fullName: 'מאיה יעקוב', className: 'ח1', teacherName: 'דלאל חביב' },
-
-    // כיתה ח2 | נאדיה סרחאן
-    { id: 's-016', studentCode: 'S016', fullName: 'האני ח׳טיב', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-    { id: 's-017', studentCode: 'S017', fullName: 'ליאן חסן', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-    { id: 's-018', studentCode: 'S018', fullName: 'אמל דאהר', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-    { id: 's-019', studentCode: 'S019', fullName: 'כרים עלי', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-    { id: 's-020', studentCode: 'S020', fullName: 'נור פארס', className: 'ח2', teacherName: 'נאדיה סרחאן' },
-
-    // כיתה ט1 | רימא ג׳אבר
-    { id: 's-021', studentCode: 'S021', fullName: 'לין סעד', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-    { id: 's-022', studentCode: 'S022', fullName: 'מאלכ איברהים', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-    { id: 's-023', studentCode: 'S023', fullName: 'ג׳נא עודה', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-    { id: 's-024', studentCode: 'S024', fullName: 'אדם מנסור', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-    { id: 's-025', studentCode: 'S025', fullName: 'סוהיל סלאמה', className: 'ט1', teacherName: 'רימא ג׳אבר' },
-  ],
+  students: [],
   passes: [],
   auditLogs: [
     {
@@ -889,20 +810,20 @@ class SchoolDatabase {
     if (!this.data.schools || !Array.isArray(this.data.schools) || this.data.schools.length === 0) {
       this.data.schools = [
         {
-          id: 'school-main',
-          name: this.data.settings?.schoolName || 'בית ספר מקיף',
-          city: 'מחוז צפון',
-          code: 'SCH-01',
-          activationCode: '1001',
+          id: 'school-yanuh',
+          name: this.data.settings?.schoolName || "רב תחומי עמל יאנוח-ג'ת",
+          city: "יאנוח-ג'ת / מחוז צפון",
+          code: '5940',
+          activationCode: '5940',
           status: 'active',
-          contactPerson: 'עמאר פאעור',
+          contactPerson: 'תיראן סעד',
           createdAt: new Date().toISOString(),
         },
       ];
     }
     return {
       schools: this.data.schools,
-      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || 'school-main',
+      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || 'school-yanuh',
     };
   }
 

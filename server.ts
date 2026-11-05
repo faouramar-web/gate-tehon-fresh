@@ -112,7 +112,19 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
     return;
   }
 
-  const staff = db.getStaffByPin(pinCode);
+  let staff = db.getStaffByPin(pinCode);
+  if (!staff) {
+    try {
+      const act = db.activateSchoolByCode(pinCode);
+      if (act && act.school) {
+        staff = db.getAllStaff().find((s) => s.schoolId === act.school.id && s.role === 'vice_principal') ||
+                db.getAllStaff().find((s) => s.schoolId === act.school.id);
+      }
+    } catch {
+      // Not an activation code
+    }
+  }
+
   if (!staff) {
     res.status(401).json({
       error: 'קוד אישי שגוי או שהגישה הושעתה. אנא פנה למנהל המערכת (עמאר פאעור).',

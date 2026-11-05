@@ -33,7 +33,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   // School Activation Gate State
   const [activeSchoolName, setActiveSchoolName] = useState<string>(() => {
-    return clientStore.getActiveSchoolName() || 'בית ספר מקיף';
+    return clientStore.getActiveSchoolName() || "רב תחומי עמל יאנוח-ג'ת";
   });
   const [isActivated, setIsActivated] = useState<boolean>(() => {
     return typeof localStorage !== 'undefined' && !!localStorage.getItem('gate_activated_school_code');

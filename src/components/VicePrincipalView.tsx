@@ -262,10 +262,10 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     if (force || schoolStaff.length === 0) setLoadingStaff(true);
     try {
       const res = await api.getStaff();
-      const mySchoolId = user.schoolId || 'school-main';
+      const mySchoolId = (user.schoolId && user.schoolId !== '*') ? user.schoolId : clientStore.getActiveSchoolId();
       const filtered = res.staff.filter((s) => {
         if (s.role === 'admin' || s.pinCode === '160525') return false;
-        return s.schoolId === mySchoolId || (!s.schoolId && mySchoolId === 'school-main') || (mySchoolId === '*' && (s.schoolId === 'school-main' || !s.schoolId));
+        return s.schoolId === mySchoolId || (!s.schoolId && mySchoolId === clientStore.getActiveSchoolId());
       });
       setSchoolStaff(filtered);
     } catch {
@@ -290,7 +290,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     }
 
     const pin = newStaffPin.trim() || Math.floor(1000 + Math.random() * 9000).toString();
-    const mySchoolId = user.schoolId || 'school-main';
+    const mySchoolId = (user.schoolId && user.schoolId !== '*') ? user.schoolId : clientStore.getActiveSchoolId();
 
     let role: UserRole = 'teacher';
     let assignedClasses: string[] = ['*'];

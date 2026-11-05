@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.ts';
+import { clientStore } from '../lib/clientStore.ts';
 import { parseExcelOrCsv, generateSampleExcelWorkbook, ParseResult } from '../lib/excelParser.ts';
 import { User, StaffMember, AuditLogEntry, GatePass, School, SchoolStatus } from '../types.ts';
 import {
@@ -353,7 +354,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       const res = await api.getStaff();
       const staffArr = Array.isArray(res?.staff) ? res.staff : [];
       const filtered = selectedSchoolId
-        ? staffArr.filter((s) => s.schoolId === '*' || (s.schoolId || 'school-main') === selectedSchoolId)
+        ? staffArr.filter((s) => s.schoolId === '*' || (s.schoolId || clientStore.getActiveSchoolId()) === selectedSchoolId)
         : staffArr;
       setStaffList(filtered);
     } catch {
@@ -779,7 +780,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       assignedClasses,
       isActive: true,
       phone: newStaffPhoneInput.trim() || undefined,
-      schoolId: selectedSchoolId || 'school-main',
+      schoolId: selectedSchoolId || clientStore.getActiveSchoolId(),
     };
 
     const updatedList = [...staffList, newMember];
@@ -1726,7 +1727,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 </div>
                 <div className="font-bold text-slate-800 text-sm">לא נמצאו אישורי יציאה לפי הסינון</div>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  נסה לבחור בקיצור &quot;כל הזמן&quot; או לחפש שם תלמיד אחר (לדוגמה: מרים סאלח, ראמי עיסא)
+                  נסה לבחור בקיצור &quot;כל הזמן&quot; או לחפש שם תלמיד, מספר כיתה או קוד זיהוי
                 </p>
                 <button
                   type="button"
@@ -2967,7 +2968,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   required
                   value={newSchoolName}
                   onChange={(e) => setNewSchoolName(e.target.value)}
-                  placeholder="לדוגמה: תיכון אבן סינא / חטיבת ביניים שז״ר"
+                  placeholder="לדוגמה: מקיף עמל / חטיבת ביניים / תיכון שז״ר"
                   className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500"
                   autoFocus
                 />
@@ -3590,7 +3591,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               {/* Document Header */}
               <div className="text-center border-b-2 border-slate-900 pb-3">
                 <div className="text-xs font-semibold text-slate-500 tracking-wider">
-                  משרד החינוך · בית ספר מקיף · פיקוח שער וביטחון
+                  משרד החינוך · {(schools.find((s) => s.id === selectedSchoolId)?.name) || clientStore.getActiveSchoolName() || "רב תחומי עמל יאנוח-ג'ת"} · פיקוח שער וביטחון
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-['Rubik'] mt-1">
                   אישור ובירור שעת יציאת תלמיד/ה מבית הספר
