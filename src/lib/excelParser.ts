@@ -37,14 +37,19 @@ function cleanStr(val: any): string {
 
 // Helper to check if a header string is first name
 function isFirstNameHeader(str: string): boolean {
-  const s = str.toLowerCase();
-  return s.includes('שם פרטי') || s.includes('first name') || s.includes('firstname');
+  const s = str.toLowerCase().replace(/[\(\)\[\]\-_]/g, ' ');
+  return s.includes('שם פרטי') || s.includes('first name') || s.includes('firstname') || (s.includes('פרטי') && !s.includes('איש קשר'));
 }
 
 // Helper to check if a header string is last name
 function isLastNameHeader(str: string): boolean {
-  const s = str.toLowerCase();
-  return s.includes('שם משפחה') || s.includes('last name') || s.includes('lastname') || (s.includes('משפחה') && !s.includes('בית'));
+  const s = str.toLowerCase().replace(/[\(\)\[\]\-_]/g, ' ');
+  return (
+    s.includes('שם משפחה') ||
+    (s.includes('משפחה') && !s.includes('בית') && !s.includes('איש קשר')) ||
+    s.includes('last name') ||
+    s.includes('lastname')
+  );
 }
 
 // Helper to check if a header string looks like "student name" (full name) in Hebrew/English
@@ -179,7 +184,7 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
     let sheetClassName = fromSheetName.className || '';
     let sheetTeacherName = fromSheetName.teacherName || '';
 
-    // Check early title rows (rows 0 to 4) for class or teacher info
+    // Check early title and header rows (up to 35 rows to account for top metadata banners)
     let tableHeaderRowIndex = -1;
     let firstNameColIndex = -1;
     let lastNameColIndex = -1;
@@ -190,8 +195,9 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
     let sectionColIndex = -1;
     let teacherColIndex = -1;
 
-    for (let r = 0; r < Math.min(rows.length, 6); r++) {
+    for (let r = 0; r < Math.min(rows.length, 35); r++) {
       const row = rows[r];
+      if (!row || row.length === 0) continue;
       const joinedRow = row.map(cleanStr).join(' ');
 
       // Check if this row is a title banner like "כיתה י1 קסיס האני"
@@ -204,6 +210,8 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
       // Check if this row is the column headers
       for (let c = 0; c < row.length; c++) {
         const cell = cleanStr(row[c]);
+        if (!cell) continue;
+
         if (isFirstNameHeader(cell)) firstNameColIndex = c;
         else if (isLastNameHeader(cell)) lastNameColIndex = c;
         else if (isStudentNameHeader(cell)) fullNameColIndex = c;
@@ -224,28 +232,28 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
       }
     }
 
-    // If we didn't find a named column header, test if row 0 could be data or if columns are [Code, Name] or [Name, Code]
+    // If we didn't find a named column header in the first 35 rows, scan for data table start
     if (tableHeaderRowIndex === -1) {
-      // Look for any row that has textual names
       for (let r = 0; r < rows.length; r++) {
         const row = rows[r];
-        if (row.length >= 2) {
+        if (row && row.length >= 2) {
           const c0 = cleanStr(row[0]);
           const c1 = cleanStr(row[1]);
-          if (c0 && c1) {
-            const c0IsCode = /^[a-zA-Z0-9\-_]{2,10}$/.test(c0);
-            const c1IsCode = /^[a-zA-Z0-9\-_]{2,10}$/.test(c1);
-            if (c0IsCode && !c1IsCode) {
-              codeColIndex = 0;
+          const c2 = cleanStr(row[2]);
+          // Check if c0 is a row number (1, 2, 3...) and c1 is Hebrew text
+          const c0IsNumeric = /^[0-9]{1,10}$/.test(c0);
+          const c1HasHebrew = /[\u0590-\u05FF]/.test(c1);
+          if (c0IsNumeric && c1HasHebrew) {
+            rowNumColIndex = 0;
+            // Check if c2 is last name
+            if (c2 && /[\u0590-\u05FF]/.test(c2)) {
+              firstNameColIndex = 1;
+              lastNameColIndex = 2;
+            } else {
               fullNameColIndex = 1;
-              tableHeaderRowIndex = r - 1; // data starts at r
-              break;
-            } else if (!c0IsCode && c1IsCode) {
-              fullNameColIndex = 0;
-              codeColIndex = 1;
-              tableHeaderRowIndex = r - 1;
-              break;
             }
+            tableHeaderRowIndex = r - 1; // data starts at r
+            break;
           }
         }
       }
