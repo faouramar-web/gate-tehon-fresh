@@ -46,12 +46,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [activationSuccessMsg, setActivationSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    const handleUrlActivation = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const schoolParam = params.get('school') || params.get('code') || params.get('schoolId');
+      if (schoolParam) {
+        try {
+          const res = clientStore.activateSchoolByCode(schoolParam);
+          if (res && res.school) {
+            setActiveSchoolName(res.school.name);
+            setIsActivated(true);
+            setActivationSuccessMsg(`בית הספר "${res.school.name}" זוהה והופעל בהצלחה במכשיר זה!`);
+            setTimeout(() => setActivationSuccessMsg(null), 6000);
+          }
+        } catch {
+          // Schools may still be loading from Firestore, syncSchool will retry
+        }
+      }
+    };
+
+    handleUrlActivation();
+
     const syncSchool = () => {
       const name = clientStore.getActiveSchoolName();
       if (name) setActiveSchoolName(name);
       const code = typeof localStorage !== 'undefined' ? localStorage.getItem('gate_activated_school_code') : null;
       setIsActivated(!!code);
+      handleUrlActivation();
     };
+
     const unsub = clientStore.subscribe(syncSchool);
     return () => unsub();
   }, []);

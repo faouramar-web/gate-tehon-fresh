@@ -181,9 +181,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const loadDirectory = async () => {
     try {
       const dir = await api.getSchoolDirectory(selectedSchoolId);
-      setSchoolDirectory(dir);
+      if (dir && Array.isArray(dir.classesSummary)) {
+        setSchoolDirectory(dir);
+      } else {
+        setSchoolDirectory({ classesSummary: [], totalStudents: 0, totalClasses: 0 });
+      }
     } catch {
-      // ignore
+      setSchoolDirectory({ classesSummary: [], totalStudents: 0, totalClasses: 0 });
     }
   };
 
@@ -287,12 +291,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const loadSchools = async () => {
     try {
       const res = await api.getSchools();
-      setSchools(res.schools);
+      const schoolList = Array.isArray(res?.schools) ? res.schools : [];
+      setSchools(schoolList);
       if (!selectedSchoolId) {
-        setSelectedSchoolId(res.activeSchoolId || res.schools[0]?.id || 'school-main');
+        setSelectedSchoolId(res?.activeSchoolId || schoolList[0]?.id || 'school-main');
       }
     } catch {
-      // ignore
+      setSchools([]);
     }
   };
 
@@ -320,7 +325,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         className: historyClass || undefined,
         schoolId: selectedSchoolId || undefined,
       });
-      setHistoryPasses(res.passes);
+      setHistoryPasses(Array.isArray(res?.passes) ? res.passes : []);
     } catch {
       // ignore
     } finally {
@@ -333,12 +338,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     try {
       if (forceSpinner || staffList.length === 0) setLoadingStaff(true);
       const res = await api.getStaff();
+      const staffArr = Array.isArray(res?.staff) ? res.staff : [];
       const filtered = selectedSchoolId
-        ? res.staff.filter((s) => s.schoolId === '*' || (s.schoolId || 'school-main') === selectedSchoolId)
-        : res.staff;
+        ? staffArr.filter((s) => s.schoolId === '*' || (s.schoolId || 'school-main') === selectedSchoolId)
+        : staffArr;
       setStaffList(filtered);
     } catch {
-      // ignore
+      setStaffList([]);
     } finally {
       setLoadingStaff(false);
     }
@@ -507,10 +513,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const handleCopyWhatsAppHandover = (school: School) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-    const appUrl = origin + pathname;
     const code = school.activationCode || '1001';
+    const appUrl = `${origin}${pathname}?school=${encodeURIComponent(code)}`;
 
-    const coordinator = staffList.find((s) => s.schoolId === school.id && s.role === 'vice_principal');
+    const coordinator = (staffList || []).find((s) => s && s.schoolId === school.id && s.role === 'vice_principal');
     const coordInfo = coordinator
       ? `\n👑 *קוד כניסה אישי לאחראי/ת המערכת (${coordinator.fullName}):* *${coordinator.pinCode}*`
       : '';
@@ -789,9 +795,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const handleSendStaffWhatsApp = (member: StaffMember) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-    const appUrl = origin + pathname;
-    const currentSch = schools.find((s) => s.id === (member.schoolId || selectedSchoolId));
+    const currentSch = (schools || []).find((s) => s && s.id === (member.schoolId || selectedSchoolId));
     const schoolName = currentSch ? currentSch.name : 'בית הספר';
+    const schoolCode = currentSch?.activationCode || currentSch?.code || '';
+    const appUrl = schoolCode ? `${origin}${pathname}?school=${encodeURIComponent(schoolCode)}` : `${origin}${pathname}`;
 
     const roleHebrew =
       member.role === 'guard'
@@ -971,7 +978,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     );
   });
 
-    const currentSchool = schools.find((s) => s.id === selectedSchoolId) || schools[0];
+    const currentSchool = (schools || []).find((s) => s && s.id === selectedSchoolId) || schools?.[0];
     const isCurrentSchoolSuspended = currentSchool?.isSuspended || false;
 
     return (
@@ -2222,9 +2229,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                       }`}
                     >
-                      כל הכיתות ({schoolDirectory.totalStudents})
+                      כל הכיתות ({schoolDirectory?.totalStudents || 0})
                     </button>
-                    {schoolDirectory.classesSummary.map((cls) => (
+                    {(schoolDirectory?.classesSummary || []).map((cls) => (
                       <button
                         key={cls.className}
                         type="button"
@@ -2256,11 +2263,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 {/* Students Table */}
                 {(() => {
                   let filteredList: any[] = [];
+                  const classesList = schoolDirectory?.classesSummary || [];
                   if (selectedDirClass === 'all') {
-                    filteredList = schoolDirectory.classesSummary.flatMap((c) => c.students);
+                    filteredList = classesList.flatMap((c) => c?.students || []);
                   } else {
-                    const match = schoolDirectory.classesSummary.find((c) => c.className === selectedDirClass);
-                    filteredList = match ? match.students : [];
+                    const match = classesList.find((c) => c && c.className === selectedDirClass);
+                    filteredList = match?.students || [];
                   }
 
                   if (dirSearchQuery.trim()) {

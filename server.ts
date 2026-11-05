@@ -497,6 +497,56 @@ app.get('/api/admin/history-search', authenticate, (req: Request, res: Response)
   res.json({ passes: results });
 });
 
+// Multi-School endpoints
+app.get('/api/admin/schools', (_req: Request, res: Response) => {
+  res.json(db.getSchools());
+});
+
+app.post('/api/admin/schools', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const result = db.createSchool(req.body);
+  res.json(result);
+});
+
+app.post('/api/admin/schools/active', (req: Request, res: Response) => {
+  const { schoolId } = req.body;
+  if (!schoolId) {
+    res.status(400).json({ error: 'חסר מזהה בית ספר' });
+    return;
+  }
+  res.json(db.setActiveSchoolId(schoolId));
+});
+
+app.delete('/api/admin/schools/:id', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  res.json(db.deleteSchool(req.params.id));
+});
+
+app.post('/api/public/activate-school', (req: Request, res: Response) => {
+  const { code } = req.body;
+  if (!code) {
+    res.status(400).json({ error: 'חסר קוד הפעלה' });
+    return;
+  }
+  try {
+    const result = db.activateSchoolByCode(code);
+    res.json(result);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || 'קוד הפעלה שגוי' });
+  }
+});
+
+// Demo accounts endpoint for public login helper
+app.get('/api/public/demo-accounts', (_req: Request, res: Response) => {
+  res.json({
+    accounts: [
+      { role: 'admin', title: 'מנהל המערכת', name: 'עמאר פאעור' },
+      { role: 'vice_principal', title: 'סגן מנהל (אחראי שחרורים)', name: 'סגן מנהל' },
+      { role: 'teacher', title: 'מחנכת כיתה ז1', name: 'לינא ח׳ליל' },
+      { role: 'teacher', title: 'מורה מקצועי', name: 'מוחמד עלי' },
+      { role: 'guard', title: 'שומר שער', name: 'אברהם כהן' },
+    ],
+  });
+});
+
 
 // ==================== VITE MIDDLEWARE & SERVER START ====================
 

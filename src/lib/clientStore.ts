@@ -254,13 +254,15 @@ class ClientStorageEngine {
         localStorage.setItem('gatepass_seeded_v5', 'true');
       }
     } else {
-      this.schools = this.load(STORAGE_KEY_SCHOOLS, []);
-      // Remove any unwanted placeholder from previous compaction
-      this.schools = this.schools.filter((s) => s.name !== 'בית ספר חדש (ריק)');
-      this.activeSchoolId = this.load(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
-      this.staff = this.load(STORAGE_KEY_STAFF, INITIAL_STAFF);
-      this.students = this.load(STORAGE_KEY_STUDENTS, []);
-      this.passes = this.load(STORAGE_KEY_PASSES, []);
+      const loadedSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
+      this.schools = Array.isArray(loadedSchools) ? loadedSchools.filter((s) => s && s.name !== 'בית ספר חדש (ריק)') : [];
+      this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+      const loadedStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
+      this.staff = Array.isArray(loadedStaff) ? loadedStaff : JSON.parse(JSON.stringify(INITIAL_STAFF));
+      const loadedStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
+      this.students = Array.isArray(loadedStudents) ? loadedStudents : [];
+      const loadedPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
+      this.passes = Array.isArray(loadedPasses) ? loadedPasses : [];
     }
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
@@ -287,10 +289,95 @@ class ClientStorageEngine {
         };
       }
 
-      // Realtime listener with Firestore if online & available
+      // Realtime multi-device sync with Firestore
       try {
+        // Automatically sync local data to Cloud on startup
+        setTimeout(() => {
+          this.syncLocalToCloud();
+        }, 1200);
+
+        // 1. Schools realtime listener
+        const schoolsRef = collection(firestoreDb, 'schools');
+        onSnapshot(
+          schoolsRef,
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const remoteSchools: School[] = [];
+              snapshot.forEach((docSnap) => {
+                const s = docSnap.data() as School;
+                if (s && s.id && s.name && s.name !== 'בית ספר חדש (ריק)') {
+                  remoteSchools.push(s);
+                }
+              });
+              if (remoteSchools.length > 0) {
+                const map = new Map(this.schools.map((s) => [s.id, s]));
+                for (const rs of remoteSchools) {
+                  map.set(rs.id, rs);
+                }
+                this.schools = Array.from(map.values()).filter((s) => s.name !== 'בית ספר חדש (ריק)');
+                this.ensureSchoolIntegrity();
+                this.save(STORAGE_KEY_SCHOOLS, this.schools);
+                this.notify();
+              }
+            }
+          },
+          () => {}
+        );
+
+        // 2. Staff realtime listener
+        const staffRef = collection(firestoreDb, 'staff');
+        onSnapshot(
+          staffRef,
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const remoteStaff: StaffMember[] = [];
+              snapshot.forEach((docSnap) => {
+                const st = docSnap.data() as StaffMember;
+                if (st && st.id) remoteStaff.push(st);
+              });
+              if (remoteStaff.length > 0) {
+                const map = new Map(this.staff.map((s) => [s.id, s]));
+                for (const rst of remoteStaff) {
+                  map.set(rst.id, rst);
+                }
+                this.staff = Array.from(map.values());
+                this.ensureEssentialStaff();
+                this.save(STORAGE_KEY_STAFF, this.staff);
+                this.notify();
+              }
+            }
+          },
+          () => {}
+        );
+
+        // 3. Students realtime listener
+        const studentsRef = collection(firestoreDb, 'students');
+        onSnapshot(
+          studentsRef,
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const remoteStudents: Student[] = [];
+              snapshot.forEach((docSnap) => {
+                const stud = docSnap.data() as Student;
+                if (stud && stud.id) remoteStudents.push(stud);
+              });
+              if (remoteStudents.length > 0) {
+                const map = new Map(this.students.map((s) => [s.id, s]));
+                for (const rstud of remoteStudents) {
+                  map.set(rstud.id, rstud);
+                }
+                this.students = Array.from(map.values());
+                this.save(STORAGE_KEY_STUDENTS, this.students);
+                this.notify();
+              }
+            }
+          },
+          () => {}
+        );
+
+        // 4. Passes realtime listener
         const passesRef = collection(firestoreDb, 'gatepasses');
-        const q = query(passesRef, orderBy('createdAt', 'desc'), limit(50));
+        const q = query(passesRef, orderBy('createdAt', 'desc'), limit(150));
         onSnapshot(
           q,
           (snapshot) => {
@@ -301,7 +388,6 @@ class ClientStorageEngine {
                 if (data && data.id) remotePasses.push(data);
               });
               if (remotePasses.length > 0) {
-                // Merge remote passes into local passes
                 const existingMap = new Map(this.passes.map((p) => [p.id, p]));
                 for (const rp of remotePasses) {
                   existingMap.set(rp.id, rp);
@@ -314,12 +400,10 @@ class ClientStorageEngine {
               }
             }
           },
-          () => {
-            // Firestore not ready or offline - works seamlessly from localStorage
-          }
+          () => {}
         );
       } catch {
-        // ignore
+        // Firestore not ready or offline - works seamlessly from localStorage
       }
     }
   }
@@ -328,7 +412,10 @@ class ClientStorageEngine {
     if (typeof localStorage === 'undefined') return fallback;
     try {
       const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : fallback;
+      if (!data || data === 'null' || data === 'undefined') return fallback;
+      const parsed = JSON.parse(data);
+      if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+      return parsed ?? fallback;
     } catch {
       return fallback;
     }
@@ -344,12 +431,15 @@ class ClientStorageEngine {
   }
 
   private reloadFromStorage() {
-    this.schools = this.load(STORAGE_KEY_SCHOOLS, []);
-    this.schools = this.schools.filter((s) => s.name !== 'בית ספר חדש (ריק)');
-    this.activeSchoolId = this.load(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
-    this.staff = this.load(STORAGE_KEY_STAFF, INITIAL_STAFF);
-    this.students = this.load(STORAGE_KEY_STUDENTS, []);
-    this.passes = this.load(STORAGE_KEY_PASSES, []);
+    const rawSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
+    this.schools = Array.isArray(rawSchools) ? rawSchools.filter((s) => s && s.name !== 'בית ספר חדש (ריק)') : [];
+    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+    const rawStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
+    this.staff = Array.isArray(rawStaff) ? rawStaff : JSON.parse(JSON.stringify(INITIAL_STAFF));
+    const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
+    this.students = Array.isArray(rawStudents) ? rawStudents : [];
+    const rawPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
+    this.passes = Array.isArray(rawPasses) ? rawPasses : [];
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
   }
@@ -457,12 +547,104 @@ class ClientStorageEngine {
     });
   }
 
+  public syncSchoolToFirestore(school: School): void {
+    try {
+      if (!firestoreDb || !school || !school.id) return;
+      setDoc(doc(firestoreDb, 'schools', school.id), school, { merge: true }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public deleteSchoolFromFirestore(schoolId: string): void {
+    try {
+      if (!firestoreDb || !schoolId) return;
+      deleteDoc(doc(firestoreDb, 'schools', schoolId)).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public syncStaffToFirestore(member: StaffMember): void {
+    try {
+      if (!firestoreDb || !member || !member.id) return;
+      setDoc(doc(firestoreDb, 'staff', member.id), member, { merge: true }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public deleteStaffFromFirestore(staffId: string): void {
+    try {
+      if (!firestoreDb || !staffId) return;
+      deleteDoc(doc(firestoreDb, 'staff', staffId)).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public syncStudentToFirestore(student: Student): void {
+    try {
+      if (!firestoreDb || !student || !student.id) return;
+      setDoc(doc(firestoreDb, 'students', student.id), student, { merge: true }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public deleteStudentFromFirestore(studentId: string): void {
+    try {
+      if (!firestoreDb || !studentId) return;
+      deleteDoc(doc(firestoreDb, 'students', studentId)).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public syncPassToFirestore(pass: GatePass): void {
+    try {
+      if (!firestoreDb || !pass || !pass.id) return;
+      setDoc(doc(firestoreDb, 'gatepasses', pass.id), pass, { merge: true }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
+  public syncLocalToCloud(): void {
+    try {
+      if (!firestoreDb) return;
+      for (const s of this.schools) {
+        if (s && s.id && s.name && s.name !== 'בית ספר חדש (ריק)') {
+          this.syncSchoolToFirestore(s);
+        }
+      }
+      for (const st of this.staff) {
+        if (st && st.id) {
+          this.syncStaffToFirestore(st);
+        }
+      }
+      for (const stud of this.students) {
+        if (stud && stud.id) {
+          this.syncStudentToFirestore(stud);
+        }
+      }
+      for (const p of this.passes) {
+        if (p && p.id) {
+          this.syncPassToFirestore(p);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   private broadcastChange() {
     this.save(STORAGE_KEY_SCHOOLS, this.schools);
     this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
     this.save(STORAGE_KEY_PASSES, this.passes);
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
+    this.syncLocalToCloud();
     this.notify();
     if (typeof window !== 'undefined') {
       try {
@@ -872,6 +1054,30 @@ class ClientStorageEngine {
     }
     if (!member) {
       member = this.staff.find((s) => s.pinCode === clean);
+    }
+
+    // Also support school activation code entered directly into the PIN pad
+    if (!member) {
+      const schoolByCode = this.schools.find(
+        (s) => (s.activationCode && s.activationCode === clean) || (s.code && s.code === clean)
+      );
+      if (schoolByCode) {
+        this.activeSchoolId = schoolByCode.id;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('gate_activated_school_code', schoolByCode.activationCode || clean);
+          localStorage.setItem('gate_school_name', schoolByCode.name);
+        }
+        if (schoolByCode.status === 'pending') {
+          schoolByCode.status = 'active';
+          schoolByCode.isSuspended = false;
+        }
+        member =
+          this.staff.find((s) => s.schoolId === schoolByCode.id && s.role === 'vice_principal') ||
+          this.staff.find((s) => s.schoolId === schoolByCode.id);
+        if (member) {
+          member.isActive = true;
+        }
+      }
     }
 
     if (!member) {
@@ -1449,16 +1655,19 @@ class ClientStorageEngine {
     totalClasses: number;
   } {
     const schoolId = targetSchoolId || this.activeSchoolId || 'school-main';
-    const schoolStudents = this.students.filter((s) => (s.schoolId || 'school-main') === schoolId);
+    const studentsArr = Array.isArray(this.students) ? this.students : [];
+    const staffArr = Array.isArray(this.staff) ? this.staff : [];
+    const schoolStudents = studentsArr.filter((s) => s && (s.schoolId || 'school-main') === schoolId);
 
     // Group by class
     const classMap = new Map<string, { className: string; teacherName: string; count: number; students: Student[] }>();
 
     for (const st of schoolStudents) {
+      if (!st) continue;
       const cls = st.className || 'ללא כיתה';
       if (!classMap.has(cls)) {
-        const teacherStaff = this.staff.find(
-          (m) => (m.schoolId || 'school-main') === schoolId && m.assignedClasses?.includes(cls)
+        const teacherStaff = staffArr.find(
+          (m) => m && (m.schoolId || 'school-main') === schoolId && m.assignedClasses?.includes(cls)
         );
         classMap.set(cls, {
           className: cls,

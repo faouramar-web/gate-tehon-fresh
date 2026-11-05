@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api.ts';
-import { User, GatePass, Student, StaffMember, UserRole } from '../types.ts';
+import { clientStore } from '../lib/clientStore.ts';
+import { User, GatePass, Student, StaffMember, UserRole, School } from '../types.ts';
 import {
   ShieldAlert,
   Search,
@@ -350,8 +351,8 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   // Regenerate PIN in 1-click
   const handleRegeneratePin = async (staffId: string) => {
     const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
-    const member = schoolStaff.find((s) => s.id === staffId);
-    const updated = schoolStaff.map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s));
+    const member = (schoolStaff || []).find((s) => s.id === staffId);
+    const updated = (schoolStaff || []).map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s));
     setSchoolStaff(updated);
     try {
       await api.saveStaff(updated);
@@ -382,8 +383,10 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const handleSendWhatsApp = (member: StaffMember) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-    const appUrl = origin + pathname;
     const schoolName = user.schoolName && user.schoolName !== '*' ? user.schoolName : 'בית הספר';
+    const targetSchool = clientStore.getSchools().schools.find((s: School) => s.id === (member.schoolId || user.schoolId));
+    const schoolCode = targetSchool?.activationCode || targetSchool?.code || (user.schoolId && user.schoolId !== '*' ? user.schoolId : '');
+    const appUrl = schoolCode ? `${origin}${pathname}?school=${encodeURIComponent(schoolCode)}` : `${origin}${pathname}`;
 
     const roleHebrew =
       member.role === 'guard'

@@ -53,7 +53,22 @@ export interface AuditLogEntry {
   className?: string;
 }
 
+export interface ServerSchool {
+  id: string;
+  name: string;
+  city?: string;
+  code?: string;
+  activationCode?: string;
+  status?: string;
+  contactPerson?: string;
+  phone?: string;
+  isSuspended?: boolean;
+  createdAt: string;
+}
+
 export interface DatabaseSchema {
+  schools?: ServerSchool[];
+  activeSchoolId?: string;
   staff: Staff[];
   students: Student[];
   passes: GatePass[];
@@ -896,6 +911,110 @@ class SchoolDatabase {
         },
       ];
     });
+  }
+
+  public getSchools(): { schools: ServerSchool[]; activeSchoolId: string } {
+    if (!this.data.schools || !Array.isArray(this.data.schools) || this.data.schools.length === 0) {
+      this.data.schools = [
+        {
+          id: 'school-main',
+          name: this.data.settings?.schoolName || 'בית ספר מקיף',
+          city: 'מחוז צפון',
+          code: 'SCH-01',
+          activationCode: '1001',
+          status: 'active',
+          contactPerson: 'עמאר פאעור',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+    return {
+      schools: this.data.schools,
+      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || 'school-main',
+    };
+  }
+
+  public setActiveSchoolId(id: string): { success: boolean; activeSchoolId: string } {
+    this.mutate((data) => {
+      data.activeSchoolId = id;
+    });
+    return { success: true, activeSchoolId: id };
+  }
+
+  public createSchool(schoolData: any): { success: boolean; school: ServerSchool; coordinatorPin: string } {
+    const schoolId = `school-${Date.now()}`;
+    const code = schoolData.code || `SCH-${(this.data.schools?.length || 0) + 1}`;
+    const activationCode = schoolData.activationCode || Math.floor(1000 + Math.random() * 9000).toString();
+    const vpPin = schoolData.contactPin || `${3000 + (this.data.schools?.length || 0)}`;
+
+    const newSchool: ServerSchool = {
+      id: schoolId,
+      name: schoolData.name || 'בית ספר חדש',
+      city: schoolData.city || '',
+      code,
+      activationCode,
+      status: schoolData.status || 'pending',
+      contactPerson: schoolData.contactPerson || '',
+      phone: schoolData.phone || '',
+      isSuspended: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.mutate((data) => {
+      if (!data.schools) data.schools = [];
+      data.schools.push(newSchool);
+      data.activeSchoolId = schoolId;
+      data.staff.push({
+        id: `staff-vp-${schoolId}`,
+        staffCode: `VP0${data.schools.length}`,
+        fullName: schoolData.contactPerson ? `${schoolData.contactPerson} (סגן מנהל)` : `סגן מנהל (${newSchool.name})`,
+        role: 'vice_principal',
+        pinCode: vpPin,
+        assignedClasses: ['*'],
+        isActive: true,
+      });
+      data.staff.push({
+        id: `staff-guard-${schoolId}`,
+        staffCode: `G0${data.schools.length}`,
+        fullName: `שומר שער (${newSchool.name})`,
+        role: 'guard',
+        pinCode: `${2000 + data.schools.length}`,
+        assignedClasses: [],
+        isActive: true,
+      });
+    });
+
+    return { success: true, school: newSchool, coordinatorPin: vpPin };
+  }
+
+  public deleteSchool(schoolId: string): { success: boolean; message: string } {
+    this.mutate((data) => {
+      if (data.schools) {
+        data.schools = data.schools.filter((s) => s.id !== schoolId);
+      }
+      if (data.activeSchoolId === schoolId) {
+        data.activeSchoolId = data.schools?.[0]?.id || '';
+      }
+    });
+    return { success: true, message: 'בית הספר נמחק בהצלחה' };
+  }
+
+  public activateSchoolByCode(code: string): { success: boolean; school: ServerSchool; message: string } {
+    const clean = code.trim().toUpperCase();
+    const schools = this.getSchools().schools;
+    const school = schools.find((s) => (s.activationCode || '').toUpperCase() === clean || (s.code || '').toUpperCase() === clean);
+    if (!school) {
+      throw new Error('קוד הפעלה בית ספרי שגוי');
+    }
+    this.mutate((data) => {
+      data.activeSchoolId = school.id;
+      const s = data.schools?.find((x) => x.id === school.id);
+      if (s) {
+        s.status = 'active';
+        s.isSuspended = false;
+      }
+    });
+    return { success: true, school, message: `בית הספר "${school.name}" הופעל בהצלחה` };
   }
 }
 

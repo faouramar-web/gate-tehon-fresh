@@ -708,6 +708,102 @@ var SchoolDatabase = class {
       ];
     });
   }
+  getSchools() {
+    if (!this.data.schools || !Array.isArray(this.data.schools) || this.data.schools.length === 0) {
+      this.data.schools = [
+        {
+          id: "school-main",
+          name: this.data.settings?.schoolName || "\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05DE\u05E7\u05D9\u05E3",
+          city: "\u05DE\u05D7\u05D5\u05D6 \u05E6\u05E4\u05D5\u05DF",
+          code: "SCH-01",
+          activationCode: "1001",
+          status: "active",
+          contactPerson: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      ];
+    }
+    return {
+      schools: this.data.schools,
+      activeSchoolId: this.data.activeSchoolId || this.data.schools[0]?.id || "school-main"
+    };
+  }
+  setActiveSchoolId(id) {
+    this.mutate((data) => {
+      data.activeSchoolId = id;
+    });
+    return { success: true, activeSchoolId: id };
+  }
+  createSchool(schoolData) {
+    const schoolId = `school-${Date.now()}`;
+    const code = schoolData.code || `SCH-${(this.data.schools?.length || 0) + 1}`;
+    const activationCode = schoolData.activationCode || Math.floor(1e3 + Math.random() * 9e3).toString();
+    const vpPin = schoolData.contactPin || `${3e3 + (this.data.schools?.length || 0)}`;
+    const newSchool = {
+      id: schoolId,
+      name: schoolData.name || "\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D7\u05D3\u05E9",
+      city: schoolData.city || "",
+      code,
+      activationCode,
+      status: schoolData.status || "pending",
+      contactPerson: schoolData.contactPerson || "",
+      phone: schoolData.phone || "",
+      isSuspended: false,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.mutate((data) => {
+      if (!data.schools) data.schools = [];
+      data.schools.push(newSchool);
+      data.activeSchoolId = schoolId;
+      data.staff.push({
+        id: `staff-vp-${schoolId}`,
+        staffCode: `VP0${data.schools.length}`,
+        fullName: schoolData.contactPerson ? `${schoolData.contactPerson} (\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC)` : `\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC (${newSchool.name})`,
+        role: "vice_principal",
+        pinCode: vpPin,
+        assignedClasses: ["*"],
+        isActive: true
+      });
+      data.staff.push({
+        id: `staff-guard-${schoolId}`,
+        staffCode: `G0${data.schools.length}`,
+        fullName: `\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8 (${newSchool.name})`,
+        role: "guard",
+        pinCode: `${2e3 + data.schools.length}`,
+        assignedClasses: [],
+        isActive: true
+      });
+    });
+    return { success: true, school: newSchool, coordinatorPin: vpPin };
+  }
+  deleteSchool(schoolId) {
+    this.mutate((data) => {
+      if (data.schools) {
+        data.schools = data.schools.filter((s) => s.id !== schoolId);
+      }
+      if (data.activeSchoolId === schoolId) {
+        data.activeSchoolId = data.schools?.[0]?.id || "";
+      }
+    });
+    return { success: true, message: "\u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 \u05E0\u05DE\u05D7\u05E7 \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4" };
+  }
+  activateSchoolByCode(code) {
+    const clean = code.trim().toUpperCase();
+    const schools = this.getSchools().schools;
+    const school = schools.find((s) => (s.activationCode || "").toUpperCase() === clean || (s.code || "").toUpperCase() === clean);
+    if (!school) {
+      throw new Error("\u05E7\u05D5\u05D3 \u05D4\u05E4\u05E2\u05DC\u05D4 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8\u05D9 \u05E9\u05D2\u05D5\u05D9");
+    }
+    this.mutate((data) => {
+      data.activeSchoolId = school.id;
+      const s = data.schools?.find((x) => x.id === school.id);
+      if (s) {
+        s.status = "active";
+        s.isSuspended = false;
+      }
+    });
+    return { success: true, school, message: `\u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 "${school.name}" \u05D4\u05D5\u05E4\u05E2\u05DC \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4` };
+  }
 };
 var db = new SchoolDatabase();
 
@@ -1068,6 +1164,48 @@ app.get("/api/admin/history-search", authenticate, (req, res) => {
   const className = req.query.class;
   const results = db.searchPassesHistory(query, dateFrom, dateTo, className);
   res.json({ passes: results });
+});
+app.get("/api/admin/schools", (_req, res) => {
+  res.json(db.getSchools());
+});
+app.post("/api/admin/schools", authenticate, requireRole("admin"), (req, res) => {
+  const result = db.createSchool(req.body);
+  res.json(result);
+});
+app.post("/api/admin/schools/active", (req, res) => {
+  const { schoolId } = req.body;
+  if (!schoolId) {
+    res.status(400).json({ error: "\u05D7\u05E1\u05E8 \u05DE\u05D6\u05D4\u05D4 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8" });
+    return;
+  }
+  res.json(db.setActiveSchoolId(schoolId));
+});
+app.delete("/api/admin/schools/:id", authenticate, requireRole("admin"), (req, res) => {
+  res.json(db.deleteSchool(req.params.id));
+});
+app.post("/api/public/activate-school", (req, res) => {
+  const { code } = req.body;
+  if (!code) {
+    res.status(400).json({ error: "\u05D7\u05E1\u05E8 \u05E7\u05D5\u05D3 \u05D4\u05E4\u05E2\u05DC\u05D4" });
+    return;
+  }
+  try {
+    const result = db.activateSchoolByCode(code);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || "\u05E7\u05D5\u05D3 \u05D4\u05E4\u05E2\u05DC\u05D4 \u05E9\u05D2\u05D5\u05D9" });
+  }
+});
+app.get("/api/public/demo-accounts", (_req, res) => {
+  res.json({
+    accounts: [
+      { role: "admin", title: "\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA", name: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8" },
+      { role: "vice_principal", title: "\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC (\u05D0\u05D7\u05E8\u05D0\u05D9 \u05E9\u05D7\u05E8\u05D5\u05E8\u05D9\u05DD)", name: "\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC" },
+      { role: "teacher", title: "\u05DE\u05D7\u05E0\u05DB\u05EA \u05DB\u05D9\u05EA\u05D4 \u05D61", name: "\u05DC\u05D9\u05E0\u05D0 \u05D7\u05F3\u05DC\u05D9\u05DC" },
+      { role: "teacher", title: "\u05DE\u05D5\u05E8\u05D4 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9", name: "\u05DE\u05D5\u05D7\u05DE\u05D3 \u05E2\u05DC\u05D9" },
+      { role: "guard", title: "\u05E9\u05D5\u05DE\u05E8 \u05E9\u05E2\u05E8", name: "\u05D0\u05D1\u05E8\u05D4\u05DD \u05DB\u05D4\u05DF" }
+    ]
+  });
 });
 async function startServer() {
   const isInsideDist = __dirname.endsWith("dist") || __dirname.endsWith("dist/");

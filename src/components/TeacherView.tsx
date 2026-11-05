@@ -87,7 +87,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
 
   const toggleStudentSelection = (studentId: string) => {
     // Check if student already has active pass
-    const student = students.find((s) => s.id === studentId);
+    const student = (students || []).find((s) => s.id === studentId);
     if (student?.currentPass?.status === 'active') {
       return; // already has active pass
     }
