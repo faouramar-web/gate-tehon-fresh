@@ -35,12 +35,26 @@ function cleanStr(val: any): string {
   return String(val).trim();
 }
 
-// Helper to check if a header string looks like "student name" in Hebrew/English
+// Helper to check if a header string is first name
+function isFirstNameHeader(str: string): boolean {
+  const s = str.toLowerCase();
+  return s.includes('שם פרטי') || s.includes('first name') || s.includes('firstname');
+}
+
+// Helper to check if a header string is last name
+function isLastNameHeader(str: string): boolean {
+  const s = str.toLowerCase();
+  return s.includes('שם משפחה') || s.includes('last name') || s.includes('lastname') || (s.includes('משפחה') && !s.includes('בית'));
+}
+
+// Helper to check if a header string looks like "student name" (full name) in Hebrew/English
 function isStudentNameHeader(str: string): boolean {
   const s = str.toLowerCase();
+  if (isFirstNameHeader(s) || isLastNameHeader(s)) return false;
   return (
     s.includes('שם תלמיד') ||
     s.includes('שם מלא') ||
+    s.includes('שם התלמיד') ||
     s.includes('תלמיד') ||
     s.includes('student') ||
     s.includes('full name') ||
@@ -48,25 +62,39 @@ function isStudentNameHeader(str: string): boolean {
   );
 }
 
-// Helper to check if header looks like "student id / code"
+// Helper to check if header looks like "student id / code" (e.g. ת.ז)
 function isStudentCodeHeader(str: string): boolean {
   const s = str.toLowerCase();
   return (
-    s.includes('מזהה תלמיד') ||
-    s.includes('מזהה') ||
     s.includes('ת.ז') ||
     s.includes('תעודת זהות') ||
+    s.includes('מספר זהות') ||
+    s.includes('מזהה תלמיד') ||
     s.includes('קוד תלמיד') ||
-    s.includes('מספר תלמיד') ||
-    s.includes('id') ||
-    s.includes('code')
+    (s.includes('מספר') && s.includes('תלמיד')) ||
+    s === 'id' ||
+    s === 'student_id' ||
+    s === 'code'
   );
 }
 
-// Helper to check if header looks like "class name"
+// Helper to check if header looks like row number / serial number
+function isRowNumberHeader(str: string): boolean {
+  const s = str.trim().toLowerCase();
+  return s === 'מספר' || s === "מס'" || s === 'מס סידורי' || s === 'מספר סידורי' || s === '#' || s === 'no' || s === 'num';
+}
+
+// Helper to check if header looks like parallel/section ("מקבילה")
+function isSectionHeader(str: string): boolean {
+  const s = str.toLowerCase();
+  return s.includes('מקבילה') || s.includes('מספר כיתה') || s.includes('כיתה מקבילה') || s.includes('מס כיתה') || s.includes('section') || s.includes('parallel');
+}
+
+// Helper to check if header looks like "class name" (grade)
 function isClassHeader(str: string): boolean {
   const s = str.toLowerCase();
-  return s.includes('כיתה') || s.includes('class') || s.includes('שכבה');
+  if (isSectionHeader(s)) return false;
+  return s.includes('כיתה') || s.includes('class') || s.includes('שכבה') || s.includes('grade');
 }
 
 // Helper to check if header looks like "teacher name"
@@ -75,23 +103,55 @@ function isTeacherHeader(str: string): boolean {
   return s.includes('מחנכת') || s.includes('מחנך') || s.includes('מורה') || s.includes('teacher');
 }
 
-// Parse sheet name or title line like "כיתה ז1 | לינא ח׳ליל" or "כיתה ז1"
+// Parse sheet name or title line like "כיתה י1 קסיס האני", "כיתה ז1 | לינא ח׳ליל" or "כיתה ז1"
 function extractClassAndTeacherFromText(text: string): { className?: string; teacherName?: string } {
   const clean = text.trim();
-  // Pattern: "כיתה ז1 | לינא ח׳ליל" or "ז1 - לינא ח׳ליל"
-  const pipeSplit = clean.split(/[|•\-–]/).map((s) => s.trim());
-  let className: string | undefined;
-  let teacherName: string | undefined;
+  if (!clean) return {};
 
-  for (const part of pipeSplit) {
-    if (part.includes('כיתה') || /^[זחטיו][1-9]$/.test(part) || /^[זחטיו]׳?[1-9]$/.test(part)) {
-      className = part.replace(/^כיתה\s*/, '').trim();
-    } else if (part.length > 2 && !part.includes('רשימ') && !part.includes('תלמיד') && !part.includes('בית ספר')) {
-      teacherName = part.replace(/^(מחנכת|מחנך)\s*:?\s*/, '').trim();
+  // Pattern 1: Check pipe or dash separators ("כיתה ז1 | לינא ח׳ליל" or "ז1 - לינא ח׳ליל")
+  const pipeSplit = clean.split(/[|•\-–—]/).map((s) => s.trim());
+  if (pipeSplit.length > 1) {
+    let className: string | undefined;
+    let teacherName: string | undefined;
+
+    for (const part of pipeSplit) {
+      if (part.includes('כיתה') || /^[זחטיו][1-9]?$/i.test(part) || /^[זחטיו]׳?[1-9]?$/i.test(part) || /^י["״]?[אב][1-9]?$/i.test(part)) {
+        className = part.replace(/^כיתה\s*/, '').trim();
+      } else if (part.length > 2 && !part.includes('רשימ') && !part.includes('תלמיד') && !part.includes('בית ספר')) {
+        teacherName = part.replace(/^(מחנכת|מחנך|מורה)\s*:?\s*/, '').trim();
+      }
+    }
+    if (className || teacherName) {
+      return { className, teacherName };
     }
   }
 
-  return { className, teacherName };
+  // Pattern 2: Format "כיתה י1 קסיס האני" or "כיתה י 1 קסיס האני" or "כיתה י2 ביבאר גומאנה"
+  const classTeacherMatch = clean.match(
+    /^(?:כיתה\s*)?([א-ת]|י["״']?[אב]|[0-9]{1,2})\s*([0-9]{1,2})?\s+(.+)$/
+  );
+  if (classTeacherMatch) {
+    const grade = classTeacherMatch[1].replace(/["״']/g, '');
+    const section = classTeacherMatch[2] || '';
+    const rawTeacher = classTeacherMatch[3].trim();
+
+    if (rawTeacher && !rawTeacher.includes('רשימ') && !rawTeacher.includes('תלמיד') && !rawTeacher.includes('בית ספר')) {
+      const className = section ? `${grade}${section}` : grade;
+      const teacherName = rawTeacher.replace(/^(מחנכת|מחנך|מורה)\s*:?\s*/, '').trim();
+      return { className, teacherName };
+    }
+  }
+
+  // Pattern 3: Simple class name "כיתה י1" or "כיתה י2" or "י1"
+  const justClassMatch = clean.match(/^(?:כיתה\s*)?([א-ת]|י["״']?[אב]|[0-9]{1,2})\s*([0-9]{1,2})?$/);
+  if (justClassMatch) {
+    const grade = justClassMatch[1].replace(/["״']/g, '');
+    const section = justClassMatch[2] || '';
+    const className = section ? `${grade}${section}` : grade;
+    return { className };
+  }
+
+  return {};
 }
 
 export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): ParseResult {
@@ -114,23 +174,27 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
 
     if (rows.length === 0) continue;
 
-    // Check if sheet name itself contains class / teacher
+    // Check if sheet name itself contains class / teacher (e.g. "כיתה י1 קסיס האני")
     const fromSheetName = extractClassAndTeacherFromText(sheetName);
     let sheetClassName = fromSheetName.className || '';
     let sheetTeacherName = fromSheetName.teacherName || '';
 
     // Check early title rows (rows 0 to 4) for class or teacher info
     let tableHeaderRowIndex = -1;
-    let nameColIndex = -1;
+    let firstNameColIndex = -1;
+    let lastNameColIndex = -1;
+    let fullNameColIndex = -1;
     let codeColIndex = -1;
+    let rowNumColIndex = -1;
     let classColIndex = -1;
+    let sectionColIndex = -1;
     let teacherColIndex = -1;
 
     for (let r = 0; r < Math.min(rows.length, 6); r++) {
       const row = rows[r];
       const joinedRow = row.map(cleanStr).join(' ');
 
-      // Check if this row is a title banner like "כיתה ז1 | לינא ח׳ליל"
+      // Check if this row is a title banner like "כיתה י1 קסיס האני"
       if (!sheetClassName || !sheetTeacherName) {
         const fromTitleRow = extractClassAndTeacherFromText(joinedRow);
         if (fromTitleRow.className && !sheetClassName) sheetClassName = fromTitleRow.className;
@@ -140,13 +204,21 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
       // Check if this row is the column headers
       for (let c = 0; c < row.length; c++) {
         const cell = cleanStr(row[c]);
-        if (isStudentNameHeader(cell)) nameColIndex = c;
+        if (isFirstNameHeader(cell)) firstNameColIndex = c;
+        else if (isLastNameHeader(cell)) lastNameColIndex = c;
+        else if (isStudentNameHeader(cell)) fullNameColIndex = c;
+
         if (isStudentCodeHeader(cell)) codeColIndex = c;
-        if (isClassHeader(cell)) classColIndex = c;
+        else if (isRowNumberHeader(cell)) rowNumColIndex = c;
+
+        if (isSectionHeader(cell)) sectionColIndex = c;
+        else if (isClassHeader(cell)) classColIndex = c;
+
         if (isTeacherHeader(cell)) teacherColIndex = c;
       }
 
-      if (nameColIndex !== -1) {
+      // Detected if we have a full name column OR first name (+ optional last name)
+      if (fullNameColIndex !== -1 || firstNameColIndex !== -1) {
         tableHeaderRowIndex = r;
         break;
       }
@@ -161,16 +233,15 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
           const c0 = cleanStr(row[0]);
           const c1 = cleanStr(row[1]);
           if (c0 && c1) {
-            // Check if one looks like an ID code (e.g. S001, 12345) and the other has Hebrew letters
             const c0IsCode = /^[a-zA-Z0-9\-_]{2,10}$/.test(c0);
             const c1IsCode = /^[a-zA-Z0-9\-_]{2,10}$/.test(c1);
             if (c0IsCode && !c1IsCode) {
               codeColIndex = 0;
-              nameColIndex = 1;
+              fullNameColIndex = 1;
               tableHeaderRowIndex = r - 1; // data starts at r
               break;
             } else if (!c0IsCode && c1IsCode) {
-              nameColIndex = 0;
+              fullNameColIndex = 0;
               codeColIndex = 1;
               tableHeaderRowIndex = r - 1;
               break;
@@ -180,7 +251,7 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
       }
     }
 
-    if (nameColIndex === -1) {
+    if (fullNameColIndex === -1 && firstNameColIndex === -1) {
       unmappedSheets.push(sheetName);
       warnings.push(`בלשונית "${sheetName}" לא זוהתה עמודת שם תלמיד באופן מובהק.`);
       continue;
@@ -192,18 +263,48 @@ export function parseExcelOrCsv(fileBuffer: ArrayBuffer, fileName: string): Pars
       const row = rows[r];
       if (!row || row.length === 0) continue;
 
-      const fullName = cleanStr(row[nameColIndex]);
+      let fullName = '';
+      if (firstNameColIndex !== -1 && lastNameColIndex !== -1) {
+        const first = cleanStr(row[firstNameColIndex]);
+        const last = cleanStr(row[lastNameColIndex]);
+        fullName = `${first} ${last}`.trim();
+      } else if (fullNameColIndex !== -1) {
+        fullName = cleanStr(row[fullNameColIndex]);
+      } else if (firstNameColIndex !== -1) {
+        fullName = cleanStr(row[firstNameColIndex]);
+      }
+
       if (!fullName) continue; // Skip blank rows
 
       // Skip accidental header repeats
-      if (isStudentNameHeader(fullName)) continue;
+      if (isStudentNameHeader(fullName) || isFirstNameHeader(fullName) || fullName === 'שם פרטי' || fullName === 'שם משפחה') continue;
 
-      const studentCode = codeColIndex !== -1 ? cleanStr(row[codeColIndex]) : '';
-      const rowClass = classColIndex !== -1 ? cleanStr(row[classColIndex]) : '';
+      // Class determination
+      let rowClass = '';
+      if (classColIndex !== -1 && sectionColIndex !== -1) {
+        const g = cleanStr(row[classColIndex]);
+        const s = cleanStr(row[sectionColIndex]);
+        rowClass = `${g}${s}`.trim();
+      } else if (classColIndex !== -1) {
+        rowClass = cleanStr(row[classColIndex]);
+      }
+
       const rowTeacher = teacherColIndex !== -1 ? cleanStr(row[teacherColIndex]) : '';
 
       const finalClass = rowClass || sheetClassName || (sheetNames.length === 1 ? 'כללי' : sheetName);
       const finalTeacher = rowTeacher || sheetTeacherName;
+
+      // Student code determination
+      let studentCode = codeColIndex !== -1 ? cleanStr(row[codeColIndex]) : '';
+      if (!studentCode && rowNumColIndex !== -1) {
+        const numVal = cleanStr(row[rowNumColIndex]);
+        if (numVal) {
+          studentCode = `${finalClass}-${numVal.padStart(2, '0')}`;
+        }
+      }
+      if (!studentCode) {
+        studentCode = `${finalClass}-${String(r - dataStartRow + 1).padStart(2, '0')}`;
+      }
 
       let hasWarning = false;
       let warningMessage = '';

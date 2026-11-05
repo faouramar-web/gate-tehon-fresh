@@ -497,16 +497,47 @@ var SchoolDatabase = class {
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
         actionType: "RESET_DEMO",
         actorId: "admin",
-        actorName: "\u05DE\u05D6\u05DB\u05D9\u05E8\u05D5\u05EA",
+        actorName: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8 (\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA)",
         actorRole: "admin",
         details: "\u05D0\u05D9\u05E4\u05D5\u05E1 \u05DE\u05E2\u05E8\u05DB\u05EA \u05DC\u05E0\u05EA\u05D5\u05E0\u05D9 \u05D4\u05D3\u05D2\u05DE\u05D4 \u05DE\u05E7\u05D5\u05E8\u05D9\u05D9\u05DD"
       });
     });
   }
-  importStudentsData(newStudents, classesTeachers, actor) {
+  clearAllSchoolData(actor) {
+    this.mutate((data) => {
+      data.students = [];
+      data.passes = [];
+      const amarExists = data.staff.some((s) => s.role === "admin" && s.pinCode === "160525");
+      if (!amarExists) {
+        data.staff.unshift({
+          id: "staff-admin-amar",
+          staffCode: "ADMIN",
+          fullName: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8 (\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA)",
+          role: "admin",
+          pinCode: "160525",
+          assignedClasses: ["*"],
+          isActive: true
+        });
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        actionType: "RESET_DEMO",
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: "\u05D0\u05D9\u05E4\u05D5\u05E1 \u05DE\u05DC\u05D0 \u05E9\u05DC \u05DE\u05D0\u05D2\u05E8 \u05D4\u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD \u05D5\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8\u05D9\u05DD \u05DC\u05DC\u05D5\u05D7 \u05E0\u05E7\u05D9"
+      });
+    });
+  }
+  importStudentsData(newStudents, classesTeachers, actor, replaceExisting) {
     let added = 0;
     let updated = 0;
     this.mutate((data) => {
+      if (replaceExisting) {
+        data.students = [];
+        data.passes = [];
+      }
       for (const item of newStudents) {
         const existing = data.students.find(
           (s) => item.studentCode && s.studentCode === item.studentCode || s.fullName.trim() === item.fullName.trim() && s.className.trim() === item.className.trim()
@@ -576,6 +607,105 @@ var SchoolDatabase = class {
         actorRole: actor.role,
         details: `\u05E2\u05D3\u05DB\u05D5\u05DF \u05D0\u05E0\u05E9\u05D9 \u05E6\u05D5\u05D5\u05EA \u05D5\u05E7\u05D5\u05D3\u05D9 \u05D2\u05D9\u05E9\u05D4`
       });
+    });
+  }
+  deletePasses(options, actor) {
+    let count = 0;
+    this.mutate((data) => {
+      let toDelete = [];
+      if (options.all) {
+        count = data.passes.length;
+        data.passes = [];
+      } else if (options.passIds && options.passIds.length > 0) {
+        const idSet = new Set(options.passIds);
+        toDelete = data.passes.filter((p) => idSet.has(p.id));
+        count = toDelete.length;
+        data.passes = data.passes.filter((p) => !idSet.has(p.id));
+      } else if (options.fromDate || options.toDate) {
+        toDelete = data.passes.filter((p) => {
+          if (options.fromDate && p.dateStr < options.fromDate) return false;
+          if (options.toDate && p.dateStr > options.toDate) return false;
+          return true;
+        });
+        count = toDelete.length;
+        const deleteIds = new Set(toDelete.map((p) => p.id));
+        data.passes = data.passes.filter((p) => !deleteIds.has(p.id));
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        actionType: "PASSES_DELETED",
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: `\u05DE\u05D7\u05D9\u05E7\u05EA ${count} \u05D0\u05D9\u05E9\u05D5\u05E8\u05D9 \u05D9\u05E6\u05D9\u05D0\u05D4 \u05DE\u05D4\u05DE\u05D0\u05D2\u05E8 ${options.all ? "(\u05DE\u05D7\u05D9\u05E7\u05D4 \u05DB\u05D5\u05DC\u05DC\u05EA)" : options.fromDate ? `(\u05DE\u05EA\u05D0\u05E8\u05D9\u05DA ${options.fromDate} \u05E2\u05D3 ${options.toDate || "\u05E2\u05DB\u05E9\u05D9\u05D5"})` : ""}`
+      });
+    });
+    return { deletedCount: count };
+  }
+  suspendAllStaff(suspend, actor) {
+    this.mutate((data) => {
+      for (const s of data.staff) {
+        if (s.role !== "admin" && s.pinCode !== "160525") {
+          s.isActive = !suspend;
+        }
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        actionType: "STAFF_UPDATED",
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: suspend ? "\u05D4\u05E7\u05E4\u05D0\u05EA \u05D5\u05D4\u05E9\u05D1\u05EA\u05EA \u05DB\u05DC \u05D0\u05E0\u05E9\u05D9 \u05E6\u05D5\u05D5\u05EA \u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 (\u05E2\u05E7\u05D1 \u05D0\u05D9-\u05EA\u05E9\u05DC\u05D5\u05DD / \u05D4\u05E9\u05E2\u05D9\u05D9\u05EA \u05E8\u05D9\u05E9\u05D5\u05D9)" : "\u05D7\u05D9\u05D3\u05D5\u05E9 \u05D5\u05D4\u05E4\u05E2\u05DC\u05EA \u05DB\u05DC \u05D0\u05E0\u05E9\u05D9 \u05E6\u05D5\u05D5\u05EA \u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 \u05D1\u05DE\u05E2\u05E8\u05DB\u05EA"
+      });
+    });
+  }
+  rollAllStaffPins(actor) {
+    this.mutate((data) => {
+      for (const s of data.staff) {
+        if (s.role !== "admin" && s.pinCode !== "160525") {
+          s.pinCode = Math.floor(1e3 + Math.random() * 9e3).toString();
+        }
+      }
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        actionType: "STAFF_UPDATED",
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: "\u05D4\u05D7\u05DC\u05E4\u05D4 \u05D5\u05D4\u05D2\u05E8\u05DC\u05EA \u05E7\u05D5\u05D3\u05D9 \u05D2\u05D9\u05E9\u05D4 \u05D7\u05D3\u05E9\u05D9\u05DD \u05DC\u05DB\u05DC \u05E6\u05D5\u05D5\u05EA \u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8"
+      });
+    });
+    return this.data.staff;
+  }
+  factoryResetForNewSchool(actor, newSchoolName) {
+    this.mutate((data) => {
+      data.students = [];
+      data.passes = [];
+      data.staff = [
+        {
+          id: "staff-admin-amar",
+          staffCode: "ADMIN",
+          fullName: "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8 (\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA)",
+          role: "admin",
+          pinCode: "160525",
+          assignedClasses: ["*"],
+          isActive: true
+        }
+      ];
+      data.auditLogs = [
+        {
+          id: `log-${Date.now()}`,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+          actionType: "RESET_DEMO",
+          actorId: actor.id,
+          actorName: actor.fullName,
+          actorRole: actor.role,
+          details: `\u05D0\u05D9\u05E4\u05D5\u05E1 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8\u05D9 \u05DE\u05DC\u05D0 \u05DC\u05E7\u05E8\u05D0\u05EA \u05D4\u05E2\u05D1\u05E8\u05D4 \u05DC\u05D1\u05D9\u05EA \u05E1\u05E4\u05E8 \u05D7\u05D3\u05E9${newSchoolName ? `: ${newSchoolName}` : ""}`
+        }
+      ];
     });
   }
 };
@@ -660,7 +790,7 @@ app.post("/api/auth/login", (req, res) => {
   const staff = db.getStaffByPin(pinCode);
   if (!staff) {
     res.status(401).json({
-      error: "\u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9 \u05E9\u05D2\u05D5\u05D9. \u05D0\u05E0\u05D0 \u05E0\u05E1\u05D4 \u05E9\u05D5\u05D1 \u05D0\u05D5 \u05E4\u05E0\u05D4 \u05DC\u05DE\u05D6\u05DB\u05D9\u05E8\u05D5\u05EA."
+      error: "\u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9 \u05E9\u05D2\u05D5\u05D9 \u05D0\u05D5 \u05E9\u05D4\u05D2\u05D9\u05E9\u05D4 \u05D4\u05D5\u05E9\u05E2\u05EA\u05D4. \u05D0\u05E0\u05D0 \u05E4\u05E0\u05D4 \u05DC\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA (\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8)."
     });
     return;
   }
@@ -866,11 +996,11 @@ app.post("/api/guard/mark-exit", authenticate, requireRole("guard", "admin"), (r
     message: `\u05D4\u05D9\u05E6\u05D9\u05D0\u05D4 \u05E0\u05E8\u05E9\u05DE\u05D4 \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4 \u05E2\u05D1\u05D5\u05E8 ${result.pass?.studentName} (${result.pass?.className})`
   });
 });
-app.get("/api/admin/staff", authenticate, requireRole("admin"), (_req, res) => {
+app.get("/api/admin/staff", authenticate, requireRole("admin", "vice_principal"), (_req, res) => {
   const staff = db.getAllStaff();
   res.json({ staff });
 });
-app.post("/api/admin/staff", authenticate, requireRole("admin"), (req, res) => {
+app.post("/api/admin/staff", authenticate, requireRole("admin", "vice_principal"), (req, res) => {
   const admin = req.user;
   const { staffList } = req.body;
   if (!Array.isArray(staffList)) {
@@ -886,12 +1016,12 @@ app.get("/api/admin/audit", authenticate, requireRole("admin"), (req, res) => {
 });
 app.post("/api/admin/import", authenticate, requireRole("admin"), (req, res) => {
   const admin = req.user;
-  const { students, classesTeachers } = req.body;
+  const { students, classesTeachers, replaceExisting } = req.body;
   if (!Array.isArray(students) || students.length === 0) {
     res.status(400).json({ error: "\u05DC\u05D0 \u05E1\u05D5\u05E4\u05E7\u05D5 \u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD \u05DC\u05D9\u05D9\u05D1\u05D5\u05D0" });
     return;
   }
-  const result = db.importStudentsData(students, classesTeachers || [], admin);
+  const result = db.importStudentsData(students, classesTeachers || [], admin, Boolean(replaceExisting));
   res.json({
     success: true,
     added: result.added,
@@ -899,9 +1029,37 @@ app.post("/api/admin/import", authenticate, requireRole("admin"), (req, res) => 
     total: result.total
   });
 });
+app.post("/api/admin/clear-all", authenticate, requireRole("admin"), (req, res) => {
+  const admin = req.user;
+  db.clearAllSchoolData(admin);
+  res.json({ success: true, message: "\u05DE\u05D0\u05D2\u05E8 \u05D4\u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD \u05D5\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8\u05D9\u05DD \u05D0\u05D5\u05E4\u05E1 \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4 \u05DC\u05DC\u05D5\u05D7 \u05D7\u05DC\u05E7 \u05D5\u05E0\u05E7\u05D9" });
+});
 app.post("/api/admin/reset-demo", authenticate, requireRole("admin"), (_req, res) => {
   db.resetToDemo();
   res.json({ success: true, message: "\u05D4\u05DE\u05E2\u05E8\u05DB\u05EA \u05D0\u05D5\u05E4\u05E1\u05D4 \u05DC\u05E0\u05EA\u05D5\u05E0\u05D9 \u05D4\u05D4\u05D3\u05D2\u05DE\u05D4 \u05D4\u05DE\u05E7\u05D5\u05E8\u05D9\u05D9\u05DD" });
+});
+app.post("/api/admin/passes/delete", authenticate, requireRole("admin"), (req, res) => {
+  const admin = req.user;
+  const { all, passIds, fromDate, toDate } = req.body || {};
+  const result = db.deletePasses({ all, passIds, fromDate, toDate }, admin);
+  res.json({ success: true, deletedCount: result.deletedCount });
+});
+app.post("/api/admin/suspend-all", authenticate, requireRole("admin"), (req, res) => {
+  const admin = req.user;
+  const { suspend } = req.body;
+  db.suspendAllStaff(Boolean(suspend), admin);
+  res.json({ success: true, staff: db.getAllStaff() });
+});
+app.post("/api/admin/roll-pins", authenticate, requireRole("admin"), (req, res) => {
+  const admin = req.user;
+  const updatedStaff = db.rollAllStaffPins(admin);
+  res.json({ success: true, staff: updatedStaff });
+});
+app.post("/api/admin/factory-reset", authenticate, requireRole("admin"), (req, res) => {
+  const admin = req.user;
+  const { newSchoolName } = req.body;
+  db.factoryResetForNewSchool(admin, newSchoolName);
+  res.json({ success: true, message: "\u05D4\u05DE\u05E2\u05E8\u05DB\u05EA \u05D0\u05D5\u05E4\u05E1\u05D4 \u05DC\u05D7\u05DC\u05D5\u05D8\u05D9\u05DF \u05D5\u05DE\u05D5\u05DB\u05E0\u05D4 \u05DC\u05E7\u05DC\u05D9\u05D8\u05EA \u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 \u05D4\u05D7\u05D3\u05E9!" });
 });
 app.get("/api/admin/history-search", authenticate, (req, res) => {
   const query = req.query.q;
