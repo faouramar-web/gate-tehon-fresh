@@ -238,14 +238,30 @@ class ClientStorageEngine {
   private listeners: Array<() => void> = [];
 
   constructor() {
-    this.schools = this.load(STORAGE_KEY_SCHOOLS, INITIAL_SCHOOLS);
-    if (!this.schools || this.schools.length === 0) {
+    const isSeeded = typeof localStorage !== 'undefined' && localStorage.getItem('gatepass_seeded_v5') === 'true';
+    if (!isSeeded) {
       this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+      this.activeSchoolId = this.schools[0]?.id || 'school-main';
+      this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
+      this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
+      this.passes = JSON.parse(JSON.stringify(INITIAL_PASSES));
+      this.save(STORAGE_KEY_SCHOOLS, this.schools);
+      this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+      this.save(STORAGE_KEY_STAFF, this.staff);
+      this.save(STORAGE_KEY_STUDENTS, this.students);
+      this.save(STORAGE_KEY_PASSES, this.passes);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('gatepass_seeded_v5', 'true');
+      }
+    } else {
+      this.schools = this.load(STORAGE_KEY_SCHOOLS, []);
+      // Remove any unwanted placeholder from previous compaction
+      this.schools = this.schools.filter((s) => s.name !== 'בית ספר חדש (ריק)');
+      this.activeSchoolId = this.load(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+      this.staff = this.load(STORAGE_KEY_STAFF, INITIAL_STAFF);
+      this.students = this.load(STORAGE_KEY_STUDENTS, []);
+      this.passes = this.load(STORAGE_KEY_PASSES, []);
     }
-    this.activeSchoolId = this.load(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || 'school-main');
-    this.staff = this.load(STORAGE_KEY_STAFF, INITIAL_STAFF);
-    this.students = this.load(STORAGE_KEY_STUDENTS, INITIAL_STUDENTS);
-    this.passes = this.load(STORAGE_KEY_PASSES, INITIAL_PASSES);
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
 
@@ -328,54 +344,49 @@ class ClientStorageEngine {
   }
 
   private reloadFromStorage() {
-    this.schools = this.load(STORAGE_KEY_SCHOOLS, INITIAL_SCHOOLS);
-    if (!this.schools || this.schools.length === 0) {
-      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-    }
-    this.activeSchoolId = this.load(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || 'school-main');
+    this.schools = this.load(STORAGE_KEY_SCHOOLS, []);
+    this.schools = this.schools.filter((s) => s.name !== 'בית ספר חדש (ריק)');
+    this.activeSchoolId = this.load(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
     this.staff = this.load(STORAGE_KEY_STAFF, INITIAL_STAFF);
-    this.students = this.load(STORAGE_KEY_STUDENTS, INITIAL_STUDENTS);
-    this.passes = this.load(STORAGE_KEY_PASSES, INITIAL_PASSES);
+    this.students = this.load(STORAGE_KEY_STUDENTS, []);
+    this.passes = this.load(STORAGE_KEY_PASSES, []);
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
   }
 
   private ensureSchoolIntegrity() {
     let changed = false;
-    if (!this.schools || this.schools.length === 0) {
-      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+
+    // Filter out any dummy placeholder
+    const prevCount = this.schools.length;
+    this.schools = this.schools.filter((s) => s.name !== 'בית ספר חדש (ריק)');
+    if (this.schools.length !== prevCount) {
       changed = true;
     }
 
-    const defaultSchoolId = this.schools[0]?.id || 'school-main';
-
-    // Assign default schoolId to any legacy items
-    for (const student of this.students) {
-      if (!student.schoolId) {
-        student.schoolId = defaultSchoolId;
+    if (this.schools.length === 0) {
+      if (this.activeSchoolId !== '') {
+        this.activeSchoolId = '';
         changed = true;
       }
+      if (changed) {
+        this.save(STORAGE_KEY_SCHOOLS, this.schools);
+        this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+      }
+      return;
     }
 
-    for (const pass of this.passes) {
-      if (!pass.schoolId) {
-        pass.schoolId = defaultSchoolId;
-        changed = true;
-      }
-    }
-
-    for (const member of this.staff) {
-      if (!member.schoolId) {
-        member.schoolId = member.role === 'admin' || member.pinCode === '160525' ? '*' : defaultSchoolId;
-        changed = true;
-      }
+    const defaultSchoolId = this.schools[0]?.id || '';
+    if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
+      this.activeSchoolId = defaultSchoolId;
+      changed = true;
     }
 
     // Ensure activation codes and subscription statuses are populated
     for (let i = 0; i < this.schools.length; i++) {
       const s = this.schools[i];
       if (!s.activationCode) {
-        s.activationCode = s.id === 'school-main' ? '1001' : s.id === 'school-ibnsina' ? '2026' : `${1000 + i}`;
+        s.activationCode = `${1000 + i}`;
         changed = true;
       }
       if (!s.status) {
@@ -385,17 +396,9 @@ class ClientStorageEngine {
       s.isSuspended = s.status !== 'active';
     }
 
-    if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
-      this.activeSchoolId = defaultSchoolId;
-      changed = true;
-    }
-
     if (changed) {
       this.save(STORAGE_KEY_SCHOOLS, this.schools);
       this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
-      this.save(STORAGE_KEY_STUDENTS, this.students);
-      this.save(STORAGE_KEY_PASSES, this.passes);
-      this.save(STORAGE_KEY_STAFF, this.staff);
     }
   }
 
@@ -615,46 +618,30 @@ class ClientStorageEngine {
       throw new Error('בית הספר המבוקש למחיקה לא נמצא במערכת');
     }
 
-    if (this.schools.length <= 1) {
-      // Deleting the only remaining school -> complete clean purge and blank slate
-      const freshSchool: School = {
-        id: `school-${Date.now()}`,
-        name: 'בית ספר חדש (ריק)',
-        city: '',
-        code: 'SCH-01',
-        activationCode: Math.floor(1000 + Math.random() * 9000).toString(),
-        status: 'pending',
-        isSuspended: false,
-        createdAt: new Date().toISOString(),
-      };
-      this.schools = [freshSchool];
-      this.activeSchoolId = freshSchool.id;
-      this.students = [];
-      this.passes = [];
-      this.staff = this.staff.filter((m) => m.pinCode === '160525' || m.role === 'admin');
-      this.broadcastChange();
-      return {
-        success: true,
-        message: `בית הספר "${target.name}" נמחק לחלוטין (DELETE) עם כל הנתונים, המורים, התלמידים והאישורים! מורי בית ספר זה חסומים. נוצר מאגר ריק ונקי.`,
-      };
-    }
-
     // Delete school from schools list
-    this.schools = this.schools.filter((s) => s.id !== schoolId);
+    this.schools = this.schools.filter((s) => s.id !== schoolId && s.name !== 'בית ספר חדש (ריק)');
 
     // Delete all isolated data of THIS school only (other schools stay 100% untouched)
     this.students = this.students.filter((s) => s.schoolId !== schoolId);
     this.passes = this.passes.filter((p) => p.schoolId !== schoolId);
     this.staff = this.staff.filter((m) => m.schoolId !== schoolId || m.pinCode === '160525');
 
-    if (this.activeSchoolId === schoolId) {
-      this.activeSchoolId = this.schools[0]?.id || 'school-main';
+    // Update active school ID
+    this.activeSchoolId = this.schools[0]?.id || '';
+    if (typeof localStorage !== 'undefined') {
+      if (this.schools.length === 0) {
+        localStorage.removeItem('gate_school_name');
+      } else {
+        localStorage.setItem('gate_school_name', this.schools[0].name);
+      }
     }
 
     this.broadcastChange();
     return {
       success: true,
-      message: `בית הספר "${target.name}" וכל הנתונים שלו נמחקו לחלוטין (DELETE)! כל המורים והצוות נחסמו מיידית מהאפליקציה.`,
+      message: this.schools.length === 0
+        ? `בית הספר "${target.name}" נמחק לחלוטין (DELETE)! כל המורים והנתונים נמחקו. אין כרגע בתי ספר במערכת. כפתורי הניהול ייפתחו כשתרשום בית ספר חדש.`
+        : `בית הספר "${target.name}" וכל הנתונים שלו נמחקו לחלוטין (DELETE)! כל המורים והצוות נחסמו מיידית מהאפליקציה.`,
     };
   }
 
@@ -1463,14 +1450,18 @@ class ClientStorageEngine {
   }
 
   public resetDemo(): { success: boolean; message: string } {
+    this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+    this.activeSchoolId = this.schools[0]?.id || 'school-main';
     this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
     this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
     this.passes = JSON.parse(JSON.stringify(INITIAL_PASSES));
+    this.save(STORAGE_KEY_SCHOOLS, this.schools);
+    this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.save(STORAGE_KEY_PASSES, this.passes);
     this.broadcastChange();
-    return { success: true, message: 'המערכת אופסה לנתוני ההדגמה המקוריים' };
+    return { success: true, message: 'המערכת אופסה לנתוני ההדגמה המקוריים (בתי ספר, מורים ותלמידים)' };
   }
 
   public suspendAllStaff(suspend: boolean): { success: boolean; staff: StaffMember[] } {

@@ -822,8 +822,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         message: res.message || 'המערכת אופסה לנתוני ההדגמה המקוריים',
       });
       setResetDemoModalOpen(false);
-      if (activeTab === 'staff') loadStaff();
-      if (activeTab === 'audit') loadAudit();
+      const schRes = await api.getSchools();
+      setSchools(schRes.schools);
+      setSelectedSchoolId(schRes.activeSchoolId || schRes.schools[0]?.id || '');
+      await loadStaff(true);
+      await loadHistory(true);
+      await loadAudit(true);
     } catch {
       setDeleteFeedback({
         type: 'error',
@@ -844,9 +848,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         message: res.message || 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי!',
       });
       setClearDemoModalOpen(false);
-      if (activeTab === 'history') loadHistory();
-      if (activeTab === 'staff') loadStaff();
-      if (activeTab === 'audit') loadAudit();
+      await loadHistory(true);
+      await loadStaff(true);
+      await loadAudit(true);
+      await loadSchools();
     } catch (err: any) {
       setDeleteFeedback({
         type: 'error',
@@ -990,19 +995,53 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
 
       {/* ================= MULTI-SCHOOL TABS & DROPDOWN BAR (AMAR FAOUR) ================= */}
       <div className="mb-4 bg-slate-900 text-white rounded-3xl p-3 sm:p-4 shadow-md border border-slate-800">
-        {/* Dropdown with down arrow + status */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-800/80 px-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-500/30">
-              <SchoolIcon className="w-4 h-4 text-teal-400" />
+        {schools.length === 0 ? (
+          <div className="py-6 px-4 text-center space-y-3">
+            <div className="w-14 h-14 rounded-3xl bg-teal-500/20 text-teal-300 flex items-center justify-center mx-auto border border-teal-500/30">
+              <Building2 className="w-7 h-7" />
             </div>
             <div>
-              <span className="text-[11px] text-teal-300 font-bold block">בית ספר פעיל המוצג כרגע בניהול:</span>
-              <span className="text-sm sm:text-base font-extrabold text-white tracking-wide">
-                {currentSchool?.name || 'בחר בית ספר...'}
-              </span>
+              <h3 className="text-base sm:text-lg font-black text-white font-['Rubik']">
+                אין כרגע בתי ספר מחוברים למערכת
+              </h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+                מחקת את בתי הספר או שהמאגר ריק. כרטיסיות הניהול, קוד ההפעלה, סטטוס המנוי ומחיקת הכרטיסייה יופיעו אוטומטית ברגע שתרשום בית ספר חדש.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCreateSchoolModalOpen(true)}
+                className="px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-black bg-teal-500 hover:bg-teal-400 active:scale-98 text-slate-950 transition-all flex items-center gap-2 shadow-lg shadow-teal-500/30 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>הוסף בית ספר חדש עכשיו</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setResetDemoModalOpen(true)}
+                className="px-4 py-2.5 rounded-2xl text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                <span>שחזר בתי ספר לדוגמה (דמו)</span>
+              </button>
             </div>
           </div>
+        ) : (
+          <>
+            {/* Dropdown with down arrow + status */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-800/80 px-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-500/30">
+                  <SchoolIcon className="w-4 h-4 text-teal-400" />
+                </div>
+                <div>
+                  <span className="text-[11px] text-teal-300 font-bold block">בית ספר פעיל המוצג כרגע בניהול:</span>
+                  <span className="text-sm sm:text-base font-extrabold text-white tracking-wide">
+                    {currentSchool?.name || 'בחר בית ספר...'}
+                  </span>
+                </div>
+              </div>
 
           <div className="flex items-center gap-2 flex-wrap">
             <label htmlFor="school-dropdown-select" className="text-xs font-bold text-slate-300">
@@ -1292,7 +1331,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             </div>
           </div>
         )}
-      </div>
+      </>
+    )}
+  </div>
 
       {/* Tabs Navigation */}
       <div className="flex items-center gap-1.5 sm:gap-2 mb-5 bg-slate-200/80 p-1 rounded-2xl overflow-x-auto no-scrollbar">
@@ -1435,29 +1476,48 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             <div className="flex items-center gap-2.5 self-stretch sm:self-auto shrink-0 flex-wrap">
               <button
                 type="button"
+                disabled={historyPasses.length === 0}
                 onClick={() => {
                   setDeleteMode('range');
                   setPurgeFromDate('');
                   setPurgeToDate(getDateOffsetString(14)); // default to older than 2 weeks
                   setDeleteModalOpen(true);
                 }}
-                className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-sm ${
+                  historyPasses.length === 0
+                    ? 'bg-slate-850 text-slate-500 border border-slate-750 opacity-60 cursor-not-allowed'
+                    : 'bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/40 cursor-pointer'
+                }`}
+                title={historyPasses.length === 0 ? 'אין אישורים במאגר למחיקה' : 'מחיקה לפי טווח תאריכים'}
               >
                 <Calendar className="w-4 h-4 text-amber-400" />
                 <span>מחיקה לפי טווח תאריכים...</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteMode('all');
-                  setDeleteModalOpen(true);
-                }}
-                className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-rose-600/30 cursor-pointer"
-              >
-                <AlertTriangle className="w-4 h-4" />
-                <span>מחיקת כל האישורים במערכת</span>
-              </button>
+              {historyPasses.length === 0 ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-950/90 text-emerald-300 border border-emerald-500/60 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm cursor-default transition-all"
+                  title="כל האישורים נמחקו מהמאגר. כאשר ייווצרו אישורים חדשים, הכפתור יתהפך חזרה למצב מחיקה."
+                >
+                  <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+                  <span>הנתונים נמחקו מהמאגר ✓</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteMode('all');
+                    setDeleteModalOpen(true);
+                  }}
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-rose-600/30 cursor-pointer"
+                  title="מחיקת כל אישורי השחרור במאגר"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>מחיקת כל האישורים במערכת</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -2491,11 +2551,30 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               <span className="text-xs text-slate-500">לחץ על כרטיסייה כדי לנהל אותה ישירות</span>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              {schools.map((school) => {
-                const isSelected = school.id === selectedSchoolId;
-                return (
-                  <div
+            {schools.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-3 shadow-xs">
+                <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
+                <h4 className="text-base font-bold text-slate-800">אין כרגע בתי ספר רשומים במערכת</h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  מחקת את בתי הספר או שהמאגר ריק. לחץ על הכפתור למטה כדי להוסיף את בית הספר הראשון.
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateSchoolModalOpen(true)}
+                    className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 active:scale-98 text-white font-bold text-xs rounded-xl shadow-sm transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>הוסף בית ספר חדש</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {schools.map((school) => {
+                  const isSelected = school.id === selectedSchoolId;
+                  return (
+                    <div
                     key={school.id}
                     className={`rounded-3xl p-5 sm:p-6 border-2 transition-all shadow-sm ${
                       isSelected
@@ -2644,6 +2723,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 );
               })}
             </div>
+          )}
           </div>
         </div>
       )}

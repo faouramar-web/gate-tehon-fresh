@@ -95,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="inline-flex items-center justify-center gap-2 max-w-full px-3 py-1 bg-slate-800/80 border border-slate-700/80 rounded-xl shadow-inner">
             <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
             <span className="text-white font-bold sm:font-extrabold text-xs sm:text-sm md:text-base font-['Rubik'] tracking-wide truncate drop-shadow">
-              {displaySchoolName || 'בית ספר מקיף (סניף ראשי)'}
+              {displaySchoolName && displaySchoolName !== 'בית ספר חדש (ריק)' ? displaySchoolName : 'מערכת אישור לשער'}
             </span>
           </div>
         </div>
