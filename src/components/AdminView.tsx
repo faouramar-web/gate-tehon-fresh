@@ -195,14 +195,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   // Homeroom & Authorizer helpers
   const getHomeroomTeacher = (className: string, fallback?: string) => {
     if (fallback) return fallback;
-    const map: Record<string, string> = {
-      'ז1': 'לינא ח׳ליל',
-      'ז2': 'סוהא מנצור',
-      'ח1': 'דלאל חביב',
-      'ח2': 'נאדיה סרחאן',
-      'ט1': 'רימא ג׳אבר',
-    };
-    return map[className] || 'מחנכת כיתה';
+    const staffMember = staffList.find((s) => s.role === 'teacher' && s.assignedClasses?.includes(className));
+    if (staffMember) return staffMember.fullName;
+    return 'מחנכת כיתה';
   };
 
   const isSubjectAuthorizer = (teacherName: string, className: string, homeroom?: string) => {
@@ -894,6 +889,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         message: res.message || 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי!',
       });
       setClearDemoModalOpen(false);
+      setSchoolDirectory({ classesSummary: [], totalStudents: 0, totalClasses: 0 });
+      await loadDirectory();
       await loadHistory(true);
       await loadStaff(true);
       await loadAudit(true);

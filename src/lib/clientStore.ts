@@ -33,6 +33,59 @@ export function getClientIsraelTimeString(date = new Date()): string {
   return formatter.format(date);
 }
 
+// Demo data detection and sanitization helpers
+export function isDemoStudent(st: any): boolean {
+  if (!st || typeof st !== 'object') return false;
+  const id = String(st.id || '').toLowerCase();
+  const code = String(st.studentCode || '').toUpperCase().trim();
+  const name = String(st.fullName || '').trim();
+  const schoolId = String(st.schoolId || '');
+
+  if (id.startsWith('s-0') || /^s-0[0-9]{2}$/i.test(id)) return true;
+  if (/^S0(0[1-9]|1[0-9]|2[0-5])$/i.test(code)) return true;
+
+  const demoNames = [
+    'אדם נאסר', 'מרים סאלח', 'יוסף חמדאן', 'נור עבדאללה', 'ליאן סעיד',
+    'אמיר חורי', 'תאלה חנא', 'ראמי עיסא', 'דינה סלים', 'סאמר עבוד',
+    'רים זידאן', 'איאד חלבי', 'סלמא עזאם', 'נדים שאהין', 'מאיה יעקוב',
+    'האני ח׳טיב', 'האני חטיב', 'ליאן חסן', 'אמל דאהר', 'כרים עלי', 'נור פארס',
+    'לין סעד', 'מאלכ איברהים', 'ג׳נא עודה', 'גנא עודה', 'אדם מנסור', 'סוהיל סלאמה'
+  ];
+  if (demoNames.includes(name)) return true;
+  if (schoolId === 'school-main' || schoolId === 'school-ibnsina') return true;
+  return false;
+}
+
+export function isDemoStaff(st: any): boolean {
+  if (!st || typeof st !== 'object') return false;
+  const pin = String(st.pinCode || '').trim();
+  if (pin === '160525' || pin === '5940' || pin === '2001') return false;
+
+  const id = String(st.id || '').toLowerCase();
+  if (id.startsWith('staff-t0') || id === 'staff-g01' || id === 'staff-g02' || id === 'staff-vp01') return true;
+
+  const name = String(st.fullName || '').trim();
+  const demoTeachers = [
+    'לינא ח׳ליל', 'לינא חליל', 'סוהא מנצור', 'דלאל חביב', 'נאדיה סרחאן', 'רימא ג׳אבר', 'רימא גאבר', 'מוחמד עלי',
+    'אברהם כהן', 'יוסי לוי', 'סגן מנהל (אחראי שחרורים)'
+  ];
+  if (demoTeachers.some((dt) => name.includes(dt))) return true;
+
+  const schoolId = String(st.schoolId || '');
+  if (schoolId === 'school-main' || schoolId === 'school-ibnsina') return true;
+  return false;
+}
+
+export function isDemoPass(p: any): boolean {
+  if (!p || typeof p !== 'object') return false;
+  const id = String(p.id || '').toLowerCase();
+  if (id.startsWith('pass-hist-') || id === 'pass-hist-1' || id === 'pass-hist-2') return true;
+  if (p.studentName && (p.studentName === 'מרים סאלח' || isDemoStudent({ fullName: p.studentName }))) return true;
+  const schoolId = String(p.schoolId || '');
+  if (schoolId === 'school-main' || schoolId === 'school-ibnsina') return true;
+  return false;
+}
+
 const INITIAL_STAFF: StaffMember[] = [
   {
     id: 'staff-admin-amar',
@@ -92,7 +145,7 @@ const STORAGE_KEY_STAFF = 'gatepass_client_staff_v2';
 const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v2';
 const STORAGE_KEY_PASSES = 'gatepass_client_passes_v2';
 const STORAGE_KEY_SESSION = 'gatepass_client_session_v2';
-const STORAGE_SEED_KEY = 'gatepass_seeded_v12';
+const STORAGE_SEED_KEY = 'gatepass_seeded_v20';
 
 // BroadcastChannel for cross-tab live synchronization on static host (GitHub Pages)
 let syncChannel: BroadcastChannel | null = null;
@@ -153,48 +206,22 @@ class ClientStorageEngine {
 
       const loadedStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
       this.staff = (Array.isArray(loadedStaff) ? loadedStaff : JSON.parse(JSON.stringify(INITIAL_STAFF))).filter(
-        (s: StaffMember) =>
-          s &&
-          s.id !== 'staff-t01' &&
-          s.id !== 'staff-t02' &&
-          s.id !== 'staff-t03' &&
-          s.id !== 'staff-t04' &&
-          s.id !== 'staff-t05' &&
-          s.id !== 'staff-t06' &&
-          s.id !== 'staff-g01' &&
-          s.id !== 'staff-g02' &&
-          s.id !== 'staff-vp01' &&
-          !s.fullName.includes('לינא ח׳ליל') &&
-          !s.fullName.includes('סוהא מנצור') &&
-          !s.fullName.includes('אברהם כהן') &&
-          s.schoolId !== 'school-main' &&
-          s.schoolId !== 'school-ibnsina'
+        (s: StaffMember) => s && !isDemoStaff(s)
       );
 
       const loadedStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
       this.students = (Array.isArray(loadedStudents) ? loadedStudents : []).filter(
-        (st) =>
-          st &&
-          st.id !== 's-001' &&
-          st.id !== 's-002' &&
-          st.fullName !== 'מרים סאלח' &&
-          st.fullName !== 'אדם נאסר' &&
-          st.schoolId !== 'school-main' &&
-          st.schoolId !== 'school-ibnsina'
+        (st) => st && !isDemoStudent(st)
       );
 
       const loadedPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
       this.passes = (Array.isArray(loadedPasses) ? loadedPasses : []).filter(
-        (p) =>
-          p &&
-          p.id !== 'pass-hist-1' &&
-          p.id !== 'pass-hist-01' &&
-          p.id !== 'pass-hist-2' &&
-          p.id !== 'pass-hist-02' &&
-          p.studentName !== 'מרים סאלח' &&
-          p.schoolId !== 'school-main' &&
-          p.schoolId !== 'school-ibnsina'
+        (p) => p && !isDemoPass(p)
       );
+
+      this.save(STORAGE_KEY_STUDENTS, this.students);
+      this.save(STORAGE_KEY_STAFF, this.staff);
+      this.save(STORAGE_KEY_PASSES, this.passes);
     }
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
@@ -285,31 +312,20 @@ class ClientStorageEngine {
                 const st = docSnap.data() as StaffMember;
                 if (!st || !st.id) return;
                 // Actively purge demo staff from Firestore
-                if (
-                  st.id.startsWith('staff-t0') ||
-                  st.id === 'staff-g01' ||
-                  st.id === 'staff-g02' ||
-                  st.id === 'staff-vp01' ||
-                  st.fullName.includes('לינא ח׳ליל') ||
-                  st.fullName.includes('סוהא מנצור') ||
-                  st.schoolId === 'school-main' ||
-                  st.schoolId === 'school-ibnsina'
-                ) {
+                if (isDemoStaff(st)) {
                   deleteDoc(doc(firestoreDb, 'staff', st.id)).catch(() => {});
                   return;
                 }
                 remoteStaff.push(st);
               });
-              if (remoteStaff.length > 0) {
-                const map = new Map(this.staff.map((s) => [s.id, s]));
-                for (const rst of remoteStaff) {
-                  map.set(rst.id, rst);
-                }
-                this.staff = Array.from(map.values());
-                this.ensureEssentialStaff();
-                this.save(STORAGE_KEY_STAFF, this.staff);
-                this.notify();
+              const map = new Map(this.staff.map((s) => [s.id, s]));
+              for (const rst of remoteStaff) {
+                map.set(rst.id, rst);
               }
+              this.staff = Array.from(map.values()).filter((st) => st && !isDemoStaff(st));
+              this.ensureEssentialStaff();
+              this.save(STORAGE_KEY_STAFF, this.staff);
+              this.notify();
             }
           },
           () => {}
@@ -326,32 +342,19 @@ class ClientStorageEngine {
                 const stud = docSnap.data() as Student;
                 if (!stud || !stud.id) return;
                 // Actively purge demo students from Firestore
-                if (
-                  stud.fullName === 'מרים סאלח' ||
-                  stud.fullName === 'אדם נאסר' ||
-                  stud.schoolId === 'school-main' ||
-                  stud.schoolId === 'school-ibnsina'
-                ) {
+                if (isDemoStudent(stud)) {
                   deleteDoc(doc(firestoreDb, 'students', stud.id)).catch(() => {});
                   return;
                 }
                 remoteStudents.push(stud);
               });
-              if (remoteStudents.length > 0) {
-                const map = new Map(this.students.map((s) => [s.id, s]));
-                for (const rstud of remoteStudents) {
-                  map.set(rstud.id, rstud);
-                }
-                this.students = Array.from(map.values()).filter(
-                  (st) =>
-                    st &&
-                    st.fullName !== 'מרים סאלח' &&
-                    st.schoolId !== 'school-main' &&
-                    st.schoolId !== 'school-ibnsina'
-                );
-                this.save(STORAGE_KEY_STUDENTS, this.students);
-                this.notify();
+              const map = new Map(this.students.map((s) => [s.id, s]));
+              for (const rstud of remoteStudents) {
+                map.set(rstud.id, rstud);
               }
+              this.students = Array.from(map.values()).filter((st) => st && !isDemoStudent(st));
+              this.save(STORAGE_KEY_STUDENTS, this.students);
+              this.notify();
             }
           },
           () => {}
@@ -368,37 +371,21 @@ class ClientStorageEngine {
               snapshot.forEach((docSnap) => {
                 const data = docSnap.data() as GatePass;
                 if (!data || !data.id) return;
-                if (
-                  data.id === 'pass-hist-1' ||
-                  data.id === 'pass-hist-01' ||
-                  data.id === 'pass-hist-2' ||
-                  data.id === 'pass-hist-02' ||
-                  data.studentName === 'מרים סאלח' ||
-                  data.schoolId === 'school-main' ||
-                  data.schoolId === 'school-ibnsina'
-                ) {
+                if (isDemoPass(data)) {
                   deleteDoc(doc(firestoreDb, 'gatepasses', data.id)).catch(() => {});
                   return;
                 }
                 remotePasses.push(data);
               });
-              if (remotePasses.length > 0) {
-                const existingMap = new Map(this.passes.map((p) => [p.id, p]));
-                for (const rp of remotePasses) {
-                  existingMap.set(rp.id, rp);
-                }
-                this.passes = Array.from(existingMap.values())
-                  .filter(
-                    (p) =>
-                      p &&
-                      p.studentName !== 'מרים סאלח' &&
-                      p.schoolId !== 'school-main' &&
-                      p.schoolId !== 'school-ibnsina'
-                  )
-                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-                this.save(STORAGE_KEY_PASSES, this.passes);
-                this.notify();
+              const existingMap = new Map(this.passes.map((p) => [p.id, p]));
+              for (const rp of remotePasses) {
+                existingMap.set(rp.id, rp);
               }
+              this.passes = Array.from(existingMap.values())
+                .filter((p) => p && !isDemoPass(p))
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              this.save(STORAGE_KEY_PASSES, this.passes);
+              this.notify();
             }
           },
           () => {}
@@ -454,46 +441,22 @@ class ClientStorageEngine {
 
     const rawStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
     this.staff = (Array.isArray(rawStaff) ? rawStaff : JSON.parse(JSON.stringify(INITIAL_STAFF))).filter(
-      (s: StaffMember) =>
-        s &&
-        s.id !== 'staff-t01' &&
-        s.id !== 'staff-t02' &&
-        s.id !== 'staff-t03' &&
-        s.id !== 'staff-t04' &&
-        s.id !== 'staff-t05' &&
-        s.id !== 'staff-t06' &&
-        s.id !== 'staff-g01' &&
-        s.id !== 'staff-g02' &&
-        s.id !== 'staff-vp01' &&
-        !s.fullName.includes('לינא ח׳ליל') &&
-        !s.fullName.includes('סוהא מנצור') &&
-        !s.fullName.includes('אברהם כהן') &&
-        s.schoolId !== 'school-main' &&
-        s.schoolId !== 'school-ibnsina'
+      (s: StaffMember) => s && !isDemoStaff(s)
     );
 
     const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
     this.students = (Array.isArray(rawStudents) ? rawStudents : []).filter(
-      (st) =>
-        st &&
-        st.fullName !== 'מרים סאלח' &&
-        st.fullName !== 'אדם נאסר' &&
-        st.schoolId !== 'school-main' &&
-        st.schoolId !== 'school-ibnsina'
+      (st) => st && !isDemoStudent(st)
     );
 
     const rawPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
     this.passes = (Array.isArray(rawPasses) ? rawPasses : []).filter(
-      (p) =>
-        p &&
-        p.id !== 'pass-hist-1' &&
-        p.id !== 'pass-hist-01' &&
-        p.id !== 'pass-hist-2' &&
-        p.id !== 'pass-hist-02' &&
-        p.studentName !== 'מרים סאלח' &&
-        p.schoolId !== 'school-main' &&
-        p.schoolId !== 'school-ibnsina'
+      (p) => p && !isDemoPass(p)
     );
+
+    this.save(STORAGE_KEY_STUDENTS, this.students);
+    this.save(STORAGE_KEY_STAFF, this.staff);
+    this.save(STORAGE_KEY_PASSES, this.passes);
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
   }
@@ -733,6 +696,29 @@ class ClientStorageEngine {
         // ignore
       }
 
+      // Sweep and delete any demo students or staff in Firestore
+      try {
+        getDocs(collection(firestoreDb, 'students')).then((snap) => {
+          snap.forEach((d) => {
+            const data = d.data();
+            if (isDemoStudent(data)) {
+              deleteDoc(d.ref).catch(() => {});
+            }
+          });
+        }).catch(() => {});
+
+        getDocs(collection(firestoreDb, 'staff')).then((snap) => {
+          snap.forEach((d) => {
+            const data = d.data();
+            if (isDemoStaff(data)) {
+              deleteDoc(d.ref).catch(() => {});
+            }
+          });
+        }).catch(() => {});
+      } catch {
+        // ignore
+      }
+
       for (const s of this.schools) {
         if (
           s &&
@@ -748,24 +734,12 @@ class ClientStorageEngine {
         }
       }
       for (const st of this.staff) {
-        if (
-          st &&
-          st.id &&
-          st.schoolId !== 'school-main' &&
-          st.schoolId !== 'school-ibnsina' &&
-          !st.id.startsWith('staff-t0')
-        ) {
+        if (st && st.id && !isDemoStaff(st)) {
           this.syncStaffToFirestore(st);
         }
       }
       for (const stud of this.students) {
-        if (
-          stud &&
-          stud.id &&
-          stud.fullName !== 'מרים סאלח' &&
-          stud.schoolId !== 'school-main' &&
-          stud.schoolId !== 'school-ibnsina'
-        ) {
+        if (stud && stud.id && !isDemoStudent(stud)) {
           this.syncStudentToFirestore(stud);
         }
       }
@@ -1826,7 +1800,7 @@ class ClientStorageEngine {
     const schoolId = targetSchoolId || this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     const studentsArr = Array.isArray(this.students) ? this.students : [];
     const staffArr = Array.isArray(this.staff) ? this.staff : [];
-    const schoolStudents = studentsArr.filter((s) => s && (s.schoolId || schoolId) === schoolId);
+    const schoolStudents = studentsArr.filter((s) => s && !isDemoStudent(s) && (s.schoolId || schoolId) === schoolId);
 
     // Group by class
     const classMap = new Map<string, { className: string; teacherName: string; count: number; students: Student[] }>();
@@ -1861,30 +1835,44 @@ class ClientStorageEngine {
     };
   }
 
-  public clearAllDemoData(): { success: boolean; message: string } {
+  public async clearAllDemoData(): Promise<{ success: boolean; message: string }> {
     this.students = [];
     this.passes = [];
+    this.staff = this.staff.filter((s) => s.pinCode === '160525' || s.pinCode === '5940' || s.pinCode === '2001');
     this.ensureEssentialStaff();
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.save(STORAGE_KEY_PASSES, this.passes);
     this.save(STORAGE_KEY_STAFF, this.staff);
+
+    // Delete all students and passes from Firestore!
+    try {
+      if (firestoreDb) {
+        const studentDocs = await getDocs(collection(firestoreDb, 'students'));
+        for (const d of studentDocs.docs) {
+          deleteDoc(d.ref).catch(() => {});
+        }
+        const passDocs = await getDocs(collection(firestoreDb, 'gatepasses'));
+        for (const d of passDocs.docs) {
+          deleteDoc(d.ref).catch(() => {});
+        }
+        const staffDocs = await getDocs(collection(firestoreDb, 'staff'));
+        for (const d of staffDocs.docs) {
+          const st = d.data() as StaffMember;
+          if (st && isDemoStaff(st)) {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     this.broadcastChange();
-    return { success: true, message: 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי' };
+    return { success: true, message: 'מאגר התלמידים והאישורים אופס בהצלחה ללוח חלק ונקי (כולל סילוק מלא מהענן)' };
   }
 
-  public resetDemo(): { success: boolean; message: string } {
-    this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-    this.activeSchoolId = this.schools[0]?.id || 'school-yanuh';
-    this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
-    this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
-    this.passes = JSON.parse(JSON.stringify(INITIAL_PASSES));
-    this.save(STORAGE_KEY_SCHOOLS, this.schools);
-    this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
-    this.save(STORAGE_KEY_STAFF, this.staff);
-    this.save(STORAGE_KEY_STUDENTS, this.students);
-    this.save(STORAGE_KEY_PASSES, this.passes);
-    this.broadcastChange();
-    return { success: true, message: 'המערכת אופסה לנתוני ההדגמה המקוריים (בתי ספר, מורים ותלמידים)' };
+  public async resetDemo(): Promise<{ success: boolean; message: string }> {
+    return this.clearAllDemoData();
   }
 
   public suspendAllStaff(suspend: boolean): { success: boolean; staff: StaffMember[] } {

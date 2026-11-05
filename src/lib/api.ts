@@ -325,25 +325,27 @@ export const api = {
   },
 
   async clearAllDemoData(): Promise<{ success: boolean; message: string }> {
-    if (isStaticHost) {
-      return clientStore.clearAllDemoData();
+    const clientRes = await clientStore.clearAllDemoData();
+    if (!isStaticHost) {
+      try {
+        await request('/api/admin/clear-all', { method: 'POST' });
+      } catch {
+        // ignore server error
+      }
     }
-    try {
-      return await request('/api/admin/clear-all', { method: 'POST' });
-    } catch {
-      return clientStore.clearAllDemoData();
-    }
+    return clientRes;
   },
 
   async resetDemo(): Promise<{ success: boolean; message: string }> {
-    if (isStaticHost) {
-      return clientStore.resetDemo();
+    const clientRes = await clientStore.resetDemo();
+    if (!isStaticHost) {
+      try {
+        await request('/api/admin/reset-demo', { method: 'POST' });
+      } catch {
+        // ignore server error
+      }
     }
-    try {
-      return await request('/api/admin/reset-demo', { method: 'POST' });
-    } catch {
-      return clientStore.resetDemo();
-    }
+    return clientRes;
   },
 
   async deletePasses(options: {
