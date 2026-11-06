@@ -667,7 +667,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         targetSchoolId = schools[0].id;
         setSelectedSchoolId(schools[0].id);
       } else if (schools.length === 0) {
-        setImportError('אין כרגע בית ספר במערכת. לחץ תחילה על ״הוסף בית ספר חדש״ (למשל: רב תחומי עמל יאנוח-ג׳ת), ולאחר מכן העלה את קובץ האקסל.');
+        setImportError('אין כרגע בית ספר במערכת. לחץ תחילה על ״הוסף בית ספר חדש״, ולאחר מכן העלה את קובץ האקסל.');
         return;
       } else {
         setImportError('אנא בחר בית ספר ספציפי מהרשימה שלמעלה עבורו מיועד קובץ זה.');
@@ -1074,7 +1074,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 אין כרגע בתי ספר במערכת — המאגר נקי לחלוטין!
               </h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-                המאגר אופס ללוח חלק. לחץ על ״הוסף בית ספר חדש עכשיו״ כדי לקלוט את בית הספר הראשון (לדוגמה: רב תחומי עמל יאנוח-ג׳ת), להגדיר קוד הפעלה, ולקלוט את קובץ האקסל שלו.
+                המאגר אופס ללוח חלק. לחץ על ״הוסף בית ספר חדש עכשיו״ כדי לקלוט את בית הספר הראשון, להגדיר קוד הפעלה, ולקלוט את קובץ האקסל שלו.
               </p>
             </div>
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
@@ -3632,7 +3632,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               {/* Document Header */}
               <div className="text-center border-b-2 border-slate-900 pb-3">
                 <div className="text-xs font-semibold text-slate-500 tracking-wider">
-                  משרד החינוך · {(schools.find((s) => s.id === selectedSchoolId)?.name) || clientStore.getActiveSchoolName() || "רב תחומי עמל יאנוח-ג'ת"} · פיקוח שער וביטחון
+                  משרד החינוך · {(schools.find((s) => s.id === selectedSchoolId)?.name) || clientStore.getActiveSchoolName() || "בית ספר"} · פיקוח שער וביטחון
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-['Rubik'] mt-1">
                   אישור ובירור שעת יציאת תלמיד/ה מבית הספר

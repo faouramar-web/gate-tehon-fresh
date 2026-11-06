@@ -79,19 +79,31 @@ export function getClientIsraelTimeString(date = new Date()): string {
   return formatter.format(date);
 }
 
+// Firestore collection names - clean v6 to prevent stale or quota-locked documents from loading
+const FS_COLLECTION_SCHOOLS = 'schools_clean_v6';
+const FS_COLLECTION_STAFF = 'staff_clean_v6';
+const FS_COLLECTION_STUDENTS = 'students_clean_v6';
+const FS_COLLECTION_PASSES = 'gatepasses_clean_v6';
+
 // Demo data detection and sanitization helpers
 export function isDemoSchool(s: any): boolean {
   if (!s || typeof s !== 'object') return false;
   const id = String(s.id || '').toLowerCase();
   const name = String(s.name || '').trim();
+  const code = String(s.activationCode || s.code || '').trim();
   if (
     id === 'school-main' ||
     id === 'school-ibnsina' ||
     id === 'school-yanuh' ||
     name === 'בית ספר חדש (ריק)' ||
-    name.includes('בית ספר מקיף (סניף ראשי)') ||
+    name.includes('בית ספר מקיף') ||
     name.includes('תיכון אבן סינא') ||
-    name.includes('יאנוח')
+    name.includes('יאנוח') ||
+    name.includes('יאנו') ||
+    name.includes('ינוח') ||
+    name.includes('עמל') ||
+    code === '8181' ||
+    code === '5940'
   ) {
     return true;
   }
@@ -113,10 +125,11 @@ export function isDemoStudent(st: any): boolean {
     'אמיר חורי', 'תאלה חנא', 'ראמי עיסא', 'דינה סלים', 'סאמר עבוד',
     'רים זידאן', 'איאד חלבי', 'סלמא עזאם', 'נדים שאהין', 'מאיה יעקוב',
     'האני ח׳טיב', 'האני חטיב', 'ליאן חסן', 'אמל דאהר', 'כרים עלי', 'נור פארס',
-    'לין סעד', 'מאלכ איברהים', 'ג׳נא עודה', 'גנא עודה', 'אדם מנסור', 'סוהיל סלאמה'
+    'לין סעד', 'מאלכ איברהים', 'ג׳נא עודה', 'גנא עודה', 'אדם מנסור', 'סוהיל סלאמה',
+    'שהד בריק', 'מילאן מאלק ביבאר', 'מילאן ביבאר', 'מלאק פרג׳', 'מלאק פרג', 'תולין ביבאר', 'רימאס בריק'
   ];
-  if (demoNames.includes(name)) return true;
-  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh') return true;
+  if (demoNames.some((dn) => name.includes(dn))) return true;
+  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh' || schoolId.includes('yanuh')) return true;
   return false;
 }
 
@@ -131,12 +144,12 @@ export function isDemoStaff(st: any): boolean {
   const name = String(st.fullName || '').trim();
   const demoTeachers = [
     'לינא ח׳ליל', 'לינא חליל', 'סוהא מנצור', 'דלאל חביב', 'נאדיה סרחאן', 'רימא ג׳אבר', 'רימא גאבר', 'מוחמד עלי',
-    'אברהם כהן', 'יוסי לוי', 'סגן מנהל (אחראי שחרורים)'
+    'אברהם כהן', 'יוסי לוי', 'סגן מנהל (אחראי שחרורים)', 'ג׳יבאר נג׳מאגה', 'גיבאר נגמאגה', 'קסיס האני'
   ];
   if (demoTeachers.some((dt) => name.includes(dt))) return true;
 
   const schoolId = String(st.schoolId || '');
-  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh') return true;
+  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh' || schoolId.includes('yanuh')) return true;
   return false;
 }
 
@@ -144,9 +157,9 @@ export function isDemoPass(p: any): boolean {
   if (!p || typeof p !== 'object') return false;
   const id = String(p.id || '').toLowerCase();
   if (id.startsWith('pass-hist-') || id === 'pass-hist-1' || id === 'pass-hist-2') return true;
-  if (p.studentName && (p.studentName === 'מרים סאלח' || isDemoStudent({ fullName: p.studentName }))) return true;
+  if (p.studentName && isDemoStudent({ fullName: p.studentName })) return true;
   const schoolId = String(p.schoolId || '');
-  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh') return true;
+  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh' || schoolId.includes('yanuh')) return true;
   return false;
 }
 
@@ -169,14 +182,14 @@ const INITIAL_PASSES: GatePass[] = [];
 
 export const INITIAL_SCHOOLS: School[] = [];
 
-// Storage keys - v5_clean guaranteed clean slate
-const STORAGE_KEY_SCHOOLS = 'gatepass_client_schools_v5_clean';
-const STORAGE_KEY_ACTIVE_SCHOOL = 'gatepass_client_active_school_id_v5_clean';
-const STORAGE_KEY_STAFF = 'gatepass_client_staff_v5_clean';
-const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v5_clean';
-const STORAGE_KEY_PASSES = 'gatepass_client_passes_v5_clean';
-const STORAGE_KEY_SESSION = 'gatepass_client_session_v5_clean';
-const STORAGE_SEED_KEY = 'gatepass_seeded_v50_clean_slate_zero_schools';
+// Storage keys - v6_clean guaranteed clean slate
+const STORAGE_KEY_SCHOOLS = 'gatepass_client_schools_v6_clean';
+const STORAGE_KEY_ACTIVE_SCHOOL = 'gatepass_client_active_school_id_v6_clean';
+const STORAGE_KEY_STAFF = 'gatepass_client_staff_v6_clean';
+const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v6_clean';
+const STORAGE_KEY_PASSES = 'gatepass_client_passes_v6_clean';
+const STORAGE_KEY_SESSION = 'gatepass_client_session_v6_clean';
+const STORAGE_SEED_KEY = 'gatepass_seeded_v60_clean_slate_zero_schools';
 
 // BroadcastChannel for cross-tab live synchronization on static host (GitHub Pages)
 let syncChannel: BroadcastChannel | null = null;
@@ -197,6 +210,29 @@ class ClientStorageEngine {
   private listeners: Array<() => void> = [];
 
   constructor() {
+    // Thoroughly purge all legacy storage keys across all previous test versions
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (key.startsWith('gatepass_') || key.startsWith('gate_')) &&
+            !key.includes('_v6_clean') &&
+            key !== STORAGE_SEED_KEY
+          ) {
+            keysToRemove.push(key);
+          }
+        }
+        for (const k of keysToRemove) {
+          localStorage.removeItem(k);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const isSeeded = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_SEED_KEY) === 'true';
     if (!isSeeded) {
       this.schools = [];
@@ -211,21 +247,11 @@ class ClientStorageEngine {
       this.save(STORAGE_KEY_PASSES, this.passes);
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_SEED_KEY, 'true');
-        localStorage.removeItem('gate_activated_school_code');
-        localStorage.removeItem('gate_school_name');
       }
     } else {
       const loadedSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
       this.schools = Array.isArray(loadedSchools)
-        ? loadedSchools.filter(
-            (s) =>
-              s &&
-              s.id !== 'school-main' &&
-              s.id !== 'school-ibnsina' &&
-              s.name !== 'בית ספר חדש (ריק)' &&
-              !s.name.includes('בית ספר מקיף (סניף ראשי)') &&
-              !s.name.includes('תיכון אבן סינא')
-          )
+        ? loadedSchools.filter((s) => s && !isDemoSchool(s))
         : [];
       this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
       if (this.schools.length > 0 && !this.schools.some((s) => s.id === this.activeSchoolId)) {
@@ -252,6 +278,8 @@ class ClientStorageEngine {
       this.save(STORAGE_KEY_STUDENTS, this.students);
       this.save(STORAGE_KEY_STAFF, this.staff);
       this.save(STORAGE_KEY_PASSES, this.passes);
+      this.save(STORAGE_KEY_SCHOOLS, this.schools);
+      this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
     }
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
@@ -281,7 +309,7 @@ class ClientStorageEngine {
       // Realtime multi-device sync with Firestore (Read-only listeners with quota error handling)
       try {
         // 1. Schools realtime listener
-        const schoolsRef = collection(firestoreDb, 'schools');
+        const schoolsRef = collection(firestoreDb, FS_COLLECTION_SCHOOLS);
         onSnapshot(
           schoolsRef,
           (snapshot) => {
@@ -310,7 +338,7 @@ class ClientStorageEngine {
         );
 
         // 2. Staff realtime listener
-        const staffRef = collection(firestoreDb, 'staff');
+        const staffRef = collection(firestoreDb, FS_COLLECTION_STAFF);
         onSnapshot(
           staffRef,
           (snapshot) => {
@@ -337,7 +365,7 @@ class ClientStorageEngine {
         );
 
         // 3. Students realtime listener
-        const studentsRef = collection(firestoreDb, 'students');
+        const studentsRef = collection(firestoreDb, FS_COLLECTION_STUDENTS);
         onSnapshot(
           studentsRef,
           (snapshot) => {
@@ -363,7 +391,7 @@ class ClientStorageEngine {
         );
 
         // 4. Passes realtime listener
-        const passesRef = collection(firestoreDb, 'gatepasses');
+        const passesRef = collection(firestoreDb, FS_COLLECTION_PASSES);
         const q = query(passesRef, orderBy('createdAt', 'desc'), limit(150));
         onSnapshot(
           q,
@@ -555,7 +583,7 @@ class ClientStorageEngine {
   public syncSchoolToFirestore(school: School): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !school || !school.id) return;
     try {
-      setDoc(doc(firestoreDb, 'schools', school.id), school, { merge: true }).catch(handleFirestoreQuotaError);
+      setDoc(doc(firestoreDb, FS_COLLECTION_SCHOOLS, school.id), school, { merge: true }).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -564,7 +592,7 @@ class ClientStorageEngine {
   public deleteSchoolFromFirestore(schoolId: string): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !schoolId) return;
     try {
-      deleteDoc(doc(firestoreDb, 'schools', schoolId)).catch(handleFirestoreQuotaError);
+      deleteDoc(doc(firestoreDb, FS_COLLECTION_SCHOOLS, schoolId)).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -573,7 +601,7 @@ class ClientStorageEngine {
   public syncStaffToFirestore(member: StaffMember): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !member || !member.id) return;
     try {
-      setDoc(doc(firestoreDb, 'staff', member.id), member, { merge: true }).catch(handleFirestoreQuotaError);
+      setDoc(doc(firestoreDb, FS_COLLECTION_STAFF, member.id), member, { merge: true }).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -582,7 +610,7 @@ class ClientStorageEngine {
   public deleteStaffFromFirestore(staffId: string): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !staffId) return;
     try {
-      deleteDoc(doc(firestoreDb, 'staff', staffId)).catch(handleFirestoreQuotaError);
+      deleteDoc(doc(firestoreDb, FS_COLLECTION_STAFF, staffId)).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -591,7 +619,7 @@ class ClientStorageEngine {
   public syncStudentToFirestore(student: Student): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !student || !student.id) return;
     try {
-      setDoc(doc(firestoreDb, 'students', student.id), student, { merge: true }).catch(handleFirestoreQuotaError);
+      setDoc(doc(firestoreDb, FS_COLLECTION_STUDENTS, student.id), student, { merge: true }).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -600,7 +628,7 @@ class ClientStorageEngine {
   public deleteStudentFromFirestore(studentId: string): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !studentId) return;
     try {
-      deleteDoc(doc(firestoreDb, 'students', studentId)).catch(handleFirestoreQuotaError);
+      deleteDoc(doc(firestoreDb, FS_COLLECTION_STUDENTS, studentId)).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -609,7 +637,7 @@ class ClientStorageEngine {
   public syncPassToFirestore(pass: GatePass): void {
     if (isFirestoreQuotaExhausted || !firestoreDb || !pass || !pass.id) return;
     try {
-      setDoc(doc(firestoreDb, 'gatepasses', pass.id), pass, { merge: true }).catch(handleFirestoreQuotaError);
+      setDoc(doc(firestoreDb, FS_COLLECTION_PASSES, pass.id), pass, { merge: true }).catch(handleFirestoreQuotaError);
     } catch (e) {
       handleFirestoreQuotaError(e);
     }
@@ -1440,7 +1468,7 @@ class ClientStorageEngine {
       // Even if pass isn't in local memory yet, update Firestore directly if quota allows
       if (!isFirestoreQuotaExhausted && firestoreDb && passId) {
         setDoc(
-          doc(firestoreDb, 'gatepasses', passId),
+          doc(firestoreDb, FS_COLLECTION_PASSES, passId),
           {
             status: 'used',
             usedAt: nowIso,
@@ -1605,7 +1633,7 @@ class ClientStorageEngine {
     // Attempt deletion from Firestore
     try {
       for (const p of toDelete) {
-        deleteDoc(doc(firestoreDb, 'gatepasses', p.id)).catch(() => {});
+        deleteDoc(doc(firestoreDb, FS_COLLECTION_PASSES, p.id)).catch(() => {});
       }
     } catch {
       // ignore
@@ -1774,19 +1802,19 @@ class ClientStorageEngine {
     // Delete all schools, students, passes, and non-admin staff from Firestore if quota permits
     if (!isFirestoreQuotaExhausted && firestoreDb) {
       try {
-        const schoolDocs = await getDocs(collection(firestoreDb, 'schools'));
+        const schoolDocs = await getDocs(collection(firestoreDb, FS_COLLECTION_SCHOOLS));
         for (const d of schoolDocs.docs) {
           deleteDoc(d.ref).catch(handleFirestoreQuotaError);
         }
-        const studentDocs = await getDocs(collection(firestoreDb, 'students'));
+        const studentDocs = await getDocs(collection(firestoreDb, FS_COLLECTION_STUDENTS));
         for (const d of studentDocs.docs) {
           deleteDoc(d.ref).catch(handleFirestoreQuotaError);
         }
-        const passDocs = await getDocs(collection(firestoreDb, 'gatepasses'));
+        const passDocs = await getDocs(collection(firestoreDb, FS_COLLECTION_PASSES));
         for (const d of passDocs.docs) {
           deleteDoc(d.ref).catch(handleFirestoreQuotaError);
         }
-        const staffDocs = await getDocs(collection(firestoreDb, 'staff'));
+        const staffDocs = await getDocs(collection(firestoreDb, FS_COLLECTION_STAFF));
         for (const d of staffDocs.docs) {
           const st = d.data() as StaffMember;
           if (st && (st.id !== 'staff-admin-amar' && st.pinCode !== '160525')) {
