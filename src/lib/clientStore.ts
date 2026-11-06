@@ -112,6 +112,50 @@ export function isDemoPass(p: any): boolean {
   return id === 'pass-hist-demo-mock-1';
 }
 
+// Guaranteed globally unique PIN generator across all staff members
+export function generateUniquePin(
+  existingStaffOrPins: Array<{ pinCode?: string }> | Set<string>,
+  preferredPin?: string
+): string {
+  const usedPins = new Set<string>();
+  if (existingStaffOrPins instanceof Set) {
+    for (const p of existingStaffOrPins) {
+      if (p) usedPins.add(p.trim());
+    }
+  } else if (Array.isArray(existingStaffOrPins)) {
+    for (const s of existingStaffOrPins) {
+      if (s?.pinCode?.trim()) usedPins.add(s.pinCode.trim());
+    }
+  }
+  usedPins.add('160525'); // Amar Faour Super Admin reserved PIN
+
+  if (preferredPin && preferredPin.trim() && !usedPins.has(preferredPin.trim()) && preferredPin.trim() !== '160525') {
+    return preferredPin.trim();
+  }
+
+  let pin = '';
+  let attempts = 0;
+  do {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    pin = num.toString();
+    attempts++;
+    if (pin[0] === pin[1] && pin[1] === pin[2] && pin[2] === pin[3]) continue;
+  } while (usedPins.has(pin) && attempts < 10000);
+
+  if (!pin || usedPins.has(pin)) {
+    for (let i = 1001; i <= 9999; i++) {
+      const candidate = i.toString();
+      if (!usedPins.has(candidate)) {
+        pin = candidate;
+        break;
+      }
+    }
+  }
+
+  return pin;
+}
+
+
 export const INITIAL_SCHOOLS: School[] = [];
 
 export const INITIAL_STAFF: StaffMember[] = [
@@ -351,6 +395,15 @@ class ClientStorageEngine {
       } catch (err) {
         handleFirestoreQuotaError(err);
       }
+
+      // Auto-sync with server state (bridges cross-device gap when Firestore quota is hit or on local network/smartphones)
+      setTimeout(() => {
+        if (this.students.length > 0 || this.schools.length > 0) {
+          this.pushStateToServer();
+        } else {
+          this.pullStateFromServer();
+        }
+      }, 80);
     }
   }
 
@@ -411,6 +464,84 @@ class ClientStorageEngine {
     this.ensureEssentialStaff();
   }
 
+  public async pushStateToServer(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    if (window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:') return;
+    try {
+      await fetch('/api/sync/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schools: this.schools,
+          staff: this.staff,
+          students: this.students,
+          activeSchoolId: this.activeSchoolId,
+        }),
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  public async pullStateFromServer(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    if (window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:') return false;
+    try {
+      const res = await fetch('/api/sync/state');
+      if (!res.ok) return false;
+      const data = await res.json();
+      let changed = false;
+
+      if (Array.isArray(data.schools) && data.schools.length > 0) {
+        if (this.schools.length === 0 || data.schools.length > this.schools.length) {
+          this.schools = data.schools;
+          this.save(STORAGE_KEY_SCHOOLS, this.schools);
+          changed = true;
+        }
+      }
+
+      if (data.activeSchoolId && (!this.activeSchoolId || !this.schools.some((s) => s.id === this.activeSchoolId))) {
+        this.activeSchoolId = data.activeSchoolId;
+        this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+        changed = true;
+      }
+
+      if (Array.isArray(data.staff) && data.staff.length > 0) {
+        const staffMap = new Map(this.staff.map((s) => [s.id, s]));
+        for (const st of data.staff) {
+          if (st && st.id && !staffMap.has(st.id)) {
+            staffMap.set(st.id, st);
+            changed = true;
+          }
+        }
+        if (changed) {
+          this.staff = Array.from(staffMap.values());
+          this.ensureEssentialStaff();
+          this.save(STORAGE_KEY_STAFF, this.staff);
+        }
+      }
+
+      if (Array.isArray(data.students) && data.students.length > 0) {
+        if (this.students.length === 0 || data.students.length > this.students.length) {
+          const studentMap = new Map(this.students.map((s) => [s.id, s]));
+          for (const st of data.students) {
+            if (st && st.id) studentMap.set(st.id, st);
+          }
+          this.students = Array.from(studentMap.values());
+          this.save(STORAGE_KEY_STUDENTS, this.students);
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.notify();
+      }
+      return changed;
+    } catch {
+      return false;
+    }
+  }
+
   private ensureSchoolIntegrity() {
     let changed = false;
 
@@ -451,6 +582,37 @@ class ClientStorageEngine {
     }
   }
 
+  public deduplicateStaffPins(): boolean {
+    const seenPins = new Set<string>();
+    seenPins.add('160525'); // Amar Faour Super Admin reserved PIN
+    let changed = false;
+
+    for (const member of this.staff) {
+      if (!member) continue;
+      if (member.role === 'admin' && member.pinCode === '160525') continue;
+
+      const currentPin = (member.pinCode || '').trim();
+      if (!currentPin || seenPins.has(currentPin) || currentPin === '160525') {
+        const uniquePin = generateUniquePin(seenPins);
+        member.pinCode = uniquePin;
+        seenPins.add(uniquePin);
+        changed = true;
+      } else {
+        seenPins.add(currentPin);
+      }
+    }
+
+    if (changed) {
+      this.save(STORAGE_KEY_STAFF, this.staff);
+      for (const m of this.staff) {
+        if (m && m.id) {
+          this.syncStaffToFirestore(m);
+        }
+      }
+    }
+    return changed;
+  }
+
   private ensureEssentialStaff() {
     let changed = false;
 
@@ -470,6 +632,11 @@ class ClientStorageEngine {
           existing.role = 'admin';
         }
       }
+    }
+
+    // Automatically deduplicate any staff PIN collisions
+    if (this.deduplicateStaffPins()) {
+      changed = true;
     }
 
     if (changed) {
@@ -726,9 +893,11 @@ class ClientStorageEngine {
 
     this.schools.push(newSchool);
 
-    // Coordinator (Vice Principal / Secretary) assigned personal PIN chosen by Amar Faour
-    const vpPin = data.contactPin?.trim() || `${3000 + this.schools.length}`;
-    const guardPin = `${2000 + this.schools.length}`;
+    // Coordinator (Vice Principal / Secretary) assigned guaranteed unique personal PIN
+    const vpPin = generateUniquePin(this.staff, data.contactPin?.trim());
+    const tempUsedPins = new Set(this.staff.map((s) => s.pinCode).filter(Boolean) as string[]);
+    tempUsedPins.add(vpPin);
+    const guardPin = generateUniquePin(tempUsedPins);
     const vpTitle = data.contactRole?.trim() || 'סגן מנהל / אחראי מערכת';
     const coordinatorDisplay = fullNameContact ? `${fullNameContact} (${vpTitle})` : `${vpTitle} (${newSchool.name})`;
 
@@ -770,6 +939,7 @@ class ClientStorageEngine {
     this.syncStaffToFirestore(guardMember);
 
     this.broadcastChange();
+    this.pushStateToServer();
     return { success: true, school: newSchool, coordinatorPin: vpPin };
   }
 
@@ -982,18 +1152,30 @@ class ClientStorageEngine {
     const schoolName = school?.name || 'בית הספר';
 
     let count = 0;
+    const tempPins = new Set(
+      this.staff
+        .filter((s) => s.schoolId !== schoolId || s.pinCode === '160525')
+        .map((s) => s.pinCode)
+        .filter(Boolean) as string[]
+    );
+    tempPins.add('160525');
+
     for (const member of this.staff) {
       if (member.schoolId === schoolId && member.pinCode !== '160525' && member.role !== 'admin') {
-        member.pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+        const newPin = generateUniquePin(tempPins);
+        member.pinCode = newPin;
+        tempPins.add(newPin);
         count++;
       }
     }
 
+    this.deduplicateStaffPins();
+    this.save(STORAGE_KEY_STAFF, this.staff);
     this.broadcastChange();
     return {
       success: true,
       count,
-      message: `הוגרלו קודים סודיים חדשים עבור ${count} אנשי צוות ב"${schoolName}". שאר בתי הספר לא הושפעו!`,
+      message: `הוגרלו קודים סודיים חדשים עבור ${count} אנשי צוות ב"${schoolName}". כל קוד הינו ייחודי לחלוטין!`,
     };
   }
 
@@ -1190,7 +1372,7 @@ class ClientStorageEngine {
     currentTime: string;
   } {
     const isSuper = user.role === 'admin' || user.role === 'vice_principal';
-    const hasAll = isSuper || user.assignedClasses.includes('*') || user.assignedClasses.includes('כל הכיתות');
+    const hasAll = isSuper || (user.assignedClasses && (user.assignedClasses.includes('*') || user.assignedClasses.includes('כל הכיתות')));
 
     const schoolScope = user.schoolId && user.schoolId !== '*' ? user.schoolId : null;
     const defaultScope = this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
@@ -1199,20 +1381,45 @@ class ClientStorageEngine {
       ? this.students.filter((s) => (s.schoolId || defaultScope) === schoolScope)
       : this.students;
 
-    if (!hasAll) {
-      students = students.filter(
-        (s) =>
-          user.assignedClasses.includes(s.className) ||
-          (s.teacherName && s.teacherName.trim().includes(user.fullName.trim())) ||
-          (user.fullName && user.fullName.trim().includes(s.teacherName?.trim() || '___none___'))
-      );
+    // Safety fallback: If scoped filter yielded 0 students but this.students has students, use this.students
+    if (students.length === 0 && this.students.length > 0) {
+      students = this.students;
     }
 
-    let classes = Array.from(new Set(students.map((s) => s.className))).filter(Boolean).sort();
-    if (!hasAll && user.assignedClasses.length > 0 && !user.assignedClasses.includes('*')) {
-      const mergedClasses = Array.from(new Set([...user.assignedClasses, ...classes])).filter(Boolean).sort();
-      classes = mergedClasses;
+    const normClass = (c: string) =>
+      (c || '')
+        .replace(/^כיתה\s*/i, '')
+        .replace(/['"`׳״\s]/g, '')
+        .toLowerCase();
+
+    if (!hasAll) {
+      const assignedNorm = (user.assignedClasses || []).map(normClass).filter(Boolean);
+      const userCleanName = (user.fullName || '').trim().toLowerCase();
+
+      const matchedStudents = students.filter((s) => {
+        const studentClassNorm = normClass(s.className);
+        const matchClass = assignedNorm.includes(studentClassNorm);
+
+        const studentTeacherNorm = (s.teacherName || '').trim().toLowerCase();
+        const matchTeacher =
+          studentTeacherNorm && userCleanName && (
+            studentTeacherNorm.includes(userCleanName) ||
+            userCleanName.includes(studentTeacherNorm)
+          );
+
+        return matchClass || matchTeacher;
+      });
+
+      // If matched students found, use them. If none matched (e.g. newly added teacher without classes yet), show all school students
+      if (matchedStudents.length > 0) {
+        students = matchedStudents;
+      }
     }
+
+    // Extract real unique class names from students
+    const studentClasses = Array.from(new Set(students.map((s) => s.className))).filter(Boolean).sort();
+    const cleanUserClasses = (user.assignedClasses || []).filter((c) => c && c !== '*' && c !== 'כל הכיתות');
+    const classes = Array.from(new Set([...cleanUserClasses, ...studentClasses])).filter(Boolean).sort();
 
     const today = getClientIsraelDateString();
     const todayPasses = this.passes.filter((p) => {
@@ -1538,6 +1745,7 @@ class ClientStorageEngine {
     }
 
     this.broadcastChange();
+    this.pushStateToServer();
     return { success: true, staff: this.staff };
   }
 
@@ -1694,24 +1902,29 @@ class ClientStorageEngine {
         const existingStaff = this.staff.find(
           (m) => (m.schoolId || schoolId) === schoolId && m.fullName.trim() === tName
         );
+        const cleanClass = ct.className.trim();
+        const normCls = (c: string) => (c || '').replace(/^כיתה\s*/i, '').replace(/['"`׳״\s]/g, '').toLowerCase();
+        const normTarget = normCls(cleanClass);
+
         if (!existingStaff) {
-          const pin = Math.floor(1000 + Math.random() * 9000).toString();
+          const pin = generateUniquePin(this.staff);
           this.staff.push({
             id: `staff-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
             staffCode: `T${this.staff.length + 1}`,
             fullName: tName,
             role: 'teacher',
             pinCode: pin,
-            assignedClasses: [ct.className.trim()],
+            assignedClasses: [cleanClass],
             isActive: true,
             schoolId: schoolId,
           });
-        } else if (!existingStaff.assignedClasses.includes(ct.className.trim())) {
-          existingStaff.assignedClasses.push(ct.className.trim());
+        } else if (!existingStaff.assignedClasses.some((c) => normCls(c) === normTarget)) {
+          existingStaff.assignedClasses.push(cleanClass);
         }
       }
     }
 
+    this.deduplicateStaffPins();
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
 
@@ -1728,6 +1941,7 @@ class ClientStorageEngine {
     }
 
     this.broadcastChange();
+    this.pushStateToServer();
     const schoolTotal = this.students.filter((s) => (s.schoolId || schoolId) === schoolId).length;
     return { success: true, added, updated, total: schoolTotal };
   }
@@ -1857,11 +2071,16 @@ class ClientStorageEngine {
   }
 
   public rollAllStaffPins(): { success: boolean; staff: StaffMember[] } {
+    const tempPins = new Set<string>();
+    tempPins.add('160525');
     for (const s of this.staff) {
       if (s.role !== 'admin' && s.pinCode !== '160525') {
-        s.pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+        const newPin = generateUniquePin(tempPins);
+        s.pinCode = newPin;
+        tempPins.add(newPin);
       }
     }
+    this.deduplicateStaffPins();
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.broadcastChange();
     return { success: true, staff: this.staff };

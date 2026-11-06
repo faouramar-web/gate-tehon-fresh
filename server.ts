@@ -219,12 +219,11 @@ app.get('/api/teacher/my-classes', authenticate, requireRole('teacher', 'vice_pr
   const hasAllAccess = isSuperAdmin || staff.assignedClasses.includes('*') || staff.assignedClasses.includes('כל הכיתות');
 
   let classes = staff.assignedClasses;
-  let students = hasAllAccess ? db.getAllStudents() : db.getStudentsForTeacher(classes);
+  let students = hasAllAccess ? db.getAllStudents() : db.getStudentsForTeacher(classes, staff.fullName);
 
-  if (hasAllAccess) {
-    // Collect all unique classes
-    classes = Array.from(new Set(db.getAllStudents().map((s) => s.className))).sort();
-  }
+  const studentClasses = Array.from(new Set(students.map((s) => s.className))).filter(Boolean).sort();
+  const cleanAssigned = (classes || []).filter((c) => c && c !== '*' && c !== 'כל הכיתות');
+  const returnClasses = cleanAssigned.length > 0 ? cleanAssigned : studentClasses;
 
   const todayPasses = db.getPassesForToday();
   const passByStudentId = new Map(todayPasses.map((p) => [p.studentId, p]));
@@ -238,7 +237,7 @@ app.get('/api/teacher/my-classes', authenticate, requireRole('teacher', 'vice_pr
   });
 
   res.json({
-    assignedClasses: classes,
+    assignedClasses: returnClasses,
     teacherName: staff.fullName,
     students: enrichedStudents,
     today: getIsraelDateString(),
@@ -561,6 +560,29 @@ app.post('/api/public/activate-school', (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(400).json({ error: e.message || 'קוד הפעלה שגוי' });
   }
+});
+
+// Full-state synchronization endpoint between server and client devices (smartphones and browsers)
+app.get('/api/sync/state', (_req: Request, res: Response) => {
+  const schoolsData = db.getSchools();
+  res.json({
+    schools: schoolsData.schools,
+    activeSchoolId: schoolsData.activeSchoolId,
+    staff: db.getAllStaff(),
+    students: db.getAllStudents(),
+  });
+});
+
+app.post('/api/sync/state', (req: Request, res: Response) => {
+  const { schools, staff, students, activeSchoolId } = req.body || {};
+  db.syncAllState(schools, staff, students, activeSchoolId);
+  const updated = db.getSchools();
+  res.json({
+    success: true,
+    schools: updated.schools,
+    staffCount: db.getAllStaff().length,
+    studentsCount: db.getAllStudents().length,
+  });
 });
 
 // Demo accounts endpoint for public login helper

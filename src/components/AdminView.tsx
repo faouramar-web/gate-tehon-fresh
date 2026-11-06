@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.ts';
-import { clientStore } from '../lib/clientStore.ts';
+import { clientStore, generateUniquePin } from '../lib/clientStore.ts';
 import { parseExcelOrCsv, generateSampleExcelWorkbook, ParseResult } from '../lib/excelParser.ts';
 import { User, StaffMember, AuditLogEntry, GatePass, School, SchoolStatus } from '../types.ts';
 import {
@@ -128,7 +128,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [newSchoolContactFirstName, setNewSchoolContactFirstName] = useState('');
   const [newSchoolContactLastName, setNewSchoolContactLastName] = useState('');
   const [newSchoolContactRole, setNewSchoolContactRole] = useState<'vice_principal' | 'secretary'>('vice_principal');
-  const [newSchoolContactPin, setNewSchoolContactPin] = useState(() => Math.floor(3000 + Math.random() * 900).toString());
+  const [newSchoolContactPin, setNewSchoolContactPin] = useState(() => generateUniquePin(clientStore.getStaff().staff));
   const [newSchoolPhone, setNewSchoolPhone] = useState('');
   const [newSchoolActivationCode, setNewSchoolActivationCode] = useState(() => Math.floor(1000 + Math.random() * 9000).toString());
   const [newSchoolStatus, setNewSchoolStatus] = useState<SchoolStatus>('active');
@@ -624,7 +624,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       setNewSchoolCity('');
       setNewSchoolContactFirstName('');
       setNewSchoolContactLastName('');
-      setNewSchoolContactPin(Math.floor(3000 + Math.random() * 900).toString());
+      setNewSchoolContactPin(generateUniquePin(clientStore.getStaff().staff));
       setNewSchoolPhone('');
       setNewSchoolActivationCode(Math.floor(1000 + Math.random() * 9000).toString());
       await loadSchools();
@@ -745,7 +745,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   };
 
   const handleRegeneratePin = (staffId: string) => {
-    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const randomPin = generateUniquePin(staffList);
     setStaffList((prev) =>
       prev.map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s))
     );
@@ -793,7 +793,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
 
   const handleCreateNewStaff = async () => {
     if (!newStaffName.trim()) return;
-    const pin = newStaffPin.trim() || Math.floor(1000 + Math.random() * 9000).toString();
+    const pin = generateUniquePin(staffList, newStaffPin.trim());
 
     let role: StaffMember['role'] = 'teacher';
     let assignedClasses: string[] = [];
@@ -2522,13 +2522,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                             <Sparkles className="w-3 h-3 text-emerald-700" />
                             <span>מורה מקצועי (כל הכיתות)</span>
                           </span>
-                        ) : member.role === 'teacher' && member.assignedClasses.length > 1 ? (
-                          <span className="text-[11px] font-bold text-blue-900 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-md">
-                            מורה מקצועי ({member.assignedClasses.join(', ')})
-                          </span>
                         ) : member.role === 'teacher' ? (
-                          <span className="text-[11px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-md">
-                            מחנכת {member.assignedClasses.length > 0 ? `(${member.assignedClasses.join(', ')})` : ''}
+                          <span className="text-[11px] font-semibold text-teal-800 bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-md">
+                            מחנכת / מורה {member.assignedClasses.length > 0 ? `(${member.assignedClasses.join(', ')})` : ''}
                           </span>
                         ) : member.role === 'guard' ? (
                           <span className="text-[11px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-md">
@@ -3152,7 +3148,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setNewSchoolContactPin(Math.floor(3000 + Math.random() * 900).toString())}
+                      onClick={() => setNewSchoolContactPin(generateUniquePin(clientStore.getStaff().staff))}
                       className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
                     >
                       הגרל קוד חדש

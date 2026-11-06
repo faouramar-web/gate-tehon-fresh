@@ -156,8 +156,11 @@ export const api = {
         currentTime: string;
       }>('/api/teacher/my-classes');
 
-      // Reconcile with real-time Firestore pass statuses in clientStore
-      if (localRes && Array.isArray(localRes.students)) {
+      const hasServerStudents = Array.isArray(serverRes?.students) && serverRes.students.length > 0;
+      const hasLocalStudents = Array.isArray(localRes?.students) && localRes.students.length > 0;
+
+      // Reconcile with real-time pass statuses in clientStore
+      if (hasServerStudents && hasLocalStudents) {
         const localPassMap = new Map<string, GatePass | null | undefined>(
           localRes.students.map((s: Student) => [s.id, s.currentPass as GatePass | null | undefined])
         );
@@ -168,10 +171,22 @@ export const api = {
           }
           return st;
         });
-        return { ...serverRes, students: enriched };
+        return {
+          ...serverRes,
+          assignedClasses: serverRes.assignedClasses?.length > 0 ? serverRes.assignedClasses : localRes.assignedClasses,
+          students: enriched,
+        };
       }
 
-      return serverRes;
+      if (hasServerStudents) {
+        return serverRes;
+      }
+
+      if (hasLocalStudents) {
+        return localRes;
+      }
+
+      return serverRes || localRes || { assignedClasses: [], teacherName: '', students: [], today: '', currentTime: '' };
     } catch {
       return localRes || clientStore.getTeacherClasses(clientStore.getMe().user);
     }

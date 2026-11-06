@@ -46,6 +46,17 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
   // Cancel pass state
   const [cancellingPassId, setCancellingPassId] = useState<string | null>(null);
 
+  // Helper to normalize class names (handles "י1", "י 1", "י'1", "כיתה י1")
+  const normalizeClass = (val: string): string => {
+    if (!val) return '';
+    return val
+      .replace(/^כיתה\s*/i, '')
+      .replace(/['"`׳״]/g, '')
+      .replace(/\s+/g, '')
+      .trim()
+      .toLowerCase();
+  };
+
   // Fetch classes and students
   const loadData = async (isInitial = false) => {
     try {
@@ -57,12 +68,41 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
         api.getTeacherPasses(),
       ]);
 
-      setAssignedClasses(classRes.assignedClasses);
-      if (!selectedClass && classRes.assignedClasses.length > 0) {
-        setSelectedClass(classRes.assignedClasses[0]);
+      let loadedStudents = classRes.students || [];
+
+      // If no students returned (e.g. mobile smartphone first opening), try pulling server state
+      if (loadedStudents.length === 0) {
+        const pullRes = await clientStore.pullStateFromServer();
+        if (pullRes) {
+          const fresh = clientStore.getTeacherClasses(user);
+          if (fresh.students && fresh.students.length > 0) {
+            loadedStudents = fresh.students;
+          }
+        }
       }
-      setStudents(classRes.students);
-      setPassesToday(passRes.passes);
+
+      const rawClasses = classRes.assignedClasses || [];
+      const cleanAssigned = rawClasses.filter((c) => c && c !== '*' && c !== 'כל הכיתות');
+      const studentClasses = Array.from(new Set(loadedStudents.map((s) => s.className))).filter(Boolean);
+      const displayClasses = cleanAssigned.length > 0 ? cleanAssigned : studentClasses;
+
+      setAssignedClasses(displayClasses);
+
+      if (!selectedClass) {
+        if (displayClasses.length === 1) {
+          setSelectedClass(displayClasses[0]);
+        } else if (displayClasses.length > 1) {
+          const preferred = user.assignedClasses?.find((c) => c && c !== '*' && c !== 'כל הכיתות');
+          if (preferred && loadedStudents.some((s) => normalizeClass(s.className) === normalizeClass(preferred))) {
+            setSelectedClass(preferred);
+          } else {
+            // Default to 'כל הכיתות' so all students of the teacher are instantly visible
+            setSelectedClass('כל הכיתות');
+          }
+        }
+      }
+      setStudents(loadedStudents);
+      setPassesToday(passRes.passes || []);
 
       // Pre-set custom time to current HH:mm
       if (!customTime) {
@@ -104,7 +144,16 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
 
   // Filter students by selected class and search query
   const filteredStudents = students.filter((s) => {
-    const matchClass = !selectedClass || s.className === selectedClass;
+    const isShowAll =
+      !selectedClass ||
+      selectedClass === '*' ||
+      selectedClass === 'כל הכיתות' ||
+      selectedClass === 'הכל';
+
+    const matchClass =
+      isShowAll ||
+      normalizeClass(s.className) === normalizeClass(selectedClass);
+
     if (!matchClass) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.trim().toLowerCase();
@@ -220,6 +269,20 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
         {assignedClasses.length > 1 && (
           <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 overflow-x-auto no-scrollbar">
             <span className="text-xs text-slate-300 shrink-0 font-medium">בחר כיתה:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedClass('כל הכיתות');
+                setSelectedStudentIds(new Set());
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all shrink-0 ${
+                selectedClass === 'כל הכיתות' || !selectedClass
+                  ? 'bg-teal-500 text-white shadow-sm'
+                  : 'bg-white/10 text-slate-200 hover:bg-white/20'
+              }`}
+            >
+              כל הכיתות
+            </button>
             {assignedClasses.map((cls) => (
               <button
                 key={cls}
@@ -353,8 +416,32 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
-              <p className="text-sm font-semibold text-slate-700">לא נמצאו תלמידים מתאימים</p>
-              <p className="text-xs text-slate-400 mt-1">נסה לשנות את מילת החיפוש או בחר כיתה אחרת</p>
+              <p className="text-sm font-semibold text-slate-700">לא נמצאו תלמידים להצגה</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {students.length > 0
+                  ? 'נבחרה כיתה ספציפית או הופעל חיפוש ללא תוצאות'
+                  : 'רשימת התלמידים נטענת או ממתינה לסנכרון מבית הספר'}
+              </p>
+              {students.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedClass('כל הכיתות');
+                    setSearchQuery('');
+                  }}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  הצג את כל התלמידים ({students.length})
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => loadData(true)}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  רענן רשימה מבית הספר
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-2.5">

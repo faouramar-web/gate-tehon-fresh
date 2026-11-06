@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api.ts';
-import { clientStore } from '../lib/clientStore.ts';
+import { clientStore, generateUniquePin } from '../lib/clientStore.ts';
 import { User, GatePass, Student, StaffMember, UserRole, School } from '../types.ts';
 import {
   ShieldAlert,
@@ -304,7 +304,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
       return;
     }
 
-    const pin = newStaffPin.trim() || Math.floor(1000 + Math.random() * 9000).toString();
+    const pin = generateUniquePin(schoolStaff, newStaffPin.trim());
     const mySchoolId = (user.schoolId && user.schoolId !== '*') ? user.schoolId : clientStore.getActiveSchoolId();
 
     let role: UserRole = 'teacher';
@@ -375,7 +375,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
 
   // Regenerate PIN in 1-click
   const handleRegeneratePin = async (staffId: string) => {
-    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const randomPin = generateUniquePin(schoolStaff);
     const member = (schoolStaff || []).find((s) => s.id === staffId);
     const updated = (schoolStaff || []).map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s));
     setSchoolStaff(updated);
@@ -2129,7 +2129,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                   />
                   <button
                     type="button"
-                    onClick={() => setNewStaffPin(Math.floor(1000 + Math.random() * 9000).toString())}
+                    onClick={() => setNewStaffPin(generateUniquePin(schoolStaff))}
                     className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition-colors cursor-pointer"
                   >
                     הגרל קוד

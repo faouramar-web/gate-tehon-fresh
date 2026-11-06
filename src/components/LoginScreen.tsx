@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.ts';
 import { clientStore } from '../lib/clientStore.ts';
 import { User } from '../types.ts';
@@ -45,46 +45,61 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [activationError, setActivationError] = useState<string | null>(null);
   const [activationSuccessMsg, setActivationSuccessMsg] = useState<string | null>(null);
 
+  // Guard ref to ensure URL activation runs strictly ONCE and never enters a recursive loop
+  const activationHandledRef = useRef<boolean>(false);
+
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const handleUrlActivation = async () => {
-      if (typeof window === 'undefined') return;
+      if (activationHandledRef.current) return;
+
       const params = new URLSearchParams(window.location.search);
       const schoolParam = params.get('school') || params.get('code') || params.get('schoolId');
-      if (schoolParam) {
+      if (!schoolParam) return;
+
+      activationHandledRef.current = true;
+
+      try {
+        const res = await api.activateSchoolByCode(schoolParam);
+        if (res && res.school) {
+          setActiveSchoolName(res.school.name);
+          setIsActivated(true);
+          setActivationSuccessMsg(`בית הספר "${res.school.name}" זוהה והופעל בהצלחה במכשיר זה!`);
+          setTimeout(() => setActivationSuccessMsg(null), 5000);
+        }
+      } catch {
+        // Fallback to clientStore if offline or local
         try {
-          const res = await api.activateSchoolByCode(schoolParam);
+          const res = clientStore.activateSchoolByCode(schoolParam);
           if (res && res.school) {
             setActiveSchoolName(res.school.name);
             setIsActivated(true);
             setActivationSuccessMsg(`בית הספר "${res.school.name}" זוהה והופעל בהצלחה במכשיר זה!`);
-            setTimeout(() => setActivationSuccessMsg(null), 6000);
-            return;
+            setTimeout(() => setActivationSuccessMsg(null), 5000);
           }
         } catch {
-          // Fallback to clientStore if offline or local
-          try {
-            const res = clientStore.activateSchoolByCode(schoolParam);
-            if (res && res.school) {
-              setActiveSchoolName(res.school.name);
-              setIsActivated(true);
-              setActivationSuccessMsg(`בית הספר "${res.school.name}" זוהה והופעל בהצלחה במכשיר זה!`);
-              setTimeout(() => setActivationSuccessMsg(null), 6000);
-            }
-          } catch {
-            // Schools may still be loading, syncSchool will retry
-          }
+          // ignore
+        }
+      } finally {
+        // Clean URL parameter so it doesn't re-trigger on reload or navigation
+        try {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        } catch {
+          // ignore
         }
       }
     };
 
     handleUrlActivation();
 
+    // Subscribe to clientStore updates for display only - NEVER re-trigger activation inside subscriber!
     const syncSchool = () => {
       const name = clientStore.getActiveSchoolName();
       if (name) setActiveSchoolName(name);
       const code = typeof localStorage !== 'undefined' ? localStorage.getItem('gate_activated_school_code') : null;
       setIsActivated(!!code);
-      handleUrlActivation();
     };
 
     const unsub = clientStore.subscribe(syncSchool);

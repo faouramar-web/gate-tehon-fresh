@@ -116,6 +116,48 @@ export function normalizePin(input: string | number | undefined | null): string 
     .trim();
 }
 
+export function generateUniqueStaffPin(
+  existingStaffOrPins: Array<{ pinCode?: string }> | Set<string>,
+  preferredPin?: string
+): string {
+  const usedPins = new Set<string>();
+  if (existingStaffOrPins instanceof Set) {
+    for (const p of existingStaffOrPins) {
+      if (p) usedPins.add(normalizePin(p));
+    }
+  } else if (Array.isArray(existingStaffOrPins)) {
+    for (const s of existingStaffOrPins) {
+      if (s?.pinCode) usedPins.add(normalizePin(s.pinCode));
+    }
+  }
+  usedPins.add('160525');
+
+  if (preferredPin && normalizePin(preferredPin) && !usedPins.has(normalizePin(preferredPin)) && normalizePin(preferredPin) !== '160525') {
+    return normalizePin(preferredPin);
+  }
+
+  let pin = '';
+  let attempts = 0;
+  do {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    pin = num.toString();
+    attempts++;
+    if (pin[0] === pin[1] && pin[1] === pin[2] && pin[2] === pin[3]) continue;
+  } while (usedPins.has(pin) && attempts < 10000);
+
+  if (!pin || usedPins.has(pin)) {
+    for (let i = 1001; i <= 9999; i++) {
+      const candidate = i.toString();
+      if (!usedPins.has(candidate)) {
+        pin = candidate;
+        break;
+      }
+    }
+  }
+
+  return pin;
+}
+
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.resolve(DATA_DIR, 'school_gate.json');
 
@@ -259,12 +301,40 @@ class SchoolDatabase {
     return this.data.students;
   }
 
-  public getStudentsForTeacher(assignedClasses: string[]): Student[] {
-    if (!assignedClasses || assignedClasses.length === 0) return [];
-    if (assignedClasses.includes('*') || assignedClasses.includes('כל הכיתות')) {
+  public getStudentsForTeacher(assignedClasses: string[], teacherFullName?: string): Student[] {
+    if (!this.data.students || this.data.students.length === 0) return [];
+    const hasAll =
+      !assignedClasses ||
+      assignedClasses.length === 0 ||
+      assignedClasses.includes('*') ||
+      assignedClasses.includes('כל הכיתות');
+
+    if (hasAll) {
       return this.data.students;
     }
-    return this.data.students.filter((s) => assignedClasses.includes(s.className));
+
+    const normClass = (c: string) =>
+      (c || '')
+        .replace(/^כיתה\s*/i, '')
+        .replace(/['"`׳״\s]/g, '')
+        .toLowerCase();
+
+    const assignedNorm = assignedClasses.map(normClass).filter(Boolean);
+    const teacherNorm = (teacherFullName || '').trim().toLowerCase();
+
+    const matched = this.data.students.filter((s) => {
+      const sClassNorm = normClass(s.className);
+      if (assignedNorm.includes(sClassNorm)) return true;
+
+      const sTeacherNorm = (s.teacherName || '').trim().toLowerCase();
+      if (teacherNorm && sTeacherNorm && (sTeacherNorm.includes(teacherNorm) || teacherNorm.includes(sTeacherNorm))) {
+        return true;
+      }
+
+      return false;
+    });
+
+    return matched.length > 0 ? matched : this.data.students;
   }
 
   public getPassesForToday(): GatePass[] {
@@ -612,12 +682,13 @@ class SchoolDatabase {
         } else {
           // Create new teacher
           const codeNum = data.staff.filter((s) => s.role === 'teacher').length + 1;
+          const newTeacherPin = generateUniqueStaffPin(data.staff);
           data.staff.push({
             id: `staff-t${Date.now()}`,
             staffCode: `T${codeNum.toString().padStart(2, '0')}`,
             fullName: ct.teacherName.trim(),
             role: 'teacher',
-            pinCode: (1000 + codeNum).toString(),
+            pinCode: newTeacherPin,
             assignedClasses: [ct.className],
             isActive: true,
           });
@@ -678,6 +749,22 @@ class SchoolDatabase {
           isActive: true,
           schoolId: '*',
         });
+      }
+
+      // Guarantee strict PIN uniqueness across all staff
+      const seenPins = new Set<string>();
+      seenPins.add('160525');
+      for (const member of data.staff) {
+        if (!member) continue;
+        if (member.role === 'admin' && member.pinCode === '160525') continue;
+        const currentPin = normalizePin(member.pinCode);
+        if (!currentPin || seenPins.has(currentPin) || currentPin === '160525') {
+          const uniquePin = generateUniqueStaffPin(seenPins);
+          member.pinCode = uniquePin;
+          seenPins.add(uniquePin);
+        } else {
+          seenPins.add(currentPin);
+        }
       }
 
       data.auditLogs.push({
@@ -755,9 +842,13 @@ class SchoolDatabase {
 
   public rollAllStaffPins(actor: Staff): Staff[] {
     this.mutate((data) => {
+      const tempPins = new Set<string>();
+      tempPins.add('160525');
       for (const s of data.staff) {
         if (s.role !== 'admin' && s.pinCode !== '160525') {
-          s.pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+          const newPin = generateUniqueStaffPin(tempPins);
+          s.pinCode = newPin;
+          tempPins.add(newPin);
         }
       }
       data.auditLogs.push({
@@ -824,7 +915,10 @@ class SchoolDatabase {
     const schoolId = schoolData.id || `school-${Date.now()}`;
     const code = schoolData.code || `SCH-${(this.data.schools?.length || 0) + 1}`;
     const activationCode = schoolData.activationCode || Math.floor(1000 + Math.random() * 9000).toString();
-    const vpPin = schoolData.contactPin || `${3000 + (this.data.schools?.length || 0)}`;
+    const vpPin = generateUniqueStaffPin(this.data.staff || [], schoolData.contactPin);
+    const tempUsed = new Set((this.data.staff || []).map((s) => normalizePin(s.pinCode)));
+    tempUsed.add(vpPin);
+    const guardPin = generateUniqueStaffPin(tempUsed);
 
     const newSchool: ServerSchool = {
       id: schoolId,
@@ -857,7 +951,7 @@ class SchoolDatabase {
         staffCode: `G0${data.schools.length}`,
         fullName: `שומר שער (${newSchool.name})`,
         role: 'guard',
-        pinCode: `${2000 + data.schools.length}`,
+        pinCode: guardPin,
         assignedClasses: [],
         isActive: true,
       });
@@ -926,6 +1020,48 @@ class SchoolDatabase {
       : `בית הספר "${school.name}" הופעל בהצלחה במכשיר זה.`;
 
     return { success: true, school, message: msg };
+  }
+
+  public syncAllState(
+    schools?: ServerSchool[],
+    staff?: Staff[],
+    students?: Student[],
+    activeSchoolId?: string
+  ): void {
+    this.mutate((data) => {
+      if (Array.isArray(schools) && schools.length > 0) {
+        data.schools = schools;
+      }
+      if (activeSchoolId) {
+        data.activeSchoolId = activeSchoolId;
+      }
+      if (Array.isArray(staff) && staff.length > 0) {
+        const staffMap = new Map(data.staff.map((s) => [s.id, s]));
+        for (const st of staff) {
+          if (st && st.id) staffMap.set(st.id, st);
+        }
+        data.staff = Array.from(staffMap.values());
+        if (!data.staff.some((s) => normalizePin(s.pinCode) === '160525')) {
+          data.staff.unshift({
+            id: 'staff-admin-amar',
+            staffCode: 'ADMIN',
+            fullName: 'עמאר פאעור (מנהל המערכת)',
+            role: 'admin',
+            pinCode: '160525',
+            assignedClasses: ['*'],
+            isActive: true,
+            schoolId: '*',
+          });
+        }
+      }
+      if (Array.isArray(students) && students.length > 0) {
+        const studentMap = new Map(data.students.map((s) => [s.id, s]));
+        for (const st of students) {
+          if (st && st.id) studentMap.set(st.id, st);
+        }
+        data.students = Array.from(studentMap.values());
+      }
+    });
   }
 }
 
