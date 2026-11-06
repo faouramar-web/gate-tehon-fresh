@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { db, getIsraelDateString, getIsraelTimeString, normalizePin } from './data/store.ts';
-import type { Staff } from './data/store.ts';
+import type { Staff, GatePass } from './data/store.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -226,7 +226,19 @@ app.get('/api/teacher/my-classes', authenticate, requireRole('teacher', 'vice_pr
   const returnClasses = cleanAssigned.length > 0 ? cleanAssigned : studentClasses;
 
   const todayPasses = db.getPassesForToday();
-  const passByStudentId = new Map(todayPasses.map((p) => [p.studentId, p]));
+  const sortedToday = [...todayPasses].sort((a, b) => {
+    if (a.status === 'used' && b.status !== 'used') return -1;
+    if (b.status === 'used' && a.status !== 'used') return 1;
+    if (a.status === 'active' && b.status === 'cancelled') return -1;
+    if (b.status === 'active' && a.status === 'cancelled') return 1;
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
+  });
+  const passByStudentId = new Map<string, GatePass>();
+  for (const p of sortedToday) {
+    if (!passByStudentId.has(p.studentId)) {
+      passByStudentId.set(p.studentId, p);
+    }
+  }
 
   const enrichedStudents = students.map((s) => {
     const pass = passByStudentId.get(s.id);
@@ -328,8 +340,19 @@ app.get('/api/guard/search', authenticate, (req: Request, res: Response) => {
   const allStudents = db.getAllStudents();
   const todayPasses = db.getPassesForToday();
   const nowTime = getIsraelTimeString();
-
-  const passesByStudentId = new Map(todayPasses.map((p) => [p.studentId, p]));
+  const sortedToday = [...todayPasses].sort((a, b) => {
+    if (a.status === 'active' && b.status !== 'active') return -1;
+    if (b.status === 'active' && a.status !== 'active') return 1;
+    if (a.status === 'used' && b.status === 'cancelled') return -1;
+    if (b.status === 'used' && a.status === 'cancelled') return 1;
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
+  });
+  const passesByStudentId = new Map<string, GatePass>();
+  for (const p of sortedToday) {
+    if (!passesByStudentId.has(p.studentId)) {
+      passesByStudentId.set(p.studentId, p);
+    }
+  }
 
   // If query is empty, return only students with active passes today, plus recent exits
   let filtered = allStudents;

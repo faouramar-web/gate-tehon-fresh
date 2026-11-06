@@ -624,7 +624,20 @@ export const GuardView: React.FC<GuardViewProps> = ({
                     <div
                       key={pass.id}
                       onClick={() => {
-                        handleQueryChange(pass.studentName);
+                        setSearchQuery(pass.studentName);
+                        setSelectedResult({
+                          student: {
+                            id: pass.studentId,
+                            fullName: pass.studentName,
+                            className: pass.className,
+                            studentCode: pass.studentCode || '',
+                            schoolId: pass.schoolId || '',
+                            teacherName: pass.homeroomTeacher || '',
+                          },
+                          pass: pass,
+                          statusType: pass.validFromTime <= currentTime ? 'APPROVED_NOW' : 'APPROVED_FUTURE',
+                          statusText: pass.validFromTime <= currentTime ? 'מאושר לצאת עכשיו' : `האישור ייכנס לתוקף בשעה ${pass.validFromTime}`,
+                        });
                       }}
                       className="p-3 rounded-xl bg-slate-50 hover:bg-teal-50/60 border border-slate-200 hover:border-teal-300 transition-colors flex items-center justify-between cursor-pointer"
                     >

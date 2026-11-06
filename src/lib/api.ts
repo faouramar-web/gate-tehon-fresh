@@ -413,9 +413,10 @@ export const api = {
       const mergedResults = serverRes.results.map((sr) => {
         const lr = localResultMap.get(sr.student.id);
         if (lr && lr.pass) {
-          if (lr.pass.status === 'used' || !sr.pass || lr.pass.status === 'active') {
-            return lr;
-          }
+          if (lr.pass.status === 'active' && sr.pass?.status !== 'active') return lr;
+          if (sr.pass?.status === 'active' && lr.pass.status !== 'active') return sr;
+          if (lr.pass.status === 'used') return lr;
+          if (!sr.pass) return lr;
         }
         return sr;
       });

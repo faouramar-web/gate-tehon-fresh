@@ -609,8 +609,15 @@ class SchoolDatabase {
       }
 
       if (pass.status === 'cancelled') {
-        errorMsg = 'האישור בוטל על ידי המחנכת ולא ניתן לסמן יציאה';
-        return;
+        const activePass = data.passes.find(
+          (p) => p.studentId === pass!.studentId && p.dateStr === pass!.dateStr && p.status === 'active'
+        );
+        if (activePass) {
+          pass = activePass;
+        } else {
+          errorMsg = 'האישור בוטל על ידי המחנכת ולא ניתן לסמן יציאה';
+          return;
+        }
       }
 
       if (pass.status === 'used') {

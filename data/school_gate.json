@@ -1,7 +1,7 @@
 {
   "settings": {
     "schoolName": "מערכת אישור לשער",
-    "lastUpdated": "2026-11-06T06:40:13.508Z"
+    "lastUpdated": "2026-11-06T19:43:24.942Z"
   },
   "schools": [
     {
@@ -2478,6 +2478,50 @@
       "studentName": "עדן זאהר",
       "className": "י1",
       "details": "יציאה אושרה בשער על ידי שומר שער (רב תחומי עמל יאנוח-ג׳ת) בשעה 08:40"
+    },
+    {
+      "id": "log-1793994204936-e64l",
+      "timestamp": "2026-11-06T19:43:24.936Z",
+      "actionType": "PASS_CREATED",
+      "actorId": "staff-1793938342639-2ra",
+      "actorName": "חאג_ רימה",
+      "actorRole": "teacher",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "הונפק אישור יציאה לשעה 10:00"
+    },
+    {
+      "id": "log-1793994204937-umd7",
+      "timestamp": "2026-11-06T19:43:24.937Z",
+      "actionType": "PASS_CANCELLED",
+      "actorId": "staff-1793938342639-2ra",
+      "actorName": "חאג_ רימה",
+      "actorRole": "teacher",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "אישור יציאה בוטל על ידי חאג_ רימה"
+    },
+    {
+      "id": "log-1793994204938-h0r2",
+      "timestamp": "2026-11-06T19:43:24.938Z",
+      "actionType": "PASS_CREATED",
+      "actorId": "staff-1793938342639-2ra",
+      "actorName": "חאג_ רימה",
+      "actorRole": "teacher",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "הונפק אישור יציאה לשעה 11:00"
+    },
+    {
+      "id": "log-1793994204941-ldf0",
+      "timestamp": "2026-11-06T19:43:24.941Z",
+      "actionType": "PASS_USED",
+      "actorId": "staff-guard-school-1793934341104",
+      "actorName": "שומר שער (רב תחומי עמל יאנוח-ג׳ת)",
+      "actorRole": "guard",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "יציאה אושרה בשער על ידי שומר שער (רב תחומי עמל יאנוח-ג׳ת) בשעה 21:43"
     }
   ]
 }

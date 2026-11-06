@@ -2833,8 +2833,15 @@ var SchoolDatabase = class {
         return;
       }
       if (pass.status === "cancelled") {
-        errorMsg = "\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D1\u05D5\u05D8\u05DC \u05E2\u05DC \u05D9\u05D3\u05D9 \u05D4\u05DE\u05D7\u05E0\u05DB\u05EA \u05D5\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E1\u05DE\u05DF \u05D9\u05E6\u05D9\u05D0\u05D4";
-        return;
+        const activePass = data.passes.find(
+          (p) => p.studentId === pass.studentId && p.dateStr === pass.dateStr && p.status === "active"
+        );
+        if (activePass) {
+          pass = activePass;
+        } else {
+          errorMsg = "\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D1\u05D5\u05D8\u05DC \u05E2\u05DC \u05D9\u05D3\u05D9 \u05D4\u05DE\u05D7\u05E0\u05DB\u05EA \u05D5\u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05DC\u05E1\u05DE\u05DF \u05D9\u05E6\u05D9\u05D0\u05D4";
+          return;
+        }
       }
       if (pass.status === "used") {
         resultPass = pass;
@@ -3451,7 +3458,19 @@ app.get("/api/teacher/my-classes", authenticate, requireRole("teacher", "vice_pr
   const cleanAssigned = (classes || []).filter((c) => c && c !== "*" && c !== "\u05DB\u05DC \u05D4\u05DB\u05D9\u05EA\u05D5\u05EA");
   const returnClasses = cleanAssigned.length > 0 ? cleanAssigned : studentClasses;
   const todayPasses = db.getPassesForToday();
-  const passByStudentId = new Map(todayPasses.map((p) => [p.studentId, p]));
+  const sortedToday = [...todayPasses].sort((a, b) => {
+    if (a.status === "used" && b.status !== "used") return -1;
+    if (b.status === "used" && a.status !== "used") return 1;
+    if (a.status === "active" && b.status === "cancelled") return -1;
+    if (b.status === "active" && a.status === "cancelled") return 1;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
+  const passByStudentId = /* @__PURE__ */ new Map();
+  for (const p of sortedToday) {
+    if (!passByStudentId.has(p.studentId)) {
+      passByStudentId.set(p.studentId, p);
+    }
+  }
   const enrichedStudents = students.map((s) => {
     const pass = passByStudentId.get(s.id);
     return {
@@ -3526,7 +3545,19 @@ app.get("/api/guard/search", authenticate, (req, res) => {
   const allStudents = db.getAllStudents();
   const todayPasses = db.getPassesForToday();
   const nowTime = getIsraelTimeString();
-  const passesByStudentId = new Map(todayPasses.map((p) => [p.studentId, p]));
+  const sortedToday = [...todayPasses].sort((a, b) => {
+    if (a.status === "active" && b.status !== "active") return -1;
+    if (b.status === "active" && a.status !== "active") return 1;
+    if (a.status === "used" && b.status === "cancelled") return -1;
+    if (b.status === "used" && a.status === "cancelled") return 1;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
+  const passesByStudentId = /* @__PURE__ */ new Map();
+  for (const p of sortedToday) {
+    if (!passesByStudentId.has(p.studentId)) {
+      passesByStudentId.set(p.studentId, p);
+    }
+  }
   let filtered = allStudents;
   if (query) {
     filtered = allStudents.filter(

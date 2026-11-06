@@ -1670,10 +1670,12 @@ class ClientStorageEngine {
       return true;
     });
 
-    // Priority to 'used' passes so an exited student is immediately visible as exited
+    // Priority: 'used' first, 'active' second, 'cancelled' last, newest created first
     const sortedTodayPasses = [...todayPasses].sort((a, b) => {
       if (a.status === 'used' && b.status !== 'used') return -1;
       if (b.status === 'used' && a.status !== 'used') return 1;
+      if (a.status === 'active' && b.status === 'cancelled') return -1;
+      if (b.status === 'active' && a.status === 'cancelled') return 1;
       return (b.createdAt || '').localeCompare(a.createdAt || '');
     });
 
@@ -1845,7 +1847,22 @@ class ClientStorageEngine {
     const nowTime = getClientIsraelTimeString();
 
     const todayPasses = this.passes.filter((p) => p.dateStr === today);
-    const passByStudent = new Map(todayPasses.map((p) => [p.studentId, p]));
+
+    // Prioritize active and used passes over cancelled passes so re-issued passes always win
+    const sortedTodayPasses = [...todayPasses].sort((a, b) => {
+      if (a.status === 'active' && b.status !== 'active') return -1;
+      if (b.status === 'active' && a.status !== 'active') return 1;
+      if (a.status === 'used' && b.status === 'cancelled') return -1;
+      if (b.status === 'used' && a.status === 'cancelled') return 1;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+
+    const passByStudent = new Map<string, GatePass>();
+    for (const p of sortedTodayPasses) {
+      if (!passByStudent.has(p.studentId)) {
+        passByStudent.set(p.studentId, p);
+      }
+    }
 
     let targetStudents = this.students;
     if (q) {
@@ -1936,7 +1953,14 @@ class ClientStorageEngine {
     }
 
     if (pass.status === 'cancelled') {
-      throw new Error('האישור בוטל ולא ניתן לסמן יציאה');
+      const activePass = this.passes.find(
+        (p) => p.studentId === pass!.studentId && p.dateStr === pass!.dateStr && p.status === 'active'
+      );
+      if (activePass) {
+        pass = activePass;
+      } else {
+        throw new Error('האישור בוטל ולא ניתן לסמן יציאה');
+      }
     }
     if (pass.status === 'used') {
       return {
