@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.ts';
+import { clientStore } from '../lib/clientStore.ts';
 import { User, GatePass, GuardSearchResult, GuardStatusType } from '../types.ts';
 import {
   Search,
@@ -90,6 +91,28 @@ export const GuardView: React.FC<GuardViewProps> = ({
 
   useEffect(() => {
     loadGateData();
+
+    // 1. Subscribe directly to clientStore so Firestore onSnapshot updates guard immediately
+    const unsubscribe = clientStore.subscribe(() => {
+      loadGateData();
+      if (searchQuery.trim()) {
+        executeSearch(searchQuery);
+      }
+    });
+
+    // 2. High-frequency 2.5-second polling interval
+    const interval = setInterval(() => {
+      loadGateData();
+    }, 2500);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    loadGateData();
     if (searchQuery.trim()) {
       executeSearch(searchQuery);
     }
@@ -169,16 +192,8 @@ export const GuardView: React.FC<GuardViewProps> = ({
   };
 
   // Helper to resolve homeroom teacher for a class
-  const getHomeroomTeacher = (className: string, fallback?: string) => {
-    if (fallback) return fallback;
-    const map: Record<string, string> = {
-      'ז1': 'לינא ח׳ליל',
-      'ז2': 'סוהא מנצור',
-      'ח1': 'דלאל חביב',
-      'ח2': 'נאדיה סרחאן',
-      'ט1': 'רימא ג׳אבר',
-    };
-    return map[className] || 'מחנכת כיתה';
+  const getHomeroomTeacher = (_className: string, fallback?: string) => {
+    return fallback || 'מחנכת כיתה';
   };
 
   const isSubjectAuthorizer = (teacherName: string, className: string, homeroom?: string) => {

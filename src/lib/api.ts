@@ -104,7 +104,7 @@ export const api = {
         accounts: [
           { role: 'admin', title: 'מנהל המערכת', name: 'עמאר פאעור' },
           { role: 'vice_principal', title: 'סגן מנהל (אחראי שחרורים)', name: 'סגן מנהל' },
-          { role: 'teacher', title: 'מחנכת כיתה ז1', name: 'לינא ח׳ליל' },
+          { role: 'teacher', title: 'מחנכת כיתה', name: 'מחנכת' },
           { role: 'teacher', title: 'מורה מקצועי', name: 'מוחמד עלי' },
           { role: 'guard', title: 'שומר שער', name: 'אברהם כהן' },
         ],
@@ -117,7 +117,7 @@ export const api = {
         accounts: [
           { role: 'admin', title: 'מנהל המערכת', name: 'עמאר פאעור' },
           { role: 'vice_principal', title: 'סגן מנהל (אחראי שחרורים)', name: 'סגן מנהל' },
-          { role: 'teacher', title: 'מחנכת כיתה ז1', name: 'לינא ח׳ליל' },
+          { role: 'teacher', title: 'מחנכת כיתה', name: 'מחנכת' },
           { role: 'teacher', title: 'מורה מקצועי', name: 'מוחמד עלי' },
           { role: 'guard', title: 'שומר שער', name: 'אברהם כהן' },
         ],
@@ -133,15 +133,47 @@ export const api = {
     today: string;
     currentTime: string;
   }> {
-    if (isStaticHost) {
+    let localRes: any = null;
+    try {
+      const { user } = clientStore.getMe();
+      localRes = clientStore.getTeacherClasses(user);
+    } catch {
+      // ignore
+    }
+
+    if (isStaticHost || !localRes) {
+      if (localRes) return localRes;
       const { user } = clientStore.getMe();
       return clientStore.getTeacherClasses(user);
     }
+
     try {
-      return await request('/api/teacher/my-classes');
+      const serverRes = await request<{
+        assignedClasses: string[];
+        teacherName: string;
+        students: Student[];
+        today: string;
+        currentTime: string;
+      }>('/api/teacher/my-classes');
+
+      // Reconcile with real-time Firestore pass statuses in clientStore
+      if (localRes && Array.isArray(localRes.students)) {
+        const localPassMap = new Map<string, GatePass | null | undefined>(
+          localRes.students.map((s: Student) => [s.id, s.currentPass as GatePass | null | undefined])
+        );
+        const enriched: Student[] = serverRes.students.map((st) => {
+          const lp = localPassMap.get(st.id);
+          if (lp && (lp.status === 'used' || lp.status === 'cancelled')) {
+            return { ...st, currentPass: lp };
+          }
+          return st;
+        });
+        return { ...serverRes, students: enriched };
+      }
+
+      return serverRes;
     } catch {
-      const { user } = clientStore.getMe();
-      return clientStore.getTeacherClasses(user);
+      return localRes || clientStore.getTeacherClasses(clientStore.getMe().user);
     }
   },
 
@@ -149,13 +181,57 @@ export const api = {
     passes: GatePass[];
     currentTime: string;
   }> {
+    let localRes: { passes: GatePass[]; currentTime: string } | null = null;
+    try {
+      const { user } = clientStore.getMe();
+      localRes = clientStore.getTeacherPasses(user);
+    } catch {
+      // ignore
+    }
+
     if (isStaticHost) {
+      if (localRes) return localRes;
       const { user } = clientStore.getMe();
       return clientStore.getTeacherPasses(user);
     }
+
     try {
-      return await request('/api/teacher/passes');
+      const serverRes = await request<{ passes: GatePass[]; currentTime: string }>('/api/teacher/passes');
+
+      // If clientStore has updated passes via live Firestore onSnapshot, merge them!
+      if (localRes && Array.isArray(localRes.passes)) {
+        const localPassMap = new Map(localRes.passes.map((p) => [p.id, p]));
+        const merged = serverRes.passes.map((sp) => {
+          const lp = localPassMap.get(sp.id);
+          if (lp && (lp.status === 'used' || lp.status === 'cancelled')) {
+            return {
+              ...sp,
+              status: lp.status,
+              usedAt: lp.usedAt || sp.usedAt,
+              usedBy: lp.usedBy || sp.usedBy,
+              cancelledAt: lp.cancelledAt || sp.cancelledAt,
+              cancelledBy: lp.cancelledBy || sp.cancelledBy,
+            };
+          }
+          return sp;
+        });
+
+        const serverIdSet = new Set(serverRes.passes.map((p) => p.id));
+        for (const lp of localRes.passes) {
+          if (!serverIdSet.has(lp.id)) {
+            merged.unshift(lp);
+          }
+        }
+
+        return {
+          passes: merged,
+          currentTime: serverRes.currentTime,
+        };
+      }
+
+      return serverRes;
     } catch {
+      if (localRes) return localRes;
       const { user } = clientStore.getMe();
       return clientStore.getTeacherPasses(user);
     }
@@ -167,35 +243,104 @@ export const api = {
     created: GatePass[];
     errors: string[];
   }> {
-    if (isStaticHost) {
-      const { user } = clientStore.getMe();
-      return clientStore.createPasses(user, studentIds, validFromTime, reason);
-    }
+    let currentUser: User;
     try {
-      return await request('/api/passes/create', {
-        method: 'POST',
-        body: JSON.stringify({ studentIds, validFromTime, reason }),
-      });
+      currentUser = clientStore.getMe().user;
     } catch {
-      const { user } = clientStore.getMe();
-      return clientStore.createPasses(user, studentIds, validFromTime, reason);
+      currentUser = {
+        id: 'teacher-user',
+        staffCode: 'TEACHER',
+        fullName: 'מחנכת כיתה',
+        role: 'teacher',
+        assignedClasses: ['*'],
+        schoolId: '*',
+        schoolName: '',
+      };
     }
+
+    // 1. ALWAYS execute in clientStore (pushes directly to Firestore gatepasses document)
+    let localRes: { success: boolean; createdCount: number; created: GatePass[]; errors: string[] } | null = null;
+    try {
+      localRes = clientStore.createPasses(currentUser, studentIds, validFromTime, reason);
+    } catch {
+      // ignore
+    }
+
+    // 2. ALSO notify server backend if not static host
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{
+          success: boolean;
+          createdCount: number;
+          created: GatePass[];
+          errors: string[];
+        }>('/api/passes/create', {
+          method: 'POST',
+          body: JSON.stringify({ studentIds, validFromTime, reason }),
+        });
+
+        if (serverRes.created && Array.isArray(serverRes.created)) {
+          for (const cp of serverRes.created) {
+            clientStore.syncPassToFirestore(cp);
+          }
+        }
+
+        return serverRes;
+      } catch (serverErr: any) {
+        if (localRes && localRes.created && localRes.created.length > 0) {
+          return localRes;
+        }
+        throw serverErr;
+      }
+    }
+
+    if (localRes) return localRes;
+    throw new Error('שגיאה ביצירת אישורי שחרור');
   },
 
   async cancelPass(passId: string): Promise<{ success: boolean; pass: GatePass }> {
-    if (isStaticHost) {
-      const { user } = clientStore.getMe();
-      return clientStore.cancelPass(user, passId);
-    }
+    let currentUser: User;
     try {
-      return await request('/api/passes/cancel', {
-        method: 'POST',
-        body: JSON.stringify({ passId }),
-      });
+      currentUser = clientStore.getMe().user;
     } catch {
-      const { user } = clientStore.getMe();
-      return clientStore.cancelPass(user, passId);
+      currentUser = {
+        id: 'teacher-user',
+        staffCode: 'TEACHER',
+        fullName: 'מחנכת כיתה',
+        role: 'teacher',
+        assignedClasses: ['*'],
+        schoolId: '*',
+        schoolName: '',
+      };
     }
+
+    // 1. ALWAYS cancel in clientStore (updates Firestore immediately)
+    let localRes: { success: boolean; pass: GatePass } | null = null;
+    try {
+      localRes = clientStore.cancelPass(currentUser, passId);
+    } catch {
+      // ignore
+    }
+
+    // 2. ALSO notify server backend
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{ success: boolean; pass: GatePass }>('/api/passes/cancel', {
+          method: 'POST',
+          body: JSON.stringify({ passId }),
+        });
+        if (serverRes.pass) {
+          clientStore.syncPassToFirestore(serverRes.pass);
+        }
+        return serverRes;
+      } catch (err: any) {
+        if (localRes) return localRes;
+        throw err;
+      }
+    }
+
+    if (localRes) return localRes;
+    throw new Error('אישור שחרור לא נמצא או שכבר יצא');
   },
 
   // --- Guard ---
@@ -203,13 +348,38 @@ export const api = {
     results: GuardSearchResult[];
     currentTime: string;
   }> {
+    const localRes = clientStore.searchGuard(query);
     if (isStaticHost) {
-      return clientStore.searchGuard(query);
+      return localRes;
     }
     try {
-      return await request(`/api/guard/search?q=${encodeURIComponent(query)}`);
+      const serverRes = await request<{
+        results: GuardSearchResult[];
+        currentTime: string;
+      }>(`/api/guard/search?q=${encodeURIComponent(query)}`);
+
+      const localResultMap = new Map(localRes.results.map((r) => [r.student.id, r]));
+      const mergedResults = serverRes.results.map((sr) => {
+        const lr = localResultMap.get(sr.student.id);
+        if (lr && lr.pass) {
+          if (lr.pass.status === 'used' || !sr.pass || lr.pass.status === 'active') {
+            return lr;
+          }
+        }
+        return sr;
+      });
+      const serverStudentIds = new Set(serverRes.results.map((r) => r.student.id));
+      for (const lr of localRes.results) {
+        if (!serverStudentIds.has(lr.student.id)) {
+          mergedResults.push(lr);
+        }
+      }
+      return {
+        results: mergedResults,
+        currentTime: serverRes.currentTime || localRes.currentTime,
+      };
     } catch {
-      return clientStore.searchGuard(query);
+      return localRes;
     }
   },
 
@@ -220,13 +390,53 @@ export const api = {
     totalActive: number;
     totalExitedToday: number;
   }> {
+    const localRes = clientStore.getActivePasses();
     if (isStaticHost) {
-      return clientStore.getActivePasses();
+      return localRes;
     }
+
     try {
-      return await request('/api/guard/active-passes');
+      const serverRes = await request<{
+        activePasses: (GatePass & { isNowValid: boolean })[];
+        recentExits: GatePass[];
+        currentTime: string;
+        totalActive: number;
+        totalExitedToday: number;
+      }>('/api/guard/active-passes');
+
+      // Filter out active passes that were marked as used in Firestore/clientStore
+      const localUsedIds = new Set(localRes.recentExits.map((p) => p.id));
+      const activeMap = new Map<string, GatePass & { isNowValid: boolean }>();
+
+      for (const p of serverRes.activePasses) {
+        if (!localUsedIds.has(p.id)) {
+          activeMap.set(p.id, p);
+        }
+      }
+      for (const p of localRes.activePasses) {
+        if (!localUsedIds.has(p.id)) {
+          activeMap.set(p.id, p);
+        }
+      }
+      const mergedActive = Array.from(activeMap.values());
+
+      const exitMap = new Map<string, GatePass>();
+      for (const e of serverRes.recentExits) exitMap.set(e.id, e);
+      for (const e of localRes.recentExits) exitMap.set(e.id, e);
+
+      const mergedExits = Array.from(exitMap.values())
+        .sort((a, b) => (b.usedAt || '').localeCompare(a.usedAt || ''))
+        .slice(0, 15);
+
+      return {
+        activePasses: mergedActive,
+        recentExits: mergedExits,
+        currentTime: serverRes.currentTime || localRes.currentTime,
+        totalActive: mergedActive.length,
+        totalExitedToday: mergedExits.length,
+      };
     } catch {
-      return clientStore.getActivePasses();
+      return localRes;
     }
   },
 
@@ -235,19 +445,53 @@ export const api = {
     pass: GatePass;
     message: string;
   }> {
-    if (isStaticHost) {
-      const { user } = clientStore.getMe();
-      return clientStore.markExit(user, passId);
-    }
+    let guardUser: User;
     try {
-      return await request('/api/guard/mark-exit', {
-        method: 'POST',
-        body: JSON.stringify({ passId }),
-      });
+      guardUser = clientStore.getMe().user;
     } catch {
-      const { user } = clientStore.getMe();
-      return clientStore.markExit(user, passId);
+      guardUser = {
+        id: 'guard-user',
+        staffCode: 'GUARD',
+        fullName: 'שומר שער',
+        role: 'guard',
+        assignedClasses: [],
+        schoolId: '*',
+        schoolName: '',
+      };
     }
+
+    // 1. ALWAYS execute in clientStore (pushes status: 'used' directly to Firestore document & broadcasts)
+    let localResult: { success: boolean; pass: GatePass; message: string } | null = null;
+    try {
+      localResult = clientStore.markExit(guardUser, passId);
+    } catch {
+      // ignore
+    }
+
+    // 2. ALSO notify server backend so in-memory store and SSE are in sync
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{
+          success: boolean;
+          pass: GatePass;
+          message: string;
+        }>('/api/guard/mark-exit', {
+          method: 'POST',
+          body: JSON.stringify({ passId }),
+        });
+
+        if (serverRes.pass) {
+          clientStore.syncPassToFirestore(serverRes.pass);
+        }
+        return serverRes;
+      } catch (serverErr: any) {
+        if (localResult) return localResult;
+        throw serverErr;
+      }
+    }
+
+    if (localResult) return localResult;
+    throw new Error('אישור שחרור לא נמצא או שכבר סומן כיצא');
   },
 
   // --- Admin ---
@@ -298,17 +542,30 @@ export const api = {
     updated: number;
     total: number;
   }> {
-    if (isStaticHost) {
-      return clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
-    }
+    let localRes: any = null;
     try {
-      return await request('/api/admin/import', {
-        method: 'POST',
-        body: JSON.stringify({ students, classesTeachers, replaceExisting, targetSchoolId }),
-      });
+      localRes = clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
     } catch {
-      return clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
+      // ignore
     }
+
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{
+          success: boolean;
+          added: number;
+          updated: number;
+          total: number;
+        }>('/api/admin/import', {
+          method: 'POST',
+          body: JSON.stringify({ students, classesTeachers, replaceExisting, targetSchoolId }),
+        });
+        return serverRes;
+      } catch {
+        if (localRes) return localRes;
+      }
+    }
+    return localRes || { success: true, added: 0, updated: 0, total: 0 };
   },
 
   async getSchoolDirectory(targetSchoolId?: string): Promise<{

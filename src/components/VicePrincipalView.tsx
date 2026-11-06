@@ -61,7 +61,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const [newStaffModal, setNewStaffModal] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRoleType, setNewStaffRoleType] = useState<'homeroom' | 'subject_all' | 'subject_classes' | 'guard'>('homeroom');
-  const [newStaffClass, setNewStaffClass] = useState('ז1');
+  const [newStaffClass, setNewStaffClass] = useState('');
   const [newStaffPin, setNewStaffPin] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [createdStaffForInvite, setCreatedStaffForInvite] = useState<StaffMember | null>(null);
@@ -195,8 +195,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     }
   };
 
-  // Fetch classes and students list to identify homeroom teachers accurately
-  useEffect(() => {
+  const refreshStudentsAndClasses = () => {
     api.getTeacherClasses()
       .then((res) => {
         setAllClasses(res.assignedClasses || []);
@@ -205,9 +204,31 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
       .catch(() => {
         // ignore
       });
+  };
+
+  // Fetch classes and students list to identify homeroom teachers accurately + realtime subscription
+  useEffect(() => {
+    refreshStudentsAndClasses();
+    loadPasses(false);
+
+    // 1. Direct subscription to clientStore
+    const unsubscribe = clientStore.subscribe(() => {
+      refreshStudentsAndClasses();
+      loadPasses(false);
+    });
+
+    // 2. High-frequency 2.5s polling
+    const interval = setInterval(() => {
+      loadPasses(false);
+    }, 2500);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
-  // Map each class to its homeroom teacher name from student records
+  // Map each class to its homeroom teacher name from actual student records
   const classHomeroomMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const student of studentsList) {
@@ -215,12 +236,6 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         map.set(student.className.trim(), student.teacherName.trim());
       }
     }
-    // Default known homerooms from school roster
-    if (!map.has('ז1')) map.set('ז1', 'לינא ח׳ליל');
-    if (!map.has('ז2')) map.set('ז2', 'סוהא מנצור');
-    if (!map.has('ח1')) map.set('ח1', 'דלאל חביב');
-    if (!map.has('ח2')) map.set('ח2', 'נאדיה סרחאן');
-    if (!map.has('ט1')) map.set('ט1', 'רימא ג׳אבר');
     return map;
   }, [studentsList]);
 
@@ -297,7 +312,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
 
     if (newStaffRoleType === 'homeroom') {
       role = 'teacher';
-      assignedClasses = [newStaffClass.trim() || 'ז1'];
+      assignedClasses = [newStaffClass.trim() || allClasses[0] || ''];
     } else if (newStaffRoleType === 'subject_all') {
       role = 'teacher';
       assignedClasses = ['*'];
@@ -565,7 +580,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
 
   // Unique classes across all current passes
   const classesOptions = useMemo(() => {
-    const set = new Set<string>(['ז1', 'ז2', 'ח1', 'ח2', 'ט1']);
+    const set = new Set<string>();
     allClasses.forEach((c) => set.add(c));
     passes.forEach((p) => set.add(p.className));
     return Array.from(set).filter(Boolean).sort();
@@ -2064,7 +2079,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                     type="text"
                     value={newStaffClass}
                     onChange={(e) => setNewStaffClass(e.target.value)}
-                    placeholder="לדוגמה: ז1, ח2, ט3..."
+                    placeholder="לדוגמה: י1, יא2, יב3..."
                     className="w-full bg-slate-50 border-2 border-slate-300 focus:border-teal-600 focus:bg-white rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:outline-none transition-all"
                   />
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">

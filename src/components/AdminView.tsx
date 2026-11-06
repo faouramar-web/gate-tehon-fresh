@@ -787,7 +787,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
         : ['*'];
     } else if (newStaffRoleType === 'homeroom') {
       role = 'teacher';
-      assignedClasses = newStaffClass.trim() ? [newStaffClass.trim()] : ['ז1'];
+      assignedClasses = newStaffClass.trim() ? [newStaffClass.trim()] : [];
     } else if (newStaffRoleType === 'guard') {
       role = 'guard';
       assignedClasses = [];
@@ -1723,11 +1723,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
                 >
                   <option value="">כל הכיתות</option>
-                  <option value="ז1">כיתה ז1</option>
-                  <option value="ז2">כיתה ז2</option>
-                  <option value="ח1">כיתה ח1</option>
-                  <option value="ח2">כיתה ח2</option>
-                  <option value="ח3">כיתה ח3</option>
+                  {(schoolDirectory?.classesSummary || []).map((c) => (
+                    <option key={c.className} value={c.className}>
+                      כיתה {c.className}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -3460,7 +3460,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   type="text"
                   value={newStaffClass}
                   onChange={(e) => setNewStaffClass(e.target.value)}
-                  placeholder="לדוגמה: ז1, ז2, ח1, ח3"
+                  placeholder="לדוגמה: י1, י2, יא1, יב2"
                   className="w-full p-2.5 bg-slate-50 border rounded-xl text-xs"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
@@ -4069,7 +4069,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
 
             <div className="my-5 text-xs text-slate-700 leading-relaxed">
               <p>
-                פעולה זו תחזיר את המערכת למצב ההדגמה הראשוני עם כיתות ז1, ז2, ח1, ח2, ט1 ו-25 התלמידים לדוגמה.
+                פעולה זו תאפס את כל הנתונים, בתי הספר והאישורים ללוח חלק ונקי לחלוטין.
               </p>
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.ts';
+import { clientStore } from '../lib/clientStore.ts';
 import { User, Student, GatePass } from '../types.ts';
 import {
   Search,
@@ -46,9 +47,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
   const [cancellingPassId, setCancellingPassId] = useState<string | null>(null);
 
   // Fetch classes and students
-  const loadData = async () => {
+  const loadData = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial && students.length === 0) {
+        setLoading(true);
+      }
       const [classRes, passRes] = await Promise.all([
         api.getTeacherClasses(),
         api.getTeacherPasses(),
@@ -66,14 +69,37 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
         setCustomTime(classRes.currentTime || '12:00');
       }
     } catch (err: any) {
-      setActionError(err.message || 'שגיאה בטעינת נתונים');
+      if (isInitial) {
+        setActionError(err.message || 'שגיאה בטעינת נתונים');
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+
+    // 1. Subscribe directly to clientStore so Firestore onSnapshot triggers immediate re-render (<100ms)
+    const unsubscribe = clientStore.subscribe(() => {
+      loadData(false);
+    });
+
+    // 2. High-frequency 2-second background poll so even on mobile WhatsApp in-app browser, teacher sees exit instantly
+    const pollInterval = setInterval(() => {
+      loadData(false);
+    }, 2000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    loadData(false);
   }, [syncTick]);
 
   // Filter students by selected class and search query
@@ -379,16 +405,16 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                     {/* Status Pill on the Right */}
                     <div>
                       {hasActivePass && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-xl">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-xl animate-pulse">
                           <Clock className="w-3.5 h-3.5 text-amber-700" />
-                          <span>אישור פעיל ({pass.validFromTime})</span>
+                          <span>ממתין בשער ({pass.validFromTime})</span>
                         </span>
                       )}
 
                       {hasUsedPass && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-800 bg-blue-100/90 border border-blue-300 px-2.5 py-1 rounded-xl">
-                          <DoorOpen className="w-3.5 h-3.5 text-blue-700" />
-                          <span>יצא מהשער</span>
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-xl shadow-xs">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>✓ יצא/ה מהשער</span>
                         </span>
                       )}
 
@@ -428,10 +454,10 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                   key={pass.id}
                   className={`p-4 rounded-2xl border transition-all ${
                     isUsed
-                      ? 'bg-blue-50/70 border-blue-200'
+                      ? 'bg-emerald-50/80 border-emerald-300 shadow-sm'
                       : isCancelled
                       ? 'bg-slate-100 border-slate-200 opacity-60'
-                      : 'bg-white border-slate-200 shadow-sm'
+                      : 'bg-amber-50/60 border-amber-200 shadow-sm'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -450,19 +476,21 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                     <div className="shrink-0 text-left">
                       {isActive && (
                         <div className="text-right">
-                          <span className="inline-block text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300">
-                            ממתין בשער
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300 animate-pulse">
+                            <Clock className="w-3.5 h-3.5 text-amber-700" />
+                            <span>ממתין בשער</span>
                           </span>
                         </div>
                       )}
 
                       {isUsed && (
                         <div className="text-right">
-                          <span className="inline-block text-xs font-bold text-blue-800 bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-300">
-                            יצא בשעה {pass.usedAt ? new Date(pass.usedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 shadow-xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>יצא בשעה {pass.usedAt ? new Date(pass.usedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                           </span>
                           {pass.usedBy && (
-                            <div className="text-[10px] text-blue-600 mt-0.5">אושר ע״י {pass.usedBy}</div>
+                            <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">אושר ע״י {pass.usedBy}</div>
                           )}
                         </div>
                       )}

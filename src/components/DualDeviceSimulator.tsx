@@ -98,7 +98,7 @@ export const DualDeviceSimulator: React.FC<DualDeviceSimulatorProps> = ({
         {/* ================= PHONE 1: TEACHER ================= */}
         <div className="w-full max-w-[390px] flex flex-col items-center shrink-0">
           <div className="text-xs font-bold text-teal-400 mb-2 flex items-center gap-1.5 bg-slate-900/90 border border-teal-500/30 px-3 py-1 rounded-full">
-            <span>טלפון 1: מחנכת (לינא ח׳ליל - כיתה ז1)</span>
+            <span>טלפון 1: מחנכת כיתה</span>
           </div>
 
           {/* Smartphone Frame */}

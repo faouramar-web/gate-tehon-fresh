@@ -37,68 +37,63 @@ export default function App() {
       });
   }, []);
 
-  // Real-time synchronization: SSE for Node backend, clientStore + BroadcastChannel + Firestore for GitHub Pages
+  // Real-time synchronization: Firestore onSnapshot + BroadcastChannel + SSE + 3s Heartbeat
   useEffect(() => {
-    if (isStaticHost) {
+    setIsConnected(true);
+    const now = new Date().toLocaleTimeString('he-IL');
+    setLastSyncTime(now);
+
+    // 1. ALWAYS subscribe to clientStore (receives instant Firestore onSnapshot and BroadcastChannel pushes)
+    const unsubscribeClient = clientStore.subscribe(() => {
       setIsConnected(true);
-      const now = new Date().toLocaleTimeString('he-IL');
-      setLastSyncTime(now);
-
-      const unsubscribe = clientStore.subscribe(() => {
-        setIsConnected(true);
-        const curTime = new Date().toLocaleTimeString('he-IL');
-        setLastSyncTime(curTime);
-        setSyncTick((t) => t + 1);
-      });
-
-      return () => {
-        unsubscribe();
-      };
-    }
-
-    let reconnectTimeout: any = null;
-
-    function connectSSE() {
-      try {
-        const es = new EventSource('/api/events');
-        eventSourceRef.current = es;
-
-        es.addEventListener('connected', () => {
-          setIsConnected(true);
-          const now = new Date().toLocaleTimeString('he-IL');
-          setLastSyncTime(now);
-        });
-
-        es.addEventListener('update', () => {
-          setIsConnected(true);
-          const now = new Date().toLocaleTimeString('he-IL');
-          setLastSyncTime(now);
-          setSyncTick((t) => t + 1);
-        });
-
-        es.onerror = () => {
-          setIsConnected(false);
-          es.close();
-          // Attempt reconnect in 3s
-          reconnectTimeout = setTimeout(connectSSE, 3000);
-        };
-      } catch {
-        setIsConnected(false);
-        reconnectTimeout = setTimeout(connectSSE, 3000);
-      }
-    }
-
-    connectSSE();
-
-    // Secondary fallback polling every 15 seconds as a quiet fallback
-    const fallbackPoll = setInterval(() => {
+      const curTime = new Date().toLocaleTimeString('he-IL');
+      setLastSyncTime(curTime);
       setSyncTick((t) => t + 1);
-    }, 15000);
+    });
+
+    // 2. Fast 3-second heartbeat polling so mobile browsers (WhatsApp / Safari) never get stuck out of sync
+    const heartbeatPoll = setInterval(() => {
+      setSyncTick((t) => t + 1);
+    }, 3000);
+
+    // 3. If running with Node.js backend, also connect SSE for instant server-push
+    let reconnectTimeout: any = null;
+    if (!isStaticHost) {
+      function connectSSE() {
+        try {
+          const es = new EventSource('/api/events');
+          eventSourceRef.current = es;
+
+          es.addEventListener('connected', () => {
+            setIsConnected(true);
+            const curTime = new Date().toLocaleTimeString('he-IL');
+            setLastSyncTime(curTime);
+          });
+
+          es.addEventListener('update', () => {
+            setIsConnected(true);
+            const curTime = new Date().toLocaleTimeString('he-IL');
+            setLastSyncTime(curTime);
+            setSyncTick((t) => t + 1);
+          });
+
+          es.onerror = () => {
+            es.close();
+            reconnectTimeout = setTimeout(connectSSE, 3000);
+          };
+        } catch {
+          reconnectTimeout = setTimeout(connectSSE, 3000);
+        }
+      }
+
+      connectSSE();
+    }
 
     return () => {
+      unsubscribeClient();
+      clearInterval(heartbeatPoll);
       if (eventSourceRef.current) eventSourceRef.current.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      clearInterval(fallbackPoll);
     };
   }, []);
 
@@ -231,7 +226,7 @@ export default function App() {
                 </strong>
                 <p>
                   לחץ על כפתור <strong>״סימולטור 2 טלפונים״</strong> בסרגל העליון כדי לפתוח שני מסכים
-                  (מחנכת ושומר) זה לצד זה על המחשב. שלח אישור מתלמיד בכיתה ז1, וראה כיצד הוא מופיע
+                  (מחנכת ושומר) זה לצד זה על המחשב. שלח אישור מתלמיד, וראה כיצד הוא מופיע
                   מיידית בטלפון של השומר ללא שום רענון ידני!
                 </p>
               </div>

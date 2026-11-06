@@ -333,6 +333,7 @@ class SchoolDatabase {
 
     const hasAllAccess =
       teacher.role === 'admin' ||
+      teacher.role === 'vice_principal' ||
       teacher.assignedClasses.includes('*') ||
       teacher.assignedClasses.includes('כל הכיתות');
 

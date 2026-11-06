@@ -297,7 +297,7 @@ app.post('/api/passes/cancel', authenticate, requireRole('teacher', 'vice_princi
 // ==================== GUARD API ====================
 
 // Search students by name or class, and check live status
-app.get('/api/guard/search', authenticate, requireRole('guard', 'admin'), (req: Request, res: Response) => {
+app.get('/api/guard/search', authenticate, requireRole('guard', 'admin', 'vice_principal'), (req: Request, res: Response) => {
   const query = (req.query.q as string || '').trim().toLowerCase();
   const allStudents = db.getAllStudents();
   const todayPasses = db.getPassesForToday();
@@ -553,7 +553,7 @@ app.get('/api/public/demo-accounts', (_req: Request, res: Response) => {
     accounts: [
       { role: 'admin', title: 'מנהל המערכת', name: 'עמאר פאעור' },
       { role: 'vice_principal', title: 'סגן מנהל (אחראי שחרורים)', name: 'סגן מנהל' },
-      { role: 'teacher', title: 'מחנכת כיתה ז1', name: 'לינא ח׳ליל' },
+      { role: 'teacher', title: 'מחנכת כיתה', name: 'מחנכת' },
       { role: 'teacher', title: 'מורה מקצועי', name: 'מוחמד עלי' },
       { role: 'guard', title: 'שומר שער', name: 'אברהם כהן' },
     ],
