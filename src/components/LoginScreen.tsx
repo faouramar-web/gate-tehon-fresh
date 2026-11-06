@@ -46,21 +46,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [activationSuccessMsg, setActivationSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleUrlActivation = () => {
+    const handleUrlActivation = async () => {
       if (typeof window === 'undefined') return;
       const params = new URLSearchParams(window.location.search);
       const schoolParam = params.get('school') || params.get('code') || params.get('schoolId');
       if (schoolParam) {
         try {
-          const res = clientStore.activateSchoolByCode(schoolParam);
+          const res = await api.activateSchoolByCode(schoolParam);
           if (res && res.school) {
             setActiveSchoolName(res.school.name);
             setIsActivated(true);
             setActivationSuccessMsg(`בית הספר "${res.school.name}" זוהה והופעל בהצלחה במכשיר זה!`);
             setTimeout(() => setActivationSuccessMsg(null), 6000);
+            return;
           }
         } catch {
-          // Schools may still be loading from Firestore, syncSchool will retry
+          // Fallback to clientStore if offline or local
+          try {
+            const res = clientStore.activateSchoolByCode(schoolParam);
+            if (res && res.school) {
+              setActiveSchoolName(res.school.name);
+              setIsActivated(true);
+              setActivationSuccessMsg(`בית הספר "${res.school.name}" זוהה והופעל בהצלחה במכשיר זה!`);
+              setTimeout(() => setActivationSuccessMsg(null), 6000);
+            }
+          } catch {
+            // Schools may still be loading, syncSchool will retry
+          }
         }
       }
     };
@@ -141,10 +153,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       const res = await api.activateSchoolByCode(cleanCode);
       setActiveSchoolName(res.school.name);
       setIsActivated(true);
-      setActivationSuccessMsg(`בית הספר "${res.school.name}" הופעל בהצלחה במכשיר זה! כעת צוות בית הספר והשומר יכולים להקליד את קוד הגישה האישי.`);
+      setActivationSuccessMsg(res.message || `בית הספר "${res.school.name}" הופעל בהצלחה במכשיר זה!`);
       setShowActivationModal(false);
       setActivationCodeInput('');
       setErrorMessage(null);
+
+      // If user typed their personal PIN into the activation modal, auto-fill it onto the PIN input
+      const normalized = cleanPinInput(cleanCode);
+      if (normalized.length >= 4 && normalized.length <= 8) {
+        setPinCode(normalized);
+      }
+
       setTimeout(() => {
         setActivationSuccessMsg(null);
       }, 7000);
@@ -423,13 +442,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <div className="p-3 bg-teal-50 border border-teal-200 rounded-2xl text-[11px] text-teal-950 space-y-1">
                 <strong className="block text-teal-900 font-bold">איך זה עובד?</strong>
                 <p>
-                  כאשר נמסרת האפליקציה לבית ספר חדש, עמאר פאעור קובע קוד הפעלה בית ספרי סודי. יש להזין אותו כאן פעם אחת בלבד בכל טלפון כדי לאמת את בית הספר.
+                  יש להזין את קוד ההפעלה הבית ספרי (שקיבלת מעמאר פאעור) או ישירות את קוד הגישה האישי שלך (למשל של המחנכת או השומר).
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
-                  קוד הפעלה בית ספרי סודי:
+                  קוד הפעלה בית ספרי או קוד גישה אישי:
                 </label>
                 <input
                   type="text"
@@ -439,7 +458,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     setActivationCodeInput(e.target.value);
                     setActivationError(null);
                   }}
-                  placeholder="הקלד קוד הפעלה (למשל: 1001, 2026...)"
+                  placeholder="הקלד קוד הפעלה או קוד אישי (4-6 ספרות)..."
                   className="w-full p-3 bg-slate-50 border-2 border-slate-300 focus:border-teal-500 focus:bg-white rounded-xl text-center text-xl font-mono font-black tracking-widest text-slate-900"
                   autoFocus
                 />

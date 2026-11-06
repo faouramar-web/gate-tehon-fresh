@@ -131,7 +131,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [newSchoolContactPin, setNewSchoolContactPin] = useState(() => Math.floor(3000 + Math.random() * 900).toString());
   const [newSchoolPhone, setNewSchoolPhone] = useState('');
   const [newSchoolActivationCode, setNewSchoolActivationCode] = useState(() => Math.floor(1000 + Math.random() * 9000).toString());
-  const [newSchoolStatus, setNewSchoolStatus] = useState<SchoolStatus>('pending');
+  const [newSchoolStatus, setNewSchoolStatus] = useState<SchoolStatus>('active');
   const [isCreatingSchool, setIsCreatingSchool] = useState(false);
   const [targetActionSchool, setTargetActionSchool] = useState<School | null>(null);
   const [schoolActionType, setSchoolActionType] = useState<'suspend' | 'unsuspend' | 'roll_pins' | 'clear_data' | 'delete' | null>(null);

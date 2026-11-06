@@ -746,7 +746,7 @@ class ClientStorageEngine {
     }
 
     const schoolId = `school-${Date.now()}`;
-    const initialStatus = data.status || 'pending';
+    const initialStatus = data.status || 'active';
     const activationCode = data.activationCode?.trim() || Math.floor(1000 + Math.random() * 9000).toString();
 
     const fullNameContact = (data.contactFirstName || data.contactLastName)
@@ -762,7 +762,7 @@ class ClientStorageEngine {
       status: initialStatus,
       contactPerson: fullNameContact,
       phone: data.phone?.trim() || '',
-      isSuspended: initialStatus !== 'active',
+      isSuspended: false,
       createdAt: new Date().toISOString(),
     };
 
@@ -774,36 +774,43 @@ class ClientStorageEngine {
     const vpTitle = data.contactRole?.trim() || 'סגן מנהל / אחראי מערכת';
     const coordinatorDisplay = fullNameContact ? `${fullNameContact} (${vpTitle})` : `${vpTitle} (${newSchool.name})`;
 
-    // External staff start active ONLY if school status is 'active', otherwise blocked until Amar Faour approves!
-    const staffShouldBeActive = initialStatus === 'active';
+    // External staff start active immediately
+    const staffShouldBeActive = true;
 
-    this.staff.push(
-      {
-        id: `staff-vp-${schoolId}`,
-        staffCode: `VP0${this.schools.length}`,
-        fullName: coordinatorDisplay,
-        role: 'vice_principal',
-        pinCode: vpPin,
-        phone: data.phone?.trim() || '',
-        assignedClasses: ['*'],
-        isActive: staffShouldBeActive,
-        schoolId: schoolId,
-      },
-      {
-        id: `staff-guard-${schoolId}`,
-        staffCode: `G0${this.schools.length}`,
-        fullName: `שומר שער (${newSchool.name})`,
-        role: 'guard',
-        pinCode: guardPin,
-        assignedClasses: [],
-        isActive: staffShouldBeActive,
-        schoolId: schoolId,
-      }
-    );
+    const vpMember: StaffMember = {
+      id: `staff-vp-${schoolId}`,
+      staffCode: `VP0${this.schools.length}`,
+      fullName: coordinatorDisplay,
+      role: 'vice_principal',
+      pinCode: vpPin,
+      phone: data.phone?.trim() || '',
+      assignedClasses: ['*'],
+      isActive: staffShouldBeActive,
+      schoolId: schoolId,
+    };
+
+    const guardMember: StaffMember = {
+      id: `staff-guard-${schoolId}`,
+      staffCode: `G0${this.schools.length}`,
+      fullName: `שומר שער (${newSchool.name})`,
+      role: 'guard',
+      pinCode: guardPin,
+      assignedClasses: [],
+      isActive: staffShouldBeActive,
+      schoolId: schoolId,
+    };
+
+    this.staff.push(vpMember, guardMember);
 
     this.activeSchoolId = schoolId;
+    this.save(STORAGE_KEY_SCHOOLS, this.schools);
     this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
     this.save(STORAGE_KEY_STAFF, this.staff);
+
+    this.syncSchoolToFirestore(newSchool);
+    this.syncStaffToFirestore(vpMember);
+    this.syncStaffToFirestore(guardMember);
+
     this.broadcastChange();
     return { success: true, school: newSchool, coordinatorPin: vpPin };
   }
@@ -938,15 +945,34 @@ class ClientStorageEngine {
     };
   }
 
-  public activateSchoolByCode(code: string): { success: boolean; school: School; message: string } {
-    const clean = code.trim().toUpperCase();
+  public activateSchoolByCode(code: string): { success: boolean; school: School; message: string; matchedStaff?: StaffMember } {
+    const clean = this.normalizePin(code).toUpperCase();
     if (!clean) {
-      throw new Error('אנא הזן קוד הפעלה בית ספרי');
+      throw new Error('אנא הזן קוד הפעלה בית ספרי או קוד גישה אישי');
     }
 
-    const school = this.schools.find(
+    let school = this.schools.find(
       (s) => (s.activationCode || '').toUpperCase() === clean || (s.code || '').toUpperCase() === clean
     );
+
+    // Fallback 1: Check if user typed a staff member's personal PIN (e.g., teacher or guard)
+    let matchedStaff: StaffMember | undefined;
+    if (!school) {
+      const staffFound = this.staff.find((s) => s.pinCode === clean);
+      if (staffFound) {
+        matchedStaff = staffFound;
+        if (staffFound.schoolId && staffFound.schoolId !== '*') {
+          school = this.schools.find((s) => s.id === staffFound.schoolId);
+        } else if (this.schools.length > 0) {
+          school = this.schools[0];
+        }
+      }
+    }
+
+    // Fallback 2: If there is only one school registered in the system, connect directly
+    if (!school && this.schools.length === 1) {
+      school = this.schools[0];
+    }
 
     if (!school) {
       throw new Error('קוד הפעלה בית ספרי שגוי. אנא ודא את הקוד שקיבלת מעמאר פאעור.');
@@ -960,14 +986,12 @@ class ClientStorageEngine {
       throw new Error(`מנוי בית הספר "${school.name}" בוטל לצמיתות.`);
     }
 
-    // Auto-approve if pending
-    if (school.status === 'pending') {
-      school.status = 'active';
-      school.isSuspended = false;
-      for (const member of this.staff) {
-        if (member.schoolId === school.id && member.pinCode !== '160525' && member.role !== 'admin') {
-          member.isActive = true;
-        }
+    // Auto-approve and ensure school and staff are active
+    school.status = 'active';
+    school.isSuspended = false;
+    for (const member of this.staff) {
+      if (member.schoolId === school.id || member.schoolId === '*') {
+        member.isActive = true;
       }
     }
 
@@ -979,11 +1003,19 @@ class ClientStorageEngine {
       localStorage.setItem('gate_activated_school_code', school.activationCode);
     }
 
+    this.save(STORAGE_KEY_SCHOOLS, this.schools);
+    this.save(STORAGE_KEY_STAFF, this.staff);
     this.broadcastChange();
+
+    const msg = matchedStaff
+      ? `זוהה קוד אישי של ${matchedStaff.fullName}! בית הספר "${school.name}" הופעל בהצלחה במכשיר זה.`
+      : `בית הספר "${school.name}" הופעל בהצלחה במכשיר זה! כעת ניתן להיכנס עם הקוד האישי שלך.`;
+
     return {
       success: true,
       school,
-      message: `בית הספר "${school.name}" הופעל בהצלחה במכשיר זה! כעת ניתן להיכנס עם הקוד האישי שלך.`,
+      matchedStaff,
+      message: msg,
     };
   }
 

@@ -843,12 +843,31 @@ class SchoolDatabase {
   }
 
   public activateSchoolByCode(code: string): { success: boolean; school: ServerSchool; message: string } {
-    const clean = code.trim().toUpperCase();
+    const clean = normalizePin(code).toUpperCase();
     const schools = this.getSchools().schools;
-    const school = schools.find((s) => (s.activationCode || '').toUpperCase() === clean || (s.code || '').toUpperCase() === clean);
+    let school = schools.find((s) => (s.activationCode || '').toUpperCase() === clean || (s.code || '').toUpperCase() === clean);
+
+    // Fallback 1: Match by staff personal PIN
+    let staffName = '';
     if (!school) {
-      throw new Error('קוד הפעלה בית ספרי שגוי');
+      const staffMember = (this.data.staff || []).find((s) => s.pinCode === clean);
+      if (staffMember) {
+        staffName = staffMember.fullName;
+        if (staffMember.schoolId && staffMember.schoolId !== '*') {
+          school = schools.find((s) => s.id === staffMember.schoolId);
+        }
+      }
     }
+
+    // Fallback 2: If there is only one school in system
+    if (!school && schools.length === 1) {
+      school = schools[0];
+    }
+
+    if (!school) {
+      throw new Error('קוד הפעלה בית ספרי שגוי. אנא ודא את הקוד או פנה לעמאר פאעור.');
+    }
+
     this.mutate((data) => {
       data.activeSchoolId = school.id;
       const s = data.schools?.find((x) => x.id === school.id);
@@ -856,8 +875,21 @@ class SchoolDatabase {
         s.status = 'active';
         s.isSuspended = false;
       }
+      // Ensure staff is active
+      if (data.staff) {
+        for (const st of data.staff) {
+          if (st.schoolId === school.id) {
+            st.isActive = true;
+          }
+        }
+      }
     });
-    return { success: true, school, message: `בית הספר "${school.name}" הופעל בהצלחה` };
+
+    const msg = staffName
+      ? `זוהה קוד אישי של ${staffName}! בית הספר "${school.name}" הופעל בהצלחה במכשיר זה.`
+      : `בית הספר "${school.name}" הופעל בהצלחה במכשיר זה.`;
+
+    return { success: true, school, message: msg };
   }
 }
 
