@@ -112,22 +112,7 @@ export function isDemoPass(p: any): boolean {
   return id === 'pass-hist-demo-mock-1';
 }
 
-const REAL_SCHOOL_ID = 'school-1793934341104';
-
-export const INITIAL_SCHOOLS: School[] = [
-  {
-    id: REAL_SCHOOL_ID,
-    name: "רב תחומי עמל יאנוח-ג׳ת",
-    city: "יאנוח גת",
-    code: "SCH-01",
-    activationCode: "8181",
-    status: "active",
-    contactPerson: "תיראן סעיד",
-    phone: "0525557368",
-    isSuspended: false,
-    createdAt: "2026-11-06T03:00:00.000Z",
-  },
-];
+export const INITIAL_SCHOOLS: School[] = [];
 
 export const INITIAL_STAFF: StaffMember[] = [
   {
@@ -140,117 +125,20 @@ export const INITIAL_STAFF: StaffMember[] = [
     isActive: true,
     schoolId: '*',
   },
-  {
-    id: 'staff-vp-' + REAL_SCHOOL_ID,
-    staffCode: 'VP01',
-    fullName: 'תיראן סעיד (סגן מנהל / אחראי שחרורים)',
-    role: 'vice_principal',
-    pinCode: '3380',
-    assignedClasses: ['*'],
-    isActive: true,
-    schoolId: REAL_SCHOOL_ID,
-    phone: '0525557368',
-  },
-  {
-    id: 'staff-guard-' + REAL_SCHOOL_ID,
-    staffCode: 'G01',
-    fullName: "שומר שער (רב תחומי עמל יאנוח-ג׳ת)",
-    role: 'guard',
-    pinCode: '2001',
-    assignedClasses: [],
-    isActive: true,
-    schoolId: REAL_SCHOOL_ID,
-  },
-  {
-    id: 'staff-arin-barakat',
-    staffCode: 'T01',
-    fullName: 'ערין ברכאת',
-    role: 'teacher',
-    pinCode: '9196',
-    assignedClasses: ['י1', '*'],
-    isActive: true,
-    schoolId: REAL_SCHOOL_ID,
-  },
-  {
-    id: 'staff-bisan-khattas',
-    staffCode: 'T02',
-    fullName: 'ביסאן גטאס',
-    role: 'teacher',
-    pinCode: '2021',
-    assignedClasses: ['י2'],
-    isActive: true,
-    schoolId: REAL_SCHOOL_ID,
-  },
-  {
-    id: 'staff-katiss-hani',
-    staffCode: 'T03',
-    fullName: 'קטיס האני',
-    role: 'teacher',
-    pinCode: '2022',
-    assignedClasses: ['י1'],
-    isActive: true,
-    schoolId: REAL_SCHOOL_ID,
-  },
 ];
 
-export const INITIAL_STUDENTS: Student[] = [
-  {
-    id: 's-yanuh-01',
-    studentCode: '2-18',
-    fullName: 'שהד בריק',
-    className: 'י2',
-    teacherName: 'ביסאן גטאס',
-    schoolId: REAL_SCHOOL_ID,
-    notes: '',
-  },
-  {
-    id: 's-yanuh-02',
-    studentCode: '2-22',
-    fullName: 'מילאן מאלק ביסאן',
-    className: 'י2',
-    teacherName: 'ביסאן גטאס',
-    schoolId: REAL_SCHOOL_ID,
-    notes: '',
-  },
-  {
-    id: 's-yanuh-03',
-    studentCode: '1-05',
-    fullName: "מלאק פרג'",
-    className: 'י1',
-    teacherName: 'קטיס האני',
-    schoolId: REAL_SCHOOL_ID,
-    notes: '',
-  },
-  {
-    id: 's-yanuh-04',
-    studentCode: '1-08',
-    fullName: 'ראמי חטיב',
-    className: 'י1',
-    teacherName: 'ערין ברכאת',
-    schoolId: REAL_SCHOOL_ID,
-    notes: '',
-  },
-  {
-    id: 's-yanuh-05',
-    studentCode: '1-12',
-    fullName: 'נור קבלאן',
-    className: 'י1',
-    teacherName: 'ערין ברכאת',
-    schoolId: REAL_SCHOOL_ID,
-    notes: '',
-  },
-];
+export const INITIAL_STUDENTS: Student[] = [];
 
 const INITIAL_PASSES: GatePass[] = [];
 
-// Storage keys - v6_clean guaranteed clean slate
-const STORAGE_KEY_SCHOOLS = 'gatepass_client_schools_v6_clean';
-const STORAGE_KEY_ACTIVE_SCHOOL = 'gatepass_client_active_school_id_v6_clean';
-const STORAGE_KEY_STAFF = 'gatepass_client_staff_v6_clean';
-const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v6_clean';
-const STORAGE_KEY_PASSES = 'gatepass_client_passes_v6_clean';
-const STORAGE_KEY_SESSION = 'gatepass_client_session_v6_clean';
-const STORAGE_SEED_KEY = 'gatepass_seeded_v61_real_yanuh_school';
+// Storage keys - v8_fresh_empty_slate guaranteed 100% clean reset
+const STORAGE_KEY_SCHOOLS = 'gatepass_client_schools_v8_fresh_empty_slate';
+const STORAGE_KEY_ACTIVE_SCHOOL = 'gatepass_client_active_school_id_v8_fresh_empty_slate';
+const STORAGE_KEY_STAFF = 'gatepass_client_staff_v8_fresh_empty_slate';
+const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v8_fresh_empty_slate';
+const STORAGE_KEY_PASSES = 'gatepass_client_passes_v8_fresh_empty_slate';
+const STORAGE_KEY_SESSION = 'gatepass_client_session_v8_fresh_empty_slate';
+const STORAGE_SEED_KEY = 'gatepass_seeded_v8_fresh_empty_slate';
 
 // BroadcastChannel for cross-tab live synchronization on static host (GitHub Pages)
 let syncChannel: BroadcastChannel | null = null;
@@ -271,7 +159,7 @@ class ClientStorageEngine {
   private listeners: Array<() => void> = [];
 
   constructor() {
-    // Thoroughly purge old test storage keys if needed
+    // Thoroughly purge old test storage keys from all previous versions
     if (typeof localStorage !== 'undefined') {
       try {
         const keysToRemove: string[] = [];
@@ -280,8 +168,7 @@ class ClientStorageEngine {
           if (
             key &&
             (key.startsWith('gatepass_') || key.startsWith('gate_')) &&
-            !key.includes('_v6_clean') &&
-            key !== STORAGE_SEED_KEY
+            !key.includes('_v8_fresh_empty_slate')
           ) {
             keysToRemove.push(key);
           }
@@ -295,15 +182,12 @@ class ClientStorageEngine {
     }
 
     const loadedSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, INITIAL_SCHOOLS);
-    this.schools = Array.isArray(loadedSchools) && loadedSchools.length > 0
+    this.schools = Array.isArray(loadedSchools)
       ? loadedSchools.filter((s) => s && !isDemoSchool(s))
-      : JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-    if (this.schools.length === 0) {
-      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
-    }
-    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || REAL_SCHOOL_ID);
+      : [];
+    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
     if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
-      this.activeSchoolId = this.schools[0]?.id || REAL_SCHOOL_ID;
+      this.activeSchoolId = this.schools[0]?.id || '';
     }
 
     const loadedStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
@@ -312,9 +196,9 @@ class ClientStorageEngine {
       : JSON.parse(JSON.stringify(INITIAL_STAFF));
 
     const loadedStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, INITIAL_STUDENTS);
-    this.students = Array.isArray(loadedStudents) && loadedStudents.length > 0
+    this.students = Array.isArray(loadedStudents)
       ? loadedStudents.filter((st) => st && !isDemoStudent(st))
-      : JSON.parse(JSON.stringify(INITIAL_STUDENTS));
+      : [];
 
     const loadedPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, INITIAL_PASSES);
     this.passes = Array.isArray(loadedPasses)
@@ -1185,20 +1069,6 @@ class ClientStorageEngine {
       member = this.staff.find((s) => s.pinCode === clean);
     }
 
-    // Direct guaranteed fallback checks for staff
-    if (!member) {
-      if (clean === '3380') {
-        member = this.staff.find((s) => s.role === 'vice_principal') || INITIAL_STAFF.find((s) => s.pinCode === '3380');
-      } else if (clean === '2001') {
-        member = this.staff.find((s) => s.role === 'guard') || INITIAL_STAFF.find((s) => s.pinCode === '2001');
-      } else if (clean === '9196' || clean === '4001') {
-        member = this.staff.find((s) => s.fullName.includes('ערין')) || INITIAL_STAFF.find((s) => s.pinCode === '9196');
-      } else if (clean === '2021') {
-        member = this.staff.find((s) => s.fullName.includes('ביסאן')) || INITIAL_STAFF.find((s) => s.pinCode === '2021');
-      } else if (clean === '2022') {
-        member = this.staff.find((s) => s.fullName.includes('קטיס')) || INITIAL_STAFF.find((s) => s.pinCode === '2022');
-      }
-    }
 
     // If entered code is a school activation code, activate the school and inform the user
     if (!member) {

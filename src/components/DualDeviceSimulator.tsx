@@ -4,6 +4,7 @@ import { TeacherView } from './TeacherView.tsx';
 import { GuardView } from './GuardView.tsx';
 import { LoginScreen } from './LoginScreen.tsx';
 import { api } from '../lib/api.ts';
+import { clientStore } from '../lib/clientStore.ts';
 import { Smartphone, X, QrCode, RefreshCw, ExternalLink, ShieldCheck } from 'lucide-react';
 
 interface DualDeviceSimulatorProps {
@@ -30,23 +31,33 @@ export const DualDeviceSimulator: React.FC<DualDeviceSimulatorProps> = ({
   // Share modal with QR link for physical phones
   const [showShareModal, setShowShareModal] = useState(false);
 
-  // Auto-login default real users for the simulator
+  // Auto-login registered users for simulator if any exist
   useEffect(() => {
-    // Phone 1: Teacher Arin Barakat (PIN: 9196)
-    api.login('9196')
-      .then((data) => {
-        if (data.user) setDevice1User(data.user);
-      })
-      .catch(() => {})
-      .finally(() => setDevice1Loading(false));
+    const { staff } = clientStore.getStaff();
+    const teacher = staff.find((s) => s.role === 'teacher' && s.isActive);
+    const guard = staff.find((s) => s.role === 'guard' && s.isActive);
 
-    // Phone 2: Guard (PIN: 2001)
-    api.login('2001')
-      .then((data) => {
-        if (data.user) setDevice2User(data.user);
-      })
-      .catch(() => {})
-      .finally(() => setDevice2Loading(false));
+    if (teacher) {
+      api.login(teacher.pinCode)
+        .then((data) => {
+          if (data.user) setDevice1User(data.user);
+        })
+        .catch(() => {})
+        .finally(() => setDevice1Loading(false));
+    } else {
+      setDevice1Loading(false);
+    }
+
+    if (guard) {
+      api.login(guard.pinCode)
+        .then((data) => {
+          if (data.user) setDevice2User(data.user);
+        })
+        .catch(() => {})
+        .finally(() => setDevice2Loading(false));
+    } else {
+      setDevice2Loading(false);
+    }
   }, []);
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
