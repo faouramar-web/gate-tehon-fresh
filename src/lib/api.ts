@@ -73,18 +73,21 @@ export const api = {
         body: JSON.stringify({ pinCode, targetSchoolId }),
       });
       setStoredToken(res.token);
+      clientStore.setSessionUser(res.user);
       return res;
     } catch (err: any) {
       // If server route is unreachable (404/static host), fallback seamlessly to clientStore
       try {
         const res = clientStore.login(pinCode, targetSchoolId);
         setStoredToken(res.token);
+        clientStore.setSessionUser(res.user);
         return res;
       } catch (clientErr: any) {
         const fetched = await clientStore.fetchBundleFromCloud();
         if (fetched) {
           const res = clientStore.login(pinCode, targetSchoolId);
           setStoredToken(res.token);
+          clientStore.setSessionUser(res.user);
           return res;
         }
         throw new Error(clientErr.message || err.message || 'קוד גישה שגוי');
@@ -97,7 +100,11 @@ export const api = {
       return clientStore.getMe();
     }
     try {
-      return await request<{ user: User }>('/api/auth/me');
+      const res = await request<{ user: User }>('/api/auth/me');
+      if (res && res.user) {
+        clientStore.setSessionUser(res.user);
+      }
+      return res;
     } catch {
       return clientStore.getMe();
     }
@@ -269,26 +276,32 @@ export const api = {
     }
   },
 
-  async createPasses(studentIds: string[], validFromTime: string, reason?: string): Promise<{
+  async createPasses(
+    studentIds: string[],
+    validFromTime: string,
+    reason?: string,
+    explicitUser?: User
+  ): Promise<{
     success: boolean;
     createdCount: number;
     created: GatePass[];
     errors: string[];
   }> {
-    let currentUser: User;
-    try {
-      currentUser = clientStore.getMe().user;
-    } catch {
-      currentUser = {
-        id: 'teacher-user',
-        staffCode: 'TEACHER',
-        fullName: 'מחנכת כיתה',
-        role: 'teacher',
-        assignedClasses: ['*'],
-        schoolId: '*',
-        schoolName: '',
-      };
-    }
+    let currentUser: User = explicitUser || (function () {
+      try {
+        return clientStore.getMe().user;
+      } catch {
+        return {
+          id: 'teacher-user',
+          staffCode: 'TEACHER',
+          fullName: 'מחנכת כיתה',
+          role: 'teacher' as const,
+          assignedClasses: ['*'],
+          schoolId: '*',
+          schoolName: '',
+        };
+      }
+    })();
 
     // 1. ALWAYS execute in clientStore (pushes directly to Firestore gatepasses document)
     let localRes: { success: boolean; createdCount: number; created: GatePass[]; errors: string[] } | null = null;
@@ -308,10 +321,16 @@ export const api = {
           errors: string[];
         }>('/api/passes/create', {
           method: 'POST',
-          body: JSON.stringify({ studentIds, validFromTime, reason }),
+          body: JSON.stringify({
+            studentIds,
+            validFromTime,
+            reason,
+            passes: localRes?.created || [],
+          }),
         });
 
         if (serverRes.created && Array.isArray(serverRes.created)) {
+          clientStore.mergeRemotePasses(serverRes.created);
           for (const cp of serverRes.created) {
             clientStore.syncPassToFirestore(cp);
           }
@@ -436,6 +455,14 @@ export const api = {
         totalExitedToday: number;
       }>('/api/guard/active-passes');
 
+      // Immediately merge server passes into local clientStore
+      if (serverRes.activePasses || serverRes.recentExits) {
+        clientStore.mergeRemotePasses([
+          ...(serverRes.activePasses || []),
+          ...(serverRes.recentExits || []),
+        ]);
+      }
+
       // Filter out active passes that were marked as used in Firestore/clientStore
       const localUsedIds = new Set(localRes.recentExits.map((p) => p.id));
       const activeMap = new Map<string, GatePass & { isNowValid: boolean }>();
@@ -472,25 +499,29 @@ export const api = {
     }
   },
 
-  async markExit(passId: string): Promise<{
+  async markExit(
+    passId: string,
+    explicitGuardUser?: User
+  ): Promise<{
     success: boolean;
     pass: GatePass;
     message: string;
   }> {
-    let guardUser: User;
-    try {
-      guardUser = clientStore.getMe().user;
-    } catch {
-      guardUser = {
-        id: 'guard-user',
-        staffCode: 'GUARD',
-        fullName: 'שומר שער',
-        role: 'guard',
-        assignedClasses: [],
-        schoolId: '*',
-        schoolName: '',
-      };
-    }
+    let guardUser: User = explicitGuardUser || (function () {
+      try {
+        return clientStore.getMe().user;
+      } catch {
+        return {
+          id: 'guard-user',
+          staffCode: 'GUARD',
+          fullName: 'שומר שער',
+          role: 'guard' as const,
+          assignedClasses: [],
+          schoolId: '*',
+          schoolName: '',
+        };
+      }
+    })();
 
     // 1. ALWAYS execute in clientStore (pushes status: 'used' directly to Firestore document & broadcasts)
     let localResult: { success: boolean; pass: GatePass; message: string } | null = null;
@@ -503,16 +534,18 @@ export const api = {
     // 2. ALSO notify server backend so in-memory store and SSE are in sync
     if (!isStaticHost) {
       try {
+        const passToMark = localResult?.pass || clientStore.getPassById(passId);
         const serverRes = await request<{
           success: boolean;
           pass: GatePass;
           message: string;
         }>('/api/guard/mark-exit', {
           method: 'POST',
-          body: JSON.stringify({ passId }),
+          body: JSON.stringify({ passId, pass: passToMark }),
         });
 
         if (serverRes.pass) {
+          clientStore.mergeRemotePasses([serverRes.pass]);
           clientStore.syncPassToFirestore(serverRes.pass);
         }
         return serverRes;

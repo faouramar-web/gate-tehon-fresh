@@ -1539,6 +1539,47 @@ class ClientStorageEngine {
     }
   }
 
+  public setSessionUser(user: User): void {
+    if (typeof localStorage !== 'undefined' && user) {
+      try {
+        localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  public getPassById(passId: string): GatePass | undefined {
+    return this.passes.find((p) => p.id === passId);
+  }
+
+  public mergeRemotePasses(remotePasses: GatePass[]): void {
+    if (!Array.isArray(remotePasses) || remotePasses.length === 0) return;
+    const existingMap = new Map(this.passes.map((p) => [p.id, p]));
+    let changed = false;
+    for (const rp of remotePasses) {
+      if (!rp || !rp.id || isDemoPass(rp)) continue;
+      const current = existingMap.get(rp.id);
+      if (
+        !current ||
+        current.status !== rp.status ||
+        current.usedAt !== rp.usedAt ||
+        current.cancelledAt !== rp.cancelledAt
+      ) {
+        existingMap.set(rp.id, { ...current, ...rp });
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.passes = Array.from(existingMap.values())
+        .filter((p) => p && !isDemoPass(p))
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      this.save(STORAGE_KEY_PASSES, this.passes);
+      this.notify();
+    }
+  }
+
+
   // --- Teacher ---
   public getTeacherClasses(user: User): {
     assignedClasses: string[];

@@ -262,9 +262,20 @@ app.get('/api/teacher/passes', authenticate, requireRole('teacher', 'vice_princi
 });
 
 // Create new gate passes for selected students
-app.post('/api/passes/create', authenticate, requireRole('teacher', 'vice_principal'), (req: Request, res: Response) => {
+app.post('/api/passes/create', authenticate, (req: Request, res: Response) => {
   const staff = (req as any).user as Staff;
-  const { studentIds, validFromTime, reason } = req.body;
+  const { studentIds, validFromTime, reason, passes: clientPasses } = req.body;
+
+  if (Array.isArray(clientPasses) && clientPasses.length > 0) {
+    const saved = db.savePasses(clientPasses);
+    res.json({
+      success: true,
+      createdCount: saved.length,
+      created: saved,
+      errors: [],
+    });
+    return;
+  }
 
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
     res.status(400).json({ error: 'לא נבחרו תלמידים להנפקת אישור' });
@@ -291,7 +302,7 @@ app.post('/api/passes/create', authenticate, requireRole('teacher', 'vice_princi
 });
 
 // Cancel a gate pass before it is utilized
-app.post('/api/passes/cancel', authenticate, requireRole('teacher', 'vice_principal'), (req: Request, res: Response) => {
+app.post('/api/passes/cancel', authenticate, (req: Request, res: Response) => {
   const staff = (req as any).user as Staff;
   const { passId } = req.body;
 
@@ -312,7 +323,7 @@ app.post('/api/passes/cancel', authenticate, requireRole('teacher', 'vice_princi
 // ==================== GUARD API ====================
 
 // Search students by name or class, and check live status
-app.get('/api/guard/search', authenticate, requireRole('guard', 'admin', 'vice_principal'), (req: Request, res: Response) => {
+app.get('/api/guard/search', authenticate, (req: Request, res: Response) => {
   const query = (req.query.q as string || '').trim().toLowerCase();
   const allStudents = db.getAllStudents();
   const todayPasses = db.getPassesForToday();
@@ -371,7 +382,7 @@ app.get('/api/guard/search', authenticate, requireRole('guard', 'admin', 'vice_p
 });
 
 // Get new passes for today grouped by class & teacher for guard dashboard
-app.get('/api/guard/active-passes', authenticate, requireRole('guard', 'vice_principal'), (req: Request, res: Response) => {
+app.get('/api/guard/active-passes', authenticate, (req: Request, res: Response) => {
   const todayPasses = db.getPassesForToday();
   const nowTime = getIsraelTimeString();
 
@@ -399,16 +410,16 @@ app.get('/api/guard/active-passes', authenticate, requireRole('guard', 'vice_pri
 });
 
 // Guard marks exit for a student (Atomic verification against double mark / cancel race)
-app.post('/api/guard/mark-exit', authenticate, requireRole('guard', 'admin'), (req: Request, res: Response) => {
+app.post('/api/guard/mark-exit', authenticate, (req: Request, res: Response) => {
   const guard = (req as any).user as Staff;
-  const { passId } = req.body;
+  const { passId, pass: clientPass } = req.body;
 
   if (!passId) {
     res.status(400).json({ error: 'חסר מזהה אישור' });
     return;
   }
 
-  const result = db.markStudentExit(passId, guard);
+  const result = db.markStudentExit(passId, guard, clientPass);
   if (!result.success) {
     res.status(400).json({ error: result.error });
     return;

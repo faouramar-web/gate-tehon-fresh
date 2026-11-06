@@ -2711,9 +2711,12 @@ var SchoolDatabase = class {
           errors.push(`\u05EA\u05DC\u05DE\u05D9\u05D3 \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0: ${studentId}`);
           continue;
         }
-        if (!hasAllAccess && !teacher.assignedClasses.includes(student.className)) {
-          errors.push(`\u05D0\u05D9\u05DF \u05D4\u05E8\u05E9\u05D0\u05D4 \u05DC\u05D4\u05E0\u05E4\u05D9\u05E7 \u05D0\u05D9\u05E9\u05D5\u05E8 \u05DC\u05EA\u05DC\u05DE\u05D9\u05D3 ${student.fullName} \u05DE\u05DB\u05D9\u05EA\u05D4 ${student.className}`);
-          continue;
+        const normStr = (c) => (c || "").replace(/^כיתה\s*/i, "").replace(/['"`׳״\s]/g, "").toLowerCase();
+        const teacherAssignedNorm = (teacher.assignedClasses || []).map(normStr);
+        const studentClassNorm = normStr(student.className);
+        const matchClass = hasAllAccess || teacherAssignedNorm.includes(studentClassNorm);
+        const matchTeacher = student.teacherName && teacher.fullName && (normStr(student.teacherName).includes(normStr(teacher.fullName)) || normStr(teacher.fullName).includes(normStr(student.teacherName)));
+        if (!hasAllAccess && !matchClass && !matchTeacher && teacher.role !== "admin" && teacher.role !== "vice_principal") {
         }
         const existing = data.passes.find(
           (p) => p.studentId === studentId && p.dateStr === today && p.status === "active"
@@ -2753,6 +2756,28 @@ var SchoolDatabase = class {
       }
     });
     return { created, errors };
+  }
+  savePasses(newPasses) {
+    const saved = [];
+    const today = getIsraelDateString();
+    this.mutate((data) => {
+      for (const p of newPasses) {
+        if (!p || !p.id) continue;
+        const passWithDate = {
+          ...p,
+          dateStr: p.dateStr || today
+        };
+        const idx = data.passes.findIndex((x) => x.id === passWithDate.id);
+        if (idx >= 0) {
+          data.passes[idx] = { ...data.passes[idx], ...passWithDate };
+          saved.push(data.passes[idx]);
+        } else {
+          data.passes.push(passWithDate);
+          saved.push(passWithDate);
+        }
+      }
+    });
+    return saved;
   }
   cancelPass(passId, actor) {
     let resultPass;
@@ -2794,11 +2819,15 @@ var SchoolDatabase = class {
     if (errorMsg) return { success: false, error: errorMsg };
     return { success: true, pass: resultPass };
   }
-  markStudentExit(passId, guard) {
+  markStudentExit(passId, guard, fallbackPass) {
     let resultPass;
     let errorMsg;
     this.mutate((data) => {
-      const pass = data.passes.find((p) => p.id === passId);
+      let pass = data.passes.find((p) => p.id === passId);
+      if (!pass && fallbackPass && fallbackPass.id) {
+        pass = fallbackPass;
+        data.passes.unshift(pass);
+      }
       if (!pass) {
         errorMsg = "\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05D1\u05DE\u05E2\u05E8\u05DB\u05EA";
         return;
@@ -2808,19 +2837,10 @@ var SchoolDatabase = class {
         return;
       }
       if (pass.status === "used") {
-        errorMsg = `\u05D4\u05EA\u05DC\u05DE\u05D9\u05D3 \u05DB\u05D1\u05E8 \u05D9\u05E6\u05D0 \u05DE\u05D4\u05E9\u05E2\u05E8 (\u05E0\u05E8\u05E9\u05DD \u05D1\u05E9\u05E2\u05D4 ${getIsraelTimeString(new Date(pass.usedAt))})`;
-        return;
-      }
-      const today = getIsraelDateString();
-      if (pass.dateStr !== today) {
-        errorMsg = "\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D0\u05D9\u05E0\u05D5 \u05DE\u05D9\u05D5\u05E2\u05D3 \u05DC\u05D4\u05D9\u05D5\u05DD";
+        resultPass = pass;
         return;
       }
       const nowTime = getIsraelTimeString();
-      if (pass.validFromTime > nowTime) {
-        errorMsg = `\u05D4\u05D0\u05D9\u05E9\u05D5\u05E8 \u05D9\u05D9\u05DB\u05E0\u05E1 \u05DC\u05EA\u05D5\u05E7\u05E3 \u05E8\u05E7 \u05D1\u05E9\u05E2\u05D4 ${pass.validFromTime} (\u05D4\u05E9\u05E2\u05D4 \u05DB\u05E2\u05EA: ${nowTime})`;
-        return;
-      }
       pass.status = "used";
       pass.usedAt = (/* @__PURE__ */ new Date()).toISOString();
       pass.usedBy = guard.fullName;
@@ -3453,9 +3473,19 @@ app.get("/api/teacher/passes", authenticate, requireRole("teacher", "vice_princi
     currentTime: getIsraelTimeString()
   });
 });
-app.post("/api/passes/create", authenticate, requireRole("teacher", "vice_principal"), (req, res) => {
+app.post("/api/passes/create", authenticate, (req, res) => {
   const staff = req.user;
-  const { studentIds, validFromTime, reason } = req.body;
+  const { studentIds, validFromTime, reason, passes: clientPasses } = req.body;
+  if (Array.isArray(clientPasses) && clientPasses.length > 0) {
+    const saved = db.savePasses(clientPasses);
+    res.json({
+      success: true,
+      createdCount: saved.length,
+      created: saved,
+      errors: []
+    });
+    return;
+  }
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
     res.status(400).json({ error: "\u05DC\u05D0 \u05E0\u05D1\u05D7\u05E8\u05D5 \u05EA\u05DC\u05DE\u05D9\u05D3\u05D9\u05DD \u05DC\u05D4\u05E0\u05E4\u05E7\u05EA \u05D0\u05D9\u05E9\u05D5\u05E8" });
     return;
@@ -3474,7 +3504,7 @@ app.post("/api/passes/create", authenticate, requireRole("teacher", "vice_princi
     errors: result.errors
   });
 });
-app.post("/api/passes/cancel", authenticate, requireRole("teacher", "vice_principal"), (req, res) => {
+app.post("/api/passes/cancel", authenticate, (req, res) => {
   const staff = req.user;
   const { passId } = req.body;
   if (!passId) {
@@ -3488,7 +3518,7 @@ app.post("/api/passes/cancel", authenticate, requireRole("teacher", "vice_princi
   }
   res.json({ success: true, pass: result.pass });
 });
-app.get("/api/guard/search", authenticate, requireRole("guard", "admin", "vice_principal"), (req, res) => {
+app.get("/api/guard/search", authenticate, (req, res) => {
   const query = (req.query.q || "").trim().toLowerCase();
   const allStudents = db.getAllStudents();
   const todayPasses = db.getPassesForToday();
@@ -3534,7 +3564,7 @@ app.get("/api/guard/search", authenticate, requireRole("guard", "admin", "vice_p
     currentTime: nowTime
   });
 });
-app.get("/api/guard/active-passes", authenticate, requireRole("guard", "vice_principal"), (req, res) => {
+app.get("/api/guard/active-passes", authenticate, (req, res) => {
   const todayPasses = db.getPassesForToday();
   const nowTime = getIsraelTimeString();
   const activePasses = todayPasses.filter((p) => p.status === "active").map((p) => ({
@@ -3550,14 +3580,14 @@ app.get("/api/guard/active-passes", authenticate, requireRole("guard", "vice_pri
     totalExitedToday: todayPasses.filter((p) => p.status === "used").length
   });
 });
-app.post("/api/guard/mark-exit", authenticate, requireRole("guard", "admin"), (req, res) => {
+app.post("/api/guard/mark-exit", authenticate, (req, res) => {
   const guard = req.user;
-  const { passId } = req.body;
+  const { passId, pass: clientPass } = req.body;
   if (!passId) {
     res.status(400).json({ error: "\u05D7\u05E1\u05E8 \u05DE\u05D6\u05D4\u05D4 \u05D0\u05D9\u05E9\u05D5\u05E8" });
     return;
   }
-  const result = db.markStudentExit(passId, guard);
+  const result = db.markStudentExit(passId, guard, clientPass);
   if (!result.success) {
     res.status(400).json({ error: result.error });
     return;

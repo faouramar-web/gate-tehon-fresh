@@ -1,7 +1,7 @@
 {
   "settings": {
     "schoolName": "מערכת אישור לשער",
-    "lastUpdated": "2026-11-06T06:24:46.089Z"
+    "lastUpdated": "2026-11-06T06:40:13.508Z"
   },
   "schools": [
     {
@@ -2456,6 +2456,28 @@
       "actorName": "עמאר פאעור (מנהל המערכת)",
       "actorRole": "admin",
       "details": "מחיקת 1 אישורי יציאה מהמאגר "
+    },
+    {
+      "id": "log-1793947213501-dbej",
+      "timestamp": "2026-11-06T06:40:13.501Z",
+      "actionType": "PASS_CREATED",
+      "actorId": "staff-1793938342639-2ra",
+      "actorName": "חאג_ רימה",
+      "actorRole": "teacher",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "הונפק אישור יציאה לשעה 10:00"
+    },
+    {
+      "id": "log-1793947213507-pgla",
+      "timestamp": "2026-11-06T06:40:13.507Z",
+      "actionType": "PASS_USED",
+      "actorId": "staff-guard-school-1793934341104",
+      "actorName": "שומר שער (רב תחומי עמל יאנוח-ג׳ת)",
+      "actorRole": "guard",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "יציאה אושרה בשער על ידי שומר שער (רב תחומי עמל יאנוח-ג׳ת) בשעה 08:40"
     }
   ]
 }

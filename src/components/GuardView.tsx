@@ -158,7 +158,7 @@ export const GuardView: React.FC<GuardViewProps> = ({
     setExitFeedback(null);
 
     try {
-      const res = await api.markExit(confirmingExitPass.pass.id);
+      const res = await api.markExit(confirmingExitPass.pass.id, user);
       setExitFeedback({
         type: 'success',
         message: res.message || `יציאת ${confirmingExitPass.studentName} נרשמה בהצלחה`,

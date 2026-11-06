@@ -211,7 +211,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
     const validFrom = timeMode === 'now' ? '' : customTime;
 
     try {
-      const res = await api.createPasses(idsArray, validFrom, passReason);
+      const res = await api.createPasses(idsArray, validFrom, passReason, user);
       setShowSendModal(false);
       setSelectedStudentIds(new Set());
       setSuccessBanner(`האישור נשלח לשער בהצלחה (${res.createdCount} תלמידים)`);
