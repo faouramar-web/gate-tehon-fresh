@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.ts';
-import { clientStore } from '../lib/clientStore.ts';
+import { clientStore, deduplicateStudents } from '../lib/clientStore.ts';
 import { User, Student, GatePass } from '../types.ts';
 import {
   Search,
@@ -27,6 +27,7 @@ interface TeacherViewProps {
 export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
   const [assignedClasses, setAssignedClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
+  const selectedClassRef = React.useRef<string>('');
   const [students, setStudents] = useState<Student[]>([]);
   const [passesToday, setPassesToday] = useState<GatePass[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -70,20 +71,20 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
         api.getTeacherPasses(),
       ]);
 
-      let loadedStudents = classRes.students || [];
+      let loadedStudents = deduplicateStudents(classRes.students || []);
 
       // If no students returned (e.g. mobile smartphone first opening or GitHub Pages), try fetching bundle or pulling server state
       if (loadedStudents.length === 0) {
         await clientStore.fetchBundleFromCloud();
         let fresh = clientStore.getTeacherClasses(user);
         if (fresh.students && fresh.students.length > 0) {
-          loadedStudents = fresh.students;
+          loadedStudents = deduplicateStudents(fresh.students);
         } else {
           const pullRes = await clientStore.pullStateFromServer();
           if (pullRes) {
             fresh = clientStore.getTeacherClasses(user);
             if (fresh.students && fresh.students.length > 0) {
-              loadedStudents = fresh.students;
+              loadedStudents = deduplicateStudents(fresh.students);
             }
           }
         }
@@ -96,19 +97,28 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
 
       setAssignedClasses(displayClasses);
 
-      if (!selectedClass) {
+      // Bulletproof class selection: never overwrite user's selected class during background polling!
+      const currentSelected = selectedClassRef.current;
+      if (!currentSelected) {
+        let initialCls = 'כל הכיתות';
         if (displayClasses.length === 1) {
-          setSelectedClass(displayClasses[0]);
+          initialCls = displayClasses[0];
         } else if (displayClasses.length > 1) {
-          const preferred = user.assignedClasses?.find((c) => c && c !== '*' && c !== 'כל הכיתות');
-          if (preferred && loadedStudents.some((s) => normalizeClass(s.className) === normalizeClass(preferred))) {
-            setSelectedClass(preferred);
-          } else {
-            // Default to 'כל הכיתות' so all students of the teacher are instantly visible
-            setSelectedClass('כל הכיתות');
-          }
+          initialCls = 'כל הכיתות';
         }
+        selectedClassRef.current = initialCls;
+        setSelectedClass(initialCls);
+      } else if (
+        currentSelected !== 'כל הכיתות' &&
+        currentSelected !== '*' &&
+        displayClasses.length > 0 &&
+        !displayClasses.map(normalizeClass).includes(normalizeClass(currentSelected))
+      ) {
+        const fallback = displayClasses[0] || 'כל הכיתות';
+        selectedClassRef.current = fallback;
+        setSelectedClass(fallback);
       }
+
       setStudents(loadedStudents);
       setPassesToday(passRes.passes || []);
 
@@ -166,6 +176,25 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.trim().toLowerCase();
     return s.fullName.toLowerCase().includes(q) || s.studentCode.toLowerCase().includes(q);
+  });
+
+  // Handle user selecting a class button (updates state & ref so background polling never resets it)
+  const handleSelectClass = (cls: string) => {
+    selectedClassRef.current = cls;
+    setSelectedClass(cls);
+    setSelectedStudentIds(new Set());
+  };
+
+  // Filter passes by selected class so history shows only passes of selected class (or all if 'כל הכיתות')
+  const filteredPasses = passesToday.filter((p) => {
+    const isShowAll =
+      !selectedClass ||
+      selectedClass === '*' ||
+      selectedClass === 'כל הכיתות' ||
+      selectedClass === 'הכל';
+
+    if (isShowAll) return true;
+    return normalizeClass(p.className) === normalizeClass(selectedClass);
   });
 
   const toggleStudentSelection = (studentId: string) => {
@@ -336,10 +365,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
               {assignedClasses.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedClass('כל הכיתות');
-                    setSelectedStudentIds(new Set());
-                  }}
+                  onClick={() => handleSelectClass('כל הכיתות')}
                   className={`p-2.5 rounded-2xl text-right transition-all flex items-center justify-between cursor-pointer border ${
                     selectedClass === 'כל הכיתות' || !selectedClass
                       ? 'bg-teal-500 text-white border-teal-400 shadow-md scale-[1.01]'
@@ -369,10 +395,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                   <button
                     key={cls}
                     type="button"
-                    onClick={() => {
-                      setSelectedClass(cls);
-                      setSelectedStudentIds(new Set());
-                    }}
+                    onClick={() => handleSelectClass(cls)}
                     className={`p-2.5 rounded-2xl text-right transition-all flex items-center justify-between cursor-pointer border ${
                       isSelected
                         ? 'bg-blue-600 text-white border-blue-400 shadow-md scale-[1.01]'
@@ -481,7 +504,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
           }`}
         >
           <Clock className="w-4 h-4 text-blue-600" />
-          <span>מעקב אישורי שחרור לכיתה ({passesToday.length})</span>
+          <span>
+            {selectedClass && selectedClass !== 'כל הכיתות'
+              ? `מעקב אישורי כיתה ${selectedClass} (${filteredPasses.length})`
+              : `מעקב אישורי שחרור (${filteredPasses.length})`}
+          </span>
         </button>
       </div>
 
@@ -678,20 +705,35 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
       ) : (
         /* History Section: "אישורים ששלחתי היום" */
         <div className="space-y-3">
-          <div className="text-xs font-semibold text-slate-600 px-1">
-            מעקב אחר אישורי יציאה להיום והסטטוס שלהם בשער:
+          <div className="text-xs font-semibold text-slate-600 px-1 flex items-center justify-between">
+            <span>
+              {selectedClass && selectedClass !== 'כל הכיתות'
+                ? `מעקב אחר אישורי יציאה להיום עבור כיתה ${selectedClass}:`
+                : 'מעקב אחר אישורי יציאה להיום והסטטוס שלהם בשער:'}
+            </span>
+            {selectedClass && selectedClass !== 'כל הכיתות' && (
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-lg">
+                כיתה {selectedClass}
+              </span>
+            )}
           </div>
 
-          {passesToday.length === 0 ? (
+          {filteredPasses.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
               <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-700">עדיין לא נשלחו אישורים היום</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {selectedClass && selectedClass !== 'כל הכיתות'
+                  ? `לא נמצאו אישורי יציאה להיום עבור כיתה ${selectedClass}`
+                  : 'עדיין לא נשלחו אישורים היום'}
+              </p>
               <p className="text-xs text-slate-400 mt-1">
-                סמן תלמידים בלשונית ״רשימת התלמידים״ ולחץ על ״שליחת אישור לשער״
+                {selectedClass && selectedClass !== 'כל הכיתות'
+                  ? `אישורים שיונפקו לתלמידי כיתה ${selectedClass} (על ידך או על ידי מחנכת הכיתה) יופיעו כאן בזמן אמת`
+                  : 'סמן תלמידים בלשונית ״רשימת התלמידים״ ולחץ על ״שליחת אישור לשער״'}
               </p>
             </div>
           ) : (
-            passesToday.map((pass) => {
+            filteredPasses.map((pass) => {
               const isUsed = pass.status === 'used';
               const isCancelled = pass.status === 'cancelled';
               const isActive = pass.status === 'active';

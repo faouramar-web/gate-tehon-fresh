@@ -115,6 +115,54 @@ export function isDemoPass(p: any): boolean {
   return id === 'pass-hist-demo-mock-1';
 }
 
+// Universal robust student deduplicator by ID, StudentCode + Class, and FullName + Class
+export function deduplicateStudents(students: Student[]): Student[] {
+  if (!Array.isArray(students) || students.length === 0) return [];
+  const result: Student[] = [];
+
+  const norm = (s: any) =>
+    String(s || '')
+      .replace(/^כיתה\s*/i, '')
+      .replace(/['"`׳״\s]/g, '')
+      .trim()
+      .toLowerCase();
+
+  for (const st of students) {
+    if (!st || isDemoStudent(st)) continue;
+
+    const idKey = st.id ? norm(st.id) : '';
+    const normClass = norm(st.className);
+    const normName = norm(st.fullName);
+    const normCode = norm(st.studentCode);
+
+    const nameClassKey = normName && normClass ? `${normClass}::${normName}` : '';
+    const codeClassKey = normCode && normClass ? `${normClass}::${normCode}` : '';
+
+    const existingIdx = result.findIndex((r) => {
+      if (idKey && norm(r.id) === idKey) return true;
+      const rClass = norm(r.className);
+      const rName = norm(r.fullName);
+      const rCode = norm(r.studentCode);
+      if (nameClassKey && rClass && rName && `${rClass}::${rName}` === nameClassKey) return true;
+      if (codeClassKey && rClass && rCode && `${rClass}::${rCode}` === codeClassKey) return true;
+      return false;
+    });
+
+    if (existingIdx >= 0) {
+      const existing = result[existingIdx];
+      // If incoming record has an active or used pass and existing doesn't, upgrade
+      if (st.currentPass && (!existing.currentPass || existing.currentPass.status === 'cancelled')) {
+        result[existingIdx] = { ...existing, currentPass: st.currentPass };
+      }
+      continue;
+    }
+
+    result.push(st);
+  }
+
+  return result;
+}
+
 // Guaranteed globally unique PIN generator across all staff members
 export function generateUniquePin(
   existingStaffOrPins: Array<{ pinCode?: string }> | Set<string>,
@@ -239,9 +287,11 @@ class ClientStorageEngine {
       : JSON.parse(JSON.stringify(INITIAL_STAFF));
 
     const loadedStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, INITIAL_STUDENTS);
-    this.students = Array.isArray(loadedStudents)
-      ? loadedStudents.filter((st) => st && !isDemoStudent(st))
-      : [];
+    this.students = deduplicateStudents(
+      Array.isArray(loadedStudents) && loadedStudents.length > 0
+        ? loadedStudents.filter((st) => st && !isDemoStudent(st))
+        : INITIAL_STUDENTS
+    );
 
     const loadedPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, INITIAL_PASSES);
     this.passes = Array.isArray(loadedPasses)
@@ -349,11 +399,7 @@ class ClientStorageEngine {
                 if (!stud || !stud.id || isDemoStudent(stud)) return;
                 remoteStudents.push(stud);
               });
-              const map = new Map(this.students.map((s) => [s.id, s]));
-              for (const rstud of remoteStudents) {
-                if (!isDemoStudent(rstud)) map.set(rstud.id, rstud);
-              }
-              this.students = Array.from(map.values()).filter((st) => st && !isDemoStudent(st));
+              this.students = deduplicateStudents([...this.students, ...remoteStudents]);
               this.save(STORAGE_KEY_STUDENTS, this.students);
               this.notify();
             }
@@ -423,15 +469,9 @@ class ClientStorageEngine {
                   changed = true;
                 }
                 if (Array.isArray(data.students) && data.students.length > 0) {
-                  if (this.students.length === 0 || data.students.length >= this.students.length) {
-                    const studentMap = new Map(this.students.map((s) => [s.id, s]));
-                    for (const st of data.students) {
-                      if (st && st.id && !isDemoStudent(st)) studentMap.set(st.id, st);
-                    }
-                    this.students = Array.from(studentMap.values());
-                    this.save(STORAGE_KEY_STUDENTS, this.students);
-                    changed = true;
-                  }
+                  this.students = deduplicateStudents([...this.students, ...data.students]);
+                  this.save(STORAGE_KEY_STUDENTS, this.students);
+                  changed = true;
                 }
                 if (Array.isArray(data.passes)) {
                   this.passes = data.passes.filter((p: any) => p && !isDemoPass(p));
@@ -514,11 +554,11 @@ class ClientStorageEngine {
     }
 
     const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, INITIAL_STUDENTS);
-    this.students = (Array.isArray(rawStudents) && rawStudents.length > 0 ? rawStudents : JSON.parse(JSON.stringify(INITIAL_STUDENTS))).filter(
-      (st: Student) => st && !isDemoStudent(st)
+    this.students = deduplicateStudents(
+      Array.isArray(rawStudents) && rawStudents.length > 0 ? rawStudents : INITIAL_STUDENTS
     );
     if (this.students.length === 0 && INITIAL_STUDENTS.length > 0) {
-      this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
+      this.students = deduplicateStudents(JSON.parse(JSON.stringify(INITIAL_STUDENTS)));
     }
 
     const rawPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
@@ -592,15 +632,9 @@ class ClientStorageEngine {
       }
 
       if (Array.isArray(data.students) && data.students.length > 0) {
-        if (this.students.length === 0 || data.students.length > this.students.length) {
-          const studentMap = new Map(this.students.map((s) => [s.id, s]));
-          for (const st of data.students) {
-            if (st && st.id) studentMap.set(st.id, st);
-          }
-          this.students = Array.from(studentMap.values());
-          this.save(STORAGE_KEY_STUDENTS, this.students);
-          changed = true;
-        }
+        this.students = deduplicateStudents([...this.students, ...data.students]);
+        this.save(STORAGE_KEY_STUDENTS, this.students);
+        changed = true;
       }
 
       if (Array.isArray(data.passes)) {
@@ -677,15 +711,9 @@ class ClientStorageEngine {
       }
 
       if (Array.isArray(data.students) && data.students.length > 0) {
-        if (this.students.length === 0 || data.students.length >= this.students.length) {
-          const studentMap = new Map(this.students.map((s) => [s.id, s]));
-          for (const st of data.students) {
-            if (st && st.id && !isDemoStudent(st)) studentMap.set(st.id, st);
-          }
-          this.students = Array.from(studentMap.values());
-          this.save(STORAGE_KEY_STUDENTS, this.students);
-          changed = true;
-        }
+        this.students = deduplicateStudents([...this.students, ...data.students]);
+        this.save(STORAGE_KEY_STUDENTS, this.students);
+        changed = true;
       }
 
       if (Array.isArray(data.passes)) {
@@ -724,7 +752,7 @@ class ClientStorageEngine {
       this.save(STORAGE_KEY_STAFF, this.staff);
     }
     if (Array.isArray(data.students) && data.students.length > 0) {
-      this.students = data.students.filter((st) => st && !isDemoStudent(st));
+      this.students = deduplicateStudents(data.students);
       this.save(STORAGE_KEY_STUDENTS, this.students);
     }
     this.broadcastChange();
@@ -1686,7 +1714,7 @@ class ClientStorageEngine {
     return {
       assignedClasses: classes,
       teacherName: user.fullName,
-      students: enriched,
+      students: deduplicateStudents(enriched),
       today,
       currentTime: getClientIsraelTimeString(),
     };
@@ -1830,7 +1858,7 @@ class ClientStorageEngine {
   }
 
   public getAllStudents(): Student[] {
-    return Array.isArray(this.students) ? this.students : [];
+    return deduplicateStudents(Array.isArray(this.students) ? this.students : []);
   }
 
   public searchGuard(queryStr = ''): { results: GuardSearchResult[]; currentTime: string } {

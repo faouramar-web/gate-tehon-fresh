@@ -1126,9 +1126,16 @@ class SchoolDatabase {
         }
       }
       if (Array.isArray(students) && students.length > 0) {
-        const studentMap = new Map(data.students.map((s) => [s.id, s]));
-        for (const st of students) {
-          if (st && st.id) studentMap.set(st.id, st);
+        const studentMap = new Map<string, Student>();
+        const seenNames = new Set<string>();
+        const normKey = (s: any) => String(s || '').replace(/['"`׳״\s]/g, '').toLowerCase();
+
+        for (const st of [...data.students, ...students]) {
+          if (!st || !st.id) continue;
+          const nameKey = st.fullName && st.className ? `${normKey(st.className)}::${normKey(st.fullName)}` : '';
+          if (nameKey && seenNames.has(nameKey)) continue;
+          if (nameKey) seenNames.add(nameKey);
+          studentMap.set(st.id, st);
         }
         data.students = Array.from(studentMap.values());
       }

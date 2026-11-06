@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { db, getIsraelDateString, getIsraelTimeString, normalizePin } from './data/store.ts';
-import type { Staff, GatePass } from './data/store.ts';
+import type { Staff, GatePass, Student } from './data/store.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -250,10 +250,28 @@ app.get('/api/teacher/my-classes', authenticate, requireRole('teacher', 'vice_pr
     };
   });
 
+  const uniqueStudents: Student[] = [];
+  const seenStudentKeys = new Set<string>();
+  const normKey = (s: any) => String(s || '').replace(/['"`׳״\s]/g, '').toLowerCase();
+
+  for (const st of enrichedStudents) {
+    const idKey = st.id ? normKey(st.id) : '';
+    const nameKey = st.fullName && st.className ? `${normKey(st.className)}::${normKey(st.fullName)}` : '';
+    const codeKey = st.studentCode && st.className ? `${normKey(st.className)}::${normKey(st.studentCode)}` : '';
+
+    if ((idKey && seenStudentKeys.has(idKey)) || (nameKey && seenStudentKeys.has(nameKey)) || (codeKey && seenStudentKeys.has(codeKey))) {
+      continue;
+    }
+    if (idKey) seenStudentKeys.add(idKey);
+    if (nameKey) seenStudentKeys.add(nameKey);
+    if (codeKey) seenStudentKeys.add(codeKey);
+    uniqueStudents.push(st);
+  }
+
   res.json({
     assignedClasses: returnClasses,
     teacherName: staff.fullName,
-    students: enrichedStudents,
+    students: uniqueStudents,
     today: getIsraelDateString(),
     currentTime: getIsraelTimeString(),
   });

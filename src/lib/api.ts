@@ -1,5 +1,5 @@
 import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount, School, SchoolStatus } from '../types.ts';
-import { clientStore } from './clientStore.ts';
+import { clientStore, deduplicateStudents } from './clientStore.ts';
 
 const TOKEN_KEY = 'gatepass_auth_token';
 
@@ -216,21 +216,31 @@ export const api = {
         return {
           ...serverRes,
           assignedClasses: serverRes.assignedClasses?.length > 0 ? serverRes.assignedClasses : localRes.assignedClasses,
-          students: enriched,
+          students: deduplicateStudents(enriched),
         };
       }
 
       if (hasServerStudents) {
-        return serverRes;
+        return {
+          ...serverRes,
+          students: deduplicateStudents(serverRes.students),
+        };
       }
 
       if (hasLocalStudents) {
-        return localRes;
+        return {
+          ...localRes,
+          students: deduplicateStudents(localRes.students),
+        };
       }
 
       return serverRes || localRes || { assignedClasses: [], teacherName: '', students: [], today: '', currentTime: '' };
     } catch {
-      return localRes || clientStore.getTeacherClasses(clientStore.getMe().user);
+      const res = localRes || clientStore.getTeacherClasses(clientStore.getMe().user);
+      return {
+        ...res,
+        students: deduplicateStudents(res?.students || []),
+      };
     }
   },
 

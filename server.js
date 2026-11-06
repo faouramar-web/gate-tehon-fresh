@@ -3290,9 +3290,15 @@ var SchoolDatabase = class {
         }
       }
       if (Array.isArray(students) && students.length > 0) {
-        const studentMap = new Map(data.students.map((s) => [s.id, s]));
-        for (const st of students) {
-          if (st && st.id) studentMap.set(st.id, st);
+        const studentMap = /* @__PURE__ */ new Map();
+        const seenNames = /* @__PURE__ */ new Set();
+        const normKey = (s) => String(s || "").replace(/['"`׳״\s]/g, "").toLowerCase();
+        for (const st of [...data.students, ...students]) {
+          if (!st || !st.id) continue;
+          const nameKey = st.fullName && st.className ? `${normKey(st.className)}::${normKey(st.fullName)}` : "";
+          if (nameKey && seenNames.has(nameKey)) continue;
+          if (nameKey) seenNames.add(nameKey);
+          studentMap.set(st.id, st);
         }
         data.students = Array.from(studentMap.values());
       }
@@ -3493,10 +3499,25 @@ app.get("/api/teacher/my-classes", authenticate, requireRole("teacher", "vice_pr
       currentPass: pass || null
     };
   });
+  const uniqueStudents = [];
+  const seenStudentKeys = /* @__PURE__ */ new Set();
+  const normKey = (s) => String(s || "").replace(/['"`׳״\s]/g, "").toLowerCase();
+  for (const st of enrichedStudents) {
+    const idKey = st.id ? normKey(st.id) : "";
+    const nameKey = st.fullName && st.className ? `${normKey(st.className)}::${normKey(st.fullName)}` : "";
+    const codeKey = st.studentCode && st.className ? `${normKey(st.className)}::${normKey(st.studentCode)}` : "";
+    if (idKey && seenStudentKeys.has(idKey) || nameKey && seenStudentKeys.has(nameKey) || codeKey && seenStudentKeys.has(codeKey)) {
+      continue;
+    }
+    if (idKey) seenStudentKeys.add(idKey);
+    if (nameKey) seenStudentKeys.add(nameKey);
+    if (codeKey) seenStudentKeys.add(codeKey);
+    uniqueStudents.push(st);
+  }
   res.json({
     assignedClasses: returnClasses,
     teacherName: staff.fullName,
-    students: enrichedStudents,
+    students: uniqueStudents,
     today: getIsraelDateString(),
     currentTime: getIsraelTimeString()
   });
