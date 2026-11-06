@@ -888,11 +888,13 @@ class ClientStorageEngine {
   }
 
   public syncPassToFirestore(pass: GatePass): void {
-    if (!firestoreDb || !pass || !pass.id) return;
+    if (isFirestoreQuotaExhausted || !firestoreDb || !pass || !pass.id) return;
     try {
-      setDoc(doc(firestoreDb, FS_COLLECTION_PASSES, pass.id), pass, { merge: true }).catch(() => {});
-    } catch {
-      // ignore
+      setDoc(doc(firestoreDb, FS_COLLECTION_PASSES, pass.id), pass, { merge: true }).catch((err) => {
+        handleFirestoreQuotaError(err);
+      });
+    } catch (e) {
+      handleFirestoreQuotaError(e);
     }
   }
 
@@ -1883,7 +1885,7 @@ class ClientStorageEngine {
 
     if (!pass) {
       // Even if pass isn't in local memory yet, update Firestore directly
-      if (firestoreDb && passId) {
+      if (!isFirestoreQuotaExhausted && firestoreDb && passId) {
         setDoc(
           doc(firestoreDb, FS_COLLECTION_PASSES, passId),
           {
@@ -1892,7 +1894,9 @@ class ClientStorageEngine {
             usedBy: guardName,
           },
           { merge: true }
-        ).catch(() => {});
+        ).catch((err) => {
+          handleFirestoreQuotaError(err);
+        });
       }
 
       this.broadcastChange();

@@ -1,6 +1,13 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, setLogLevel } from 'firebase/firestore';
 import config from '../../firebase-applet-config.json';
+
+// Silence Firestore internal quota/backoff logs so they do not pollute console
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
 
 const firebaseConfig = {
   apiKey: config.apiKey,
