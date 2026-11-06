@@ -643,15 +643,51 @@ class SchoolDatabase {
     actor: Staff
   ): void {
     this.mutate((data) => {
-      data.staff = staffList;
+      if (!data.staff) data.staff = [];
+
+      for (const item of staffList) {
+        if (!item || !item.pinCode) continue;
+        const cleanPin = normalizePin(item.pinCode);
+        const existingIdx = data.staff.findIndex(
+          (s) => (s.id && s.id === item.id) || (s.fullName && item.fullName && s.fullName.trim() === item.fullName.trim() && (s.schoolId || '') === (item.schoolId || ''))
+        );
+
+        const memberData: Staff = {
+          ...item,
+          pinCode: cleanPin,
+          isActive: item.isActive !== false,
+          assignedClasses: Array.isArray(item.assignedClasses) ? item.assignedClasses : [],
+        };
+
+        if (existingIdx >= 0) {
+          data.staff[existingIdx] = { ...data.staff[existingIdx], ...memberData };
+        } else {
+          data.staff.push(memberData);
+        }
+      }
+
+      // Guarantee Amar Faour is ALWAYS present and active
+      if (!data.staff.some((s) => normalizePin(s.pinCode) === '160525')) {
+        data.staff.unshift({
+          id: 'staff-admin-amar',
+          staffCode: 'ADMIN',
+          fullName: 'עמאר פאעור (מנהל המערכת)',
+          role: 'admin',
+          pinCode: '160525',
+          assignedClasses: ['*'],
+          isActive: true,
+          schoolId: '*',
+        });
+      }
+
       data.auditLogs.push({
         id: `log-${Date.now()}`,
         timestamp: new Date().toISOString(),
         actionType: 'STAFF_UPDATED',
-        actorId: actor.id,
-        actorName: actor.fullName,
-        actorRole: actor.role,
-        details: `עדכון אנשי צוות וקודי גישה`,
+        actorId: actor?.id || 'admin',
+        actorName: actor?.fullName || 'מנהל המערכת',
+        actorRole: actor?.role || 'admin',
+        details: `עדכון אנשי צוות וקודי גישה (${staffList.length} אנשי צוות)`,
       });
     });
   }

@@ -495,29 +495,39 @@ export const api = {
   },
 
   // --- Admin ---
-  async getStaff(): Promise<{ staff: StaffMember[] }> {
+  async getStaff(schoolId?: string): Promise<{ staff: StaffMember[] }> {
     if (isStaticHost) {
-      return clientStore.getStaff();
+      return clientStore.getStaff(schoolId);
     }
     try {
-      return await request('/api/admin/staff');
+      const res = await request<{ staff: StaffMember[] }>('/api/admin/staff');
+      if (res && Array.isArray(res.staff) && res.staff.length > 0) {
+        clientStore.saveStaff(res.staff);
+        return res;
+      }
+      return clientStore.getStaff(schoolId);
     } catch {
-      return clientStore.getStaff();
+      return clientStore.getStaff(schoolId);
     }
   },
 
   async saveStaff(staffList: StaffMember[]): Promise<{ success: boolean; staff: StaffMember[] }> {
-    if (isStaticHost) {
-      return clientStore.saveStaff(staffList);
+    const localRes = clientStore.saveStaff(staffList);
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{ success: boolean; staff: StaffMember[] }>('/api/admin/staff', {
+          method: 'POST',
+          body: JSON.stringify({ staffList }),
+        });
+        if (serverRes && Array.isArray(serverRes.staff)) {
+          clientStore.saveStaff(serverRes.staff);
+          return serverRes;
+        }
+      } catch {
+        return localRes;
+      }
     }
-    try {
-      return await request('/api/admin/staff', {
-        method: 'POST',
-        body: JSON.stringify({ staffList }),
-      });
-    } catch {
-      return clientStore.saveStaff(staffList);
-    }
+    return localRes;
   },
 
   async getAudit(): Promise<{ logs: AuditLogEntry[] }> {
@@ -542,12 +552,8 @@ export const api = {
     updated: number;
     total: number;
   }> {
-    let localRes: any = null;
-    try {
-      localRes = clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
-    } catch {
-      // ignore
-    }
+    const localRes = clientStore.importData(students, classesTeachers, replaceExisting, targetSchoolId);
+    const updatedStaff = clientStore.getStaff(targetSchoolId).staff;
 
     if (!isStaticHost) {
       try {
@@ -560,9 +566,18 @@ export const api = {
           method: 'POST',
           body: JSON.stringify({ students, classesTeachers, replaceExisting, targetSchoolId }),
         });
-        return serverRes;
+
+        // Ensure server gets the exact staff list with the exact same PINs
+        if (Array.isArray(updatedStaff) && updatedStaff.length > 0) {
+          await request('/api/admin/staff', {
+            method: 'POST',
+            body: JSON.stringify({ staffList: updatedStaff }),
+          }).catch(() => {});
+        }
+
+        return serverRes || localRes;
       } catch {
-        if (localRes) return localRes;
+        return localRes;
       }
     }
     return localRes || { success: true, added: 0, updated: 0, total: 0 };

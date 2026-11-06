@@ -1,7 +1,7 @@
 {
   "settings": {
     "schoolName": "מערכת אישור לשער",
-    "lastUpdated": "2026-11-06T02:53:47.325Z"
+    "lastUpdated": "2026-11-06T03:26:12.599Z"
   },
   "schools": [
     {
@@ -20,6 +20,18 @@
   "activeSchoolId": "school-1793933627266",
   "staff": [
     {
+      "id": "staff-arin-barakat",
+      "staffCode": "T01",
+      "fullName": "ערין ברכאת",
+      "role": "teacher",
+      "pinCode": "4001",
+      "assignedClasses": [
+        "י1"
+      ],
+      "isActive": true,
+      "schoolId": "school-1793933627266"
+    },
+    {
       "id": "staff-admin-amar",
       "staffCode": "ADMIN",
       "fullName": "עמאר פאעור (מנהל המערכת)",
@@ -28,8 +40,7 @@
       "assignedClasses": [
         "*"
       ],
-      "isActive": true,
-      "schoolId": "*"
+      "isActive": true
     },
     {
       "id": "staff-vp-school-1793933627266",
@@ -40,7 +51,8 @@
       "assignedClasses": [
         "*"
       ],
-      "isActive": true
+      "isActive": true,
+      "schoolId": "school-1793933627266"
     },
     {
       "id": "staff-guard-school-1793933627266",
@@ -49,10 +61,39 @@
       "role": "guard",
       "pinCode": "2001",
       "assignedClasses": [],
-      "isActive": true
+      "isActive": true,
+      "schoolId": "school-1793933627266"
     }
   ],
   "students": [],
   "passes": [],
-  "auditLogs": []
+  "auditLogs": [
+    {
+      "id": "log-1793935536951",
+      "timestamp": "2026-11-06T03:25:36.951Z",
+      "actionType": "STAFF_UPDATED",
+      "actorId": "staff-admin-amar",
+      "actorName": "עמאר פאעור (מנהל המערכת)",
+      "actorRole": "admin",
+      "details": "עדכון אנשי צוות וקודי גישה"
+    },
+    {
+      "id": "log-1793935561345",
+      "timestamp": "2026-11-06T03:26:01.345Z",
+      "actionType": "STAFF_UPDATED",
+      "actorId": "staff-admin-amar",
+      "actorName": "עמאר פאעור (מנהל המערכת)",
+      "actorRole": "admin",
+      "details": "עדכון אנשי צוות וקודי גישה (3 אנשי צוות)"
+    },
+    {
+      "id": "log-1793935572599",
+      "timestamp": "2026-11-06T03:26:12.599Z",
+      "actionType": "STAFF_UPDATED",
+      "actorId": "staff-admin-amar",
+      "actorName": "עמאר פאעור (מנהל המערכת)",
+      "actorRole": "admin",
+      "details": "עדכון אנשי צוות וקודי גישה (1 אנשי צוות)"
+    }
+  ]
 }
