@@ -115,7 +115,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       onLoginSuccess(res.user);
     } catch (err: any) {
       const msg = err.message || 'קוד גישה שגוי';
-      setErrorMessage(msg);
+      if (msg.includes('הופעל בהצלחה')) {
+        setActivationSuccessMsg(msg);
+        setPinCode('');
+        setErrorMessage(null);
+        setIsActivated(true);
+        setActiveSchoolName(clientStore.getActiveSchoolName() || '');
+        setTimeout(() => setActivationSuccessMsg(null), 6000);
+      } else {
+        setErrorMessage(msg);
+      }
     } finally {
       setLoading(false);
     }

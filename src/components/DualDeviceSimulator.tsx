@@ -30,17 +30,17 @@ export const DualDeviceSimulator: React.FC<DualDeviceSimulatorProps> = ({
   // Share modal with QR link for physical phones
   const [showShareModal, setShowShareModal] = useState(false);
 
-  // Auto-login default demo users for the simulator
+  // Auto-login default real users for the simulator
   useEffect(() => {
-    // Phone 1: Teacher Lina Khalil (PIN: 1001)
-    api.login('1001')
+    // Phone 1: Teacher Arin Barakat (PIN: 9196)
+    api.login('9196')
       .then((data) => {
         if (data.user) setDevice1User(data.user);
       })
       .catch(() => {})
       .finally(() => setDevice1Loading(false));
 
-    // Phone 2: Guard Abraham Cohen (PIN: 2001)
+    // Phone 2: Guard (PIN: 2001)
     api.login('2001')
       .then((data) => {
         if (data.user) setDevice2User(data.user);

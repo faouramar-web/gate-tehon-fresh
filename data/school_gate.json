@@ -1,99 +1,145 @@
 {
   "settings": {
-    "schoolName": "מערכת אישור לשער",
-    "lastUpdated": "2026-11-06T03:26:12.599Z"
+    "schoolName": "רב תחומי עמל יאנוח-ג׳ת",
+    "lastUpdated": "2026-11-06T03:45:00.000Z"
   },
   "schools": [
     {
-      "id": "school-1793933627266",
+      "id": "school-1793934341104",
       "name": "רב תחומי עמל יאנוח-ג׳ת",
-      "city": "",
-      "code": "SCH-1",
+      "city": "יאנוח גת",
+      "code": "SCH-01",
       "activationCode": "8181",
       "status": "active",
-      "contactPerson": "",
-      "phone": "",
+      "contactPerson": "תיראן סעיד",
+      "phone": "0525557368",
       "isSuspended": false,
-      "createdAt": "2026-11-06T02:53:47.266Z"
+      "createdAt": "2026-11-06T03:00:00.000Z"
+    },
+    {
+      "id": "school-1793933627266",
+      "name": "רב תחומי עמל יאנוח-ג׳ת",
+      "city": "יאנוח גת",
+      "code": "SCH-01",
+      "activationCode": "8181",
+      "status": "active",
+      "contactPerson": "תיראן סעיד",
+      "phone": "0525557368",
+      "isSuspended": false,
+      "createdAt": "2026-11-06T03:00:00.000Z"
     }
   ],
-  "activeSchoolId": "school-1793933627266",
+  "activeSchoolId": "school-1793934341104",
   "staff": [
-    {
-      "id": "staff-arin-barakat",
-      "staffCode": "T01",
-      "fullName": "ערין ברכאת",
-      "role": "teacher",
-      "pinCode": "4001",
-      "assignedClasses": [
-        "י1"
-      ],
-      "isActive": true,
-      "schoolId": "school-1793933627266"
-    },
     {
       "id": "staff-admin-amar",
       "staffCode": "ADMIN",
       "fullName": "עמאר פאעור (מנהל המערכת)",
       "role": "admin",
       "pinCode": "160525",
-      "assignedClasses": [
-        "*"
-      ],
-      "isActive": true
-    },
-    {
-      "id": "staff-vp-school-1793933627266",
-      "staffCode": "VP01",
-      "fullName": "סגן מנהל (רב תחומי עמל יאנוח-ג׳ת)",
-      "role": "vice_principal",
-      "pinCode": "3001",
-      "assignedClasses": [
-        "*"
-      ],
+      "assignedClasses": ["*"],
       "isActive": true,
-      "schoolId": "school-1793933627266"
+      "schoolId": "*"
     },
     {
-      "id": "staff-guard-school-1793933627266",
+      "id": "staff-vp-school-1793934341104",
+      "staffCode": "VP01",
+      "fullName": "תיראן סעיד (סגן מנהל / אחראי שחרורים)",
+      "role": "vice_principal",
+      "pinCode": "3380",
+      "assignedClasses": ["*"],
+      "isActive": true,
+      "schoolId": "school-1793934341104",
+      "phone": "0525557368"
+    },
+    {
+      "id": "staff-guard-school-1793934341104",
       "staffCode": "G01",
       "fullName": "שומר שער (רב תחומי עמל יאנוח-ג׳ת)",
       "role": "guard",
       "pinCode": "2001",
       "assignedClasses": [],
       "isActive": true,
-      "schoolId": "school-1793933627266"
+      "schoolId": "school-1793934341104"
+    },
+    {
+      "id": "staff-arin-barakat",
+      "staffCode": "T01",
+      "fullName": "ערין ברכאת",
+      "role": "teacher",
+      "pinCode": "9196",
+      "assignedClasses": ["י1", "*"],
+      "isActive": true,
+      "schoolId": "school-1793934341104"
+    },
+    {
+      "id": "staff-bisan-khattas",
+      "staffCode": "T02",
+      "fullName": "ביסאן גטאס",
+      "role": "teacher",
+      "pinCode": "2021",
+      "assignedClasses": ["י2"],
+      "isActive": true,
+      "schoolId": "school-1793934341104"
+    },
+    {
+      "id": "staff-katiss-hani",
+      "staffCode": "T03",
+      "fullName": "קטיס האני",
+      "role": "teacher",
+      "pinCode": "2022",
+      "assignedClasses": ["י1"],
+      "isActive": true,
+      "schoolId": "school-1793934341104"
     }
   ],
-  "students": [],
-  "passes": [],
-  "auditLogs": [
+  "students": [
     {
-      "id": "log-1793935536951",
-      "timestamp": "2026-11-06T03:25:36.951Z",
-      "actionType": "STAFF_UPDATED",
-      "actorId": "staff-admin-amar",
-      "actorName": "עמאר פאעור (מנהל המערכת)",
-      "actorRole": "admin",
-      "details": "עדכון אנשי צוות וקודי גישה"
+      "id": "s-yanuh-01",
+      "studentCode": "2-18",
+      "fullName": "שהד בריק",
+      "className": "י2",
+      "teacherName": "ביסאן גטאס",
+      "schoolId": "school-1793934341104",
+      "notes": ""
     },
     {
-      "id": "log-1793935561345",
-      "timestamp": "2026-11-06T03:26:01.345Z",
-      "actionType": "STAFF_UPDATED",
-      "actorId": "staff-admin-amar",
-      "actorName": "עמאר פאעור (מנהל המערכת)",
-      "actorRole": "admin",
-      "details": "עדכון אנשי צוות וקודי גישה (3 אנשי צוות)"
+      "id": "s-yanuh-02",
+      "studentCode": "2-22",
+      "fullName": "מילאן מאלק ביסאן",
+      "className": "י2",
+      "teacherName": "ביסאן גטאס",
+      "schoolId": "school-1793934341104",
+      "notes": ""
     },
     {
-      "id": "log-1793935572599",
-      "timestamp": "2026-11-06T03:26:12.599Z",
-      "actionType": "STAFF_UPDATED",
-      "actorId": "staff-admin-amar",
-      "actorName": "עמאר פאעור (מנהל המערכת)",
-      "actorRole": "admin",
-      "details": "עדכון אנשי צוות וקודי גישה (1 אנשי צוות)"
+      "id": "s-yanuh-03",
+      "studentCode": "1-05",
+      "fullName": "מלאק פרג'",
+      "className": "י1",
+      "teacherName": "קטיס האני",
+      "schoolId": "school-1793934341104",
+      "notes": ""
+    },
+    {
+      "id": "s-yanuh-04",
+      "studentCode": "1-08",
+      "fullName": "ראמי חטיב",
+      "className": "י1",
+      "teacherName": "ערין ברכאת",
+      "schoolId": "school-1793934341104",
+      "notes": ""
+    },
+    {
+      "id": "s-yanuh-05",
+      "studentCode": "1-12",
+      "fullName": "נור קבלאן",
+      "className": "י1",
+      "teacherName": "ערין ברכאת",
+      "schoolId": "school-1793934341104",
+      "notes": ""
     }
-  ]
+  ],
+  "passes": [],
+  "auditLogs": []
 }

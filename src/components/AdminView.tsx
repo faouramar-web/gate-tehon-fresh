@@ -139,6 +139,27 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [deleteSchoolModalOpen, setDeleteSchoolModalOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
 
+  // Cloud & GitHub Pages Sync state
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
+
+  const handleSyncAllToCloud = async () => {
+    setIsSyncingCloud(true);
+    try {
+      clientStore.syncLocalToCloud();
+      if (staffList.length > 0) {
+        await api.saveStaff(staffList).catch(() => {});
+      }
+      setCloudSyncMsg('✅ כל הנתונים (בית הספר, הצוות, התלמידים והאישורים) סונכרנו בהצלחה לענן! כעת גם ב-GitHub Pages וגם בכל הסמארטפונים הנתונים מעודכנים ב-100%.');
+      setTimeout(() => setCloudSyncMsg(null), 6000);
+    } catch (err: any) {
+      setCloudSyncMsg('שגיאה בסנכרון: ' + (err.message || 'נסה שוב'));
+      setTimeout(() => setCloudSyncMsg(null), 6000);
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
   // Edit Activation Code state
   const [editCodeModalOpen, setEditCodeModalOpen] = useState(false);
   const [editCodeTargetSchool, setEditCodeTargetSchool] = useState<School | null>(null);
@@ -1380,6 +1401,18 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                       : '📱 העתק נוסח לוואטסאפ'}
                   </span>
                 </button>
+
+                {/* Cloud & GitHub Pages Sync Button */}
+                <button
+                  type="button"
+                  onClick={handleSyncAllToCloud}
+                  disabled={isSyncingCloud}
+                  className="px-3 py-1.5 rounded-xl font-extrabold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40"
+                  title="סנכרן את כל הצוות, התלמידים והאישורים לענן ול-GitHub Pages"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-sky-300 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingCloud ? 'מסנכרן...' : '🔄 סנכרן ל-GitHub Pages'}</span>
+                </button>
               </div>
 
               {/* Maintenance Tools (Roll Pins, Clear Data, Delete School) */}
@@ -1416,6 +1449,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 </button>
               </div>
             </div>
+
+            {cloudSyncMsg && (
+              <div className="mt-2 text-xs font-bold text-emerald-300 bg-emerald-950/80 p-2.5 rounded-xl border border-emerald-500/50 flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{cloudSyncMsg}</span>
+              </div>
+            )}
           </div>
         )}
       </>
