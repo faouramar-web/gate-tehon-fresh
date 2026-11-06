@@ -245,7 +245,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
 
   const loadDirectory = async () => {
     try {
-      const dir = await api.getSchoolDirectory(selectedSchoolId);
+      let dir = await api.getSchoolDirectory(selectedSchoolId);
+      if ((!dir || dir.totalStudents === 0) && clientStore.getAllStudents().length === 0) {
+        const fetched = await clientStore.fetchBundleFromCloud();
+        if (fetched) {
+          dir = await api.getSchoolDirectory(selectedSchoolId);
+        }
+      }
       if (dir && Array.isArray(dir.classesSummary)) {
         setSchoolDirectory(dir);
       } else {

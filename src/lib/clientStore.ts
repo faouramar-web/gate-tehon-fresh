@@ -453,7 +453,7 @@ class ClientStorageEngine {
 
       // Auto-sync with server state and cloud bundle
       setTimeout(() => {
-        if (this.students.length > 0 || this.schools.length > 0) {
+        if (this.students.length > 0) {
           this.pushStateToServer();
           this.syncBundleToCloud();
         } else {
@@ -604,19 +604,19 @@ class ClientStorageEngine {
 
   public async syncBundleToCloud(): Promise<boolean> {
     if (!firestoreDb) return false;
+    if (this.schools.length === 0 && this.students.length === 0 && this.staff.length <= 1) return false;
+
     try {
       const bundleRef = doc(firestoreDb, FS_BUNDLE_COLLECTION, FS_BUNDLE_DOC_ID);
-      await setDoc(
-        bundleRef,
-        {
-          schools: this.schools,
-          staff: this.staff,
-          students: this.students,
-          activeSchoolId: this.activeSchoolId,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+      const payload: Record<string, any> = {
+        updatedAt: new Date().toISOString(),
+      };
+      if (this.schools.length > 0) payload.schools = this.schools;
+      if (this.staff.length > 0) payload.staff = this.staff;
+      if (this.students.length > 0) payload.students = this.students;
+      if (this.activeSchoolId) payload.activeSchoolId = this.activeSchoolId;
+
+      await setDoc(bundleRef, payload, { merge: true });
       return true;
     } catch (e) {
       console.warn('Could not sync bundle to cloud:', e);
@@ -2137,7 +2137,12 @@ class ClientStorageEngine {
     const schoolId = targetSchoolId || this.activeSchoolId || this.schools[0]?.id || 'school-yanuh';
     const studentsArr = Array.isArray(this.students) ? this.students : [];
     const staffArr = Array.isArray(this.staff) ? this.staff : [];
-    const schoolStudents = studentsArr.filter((s) => s && !isDemoStudent(s) && (s.schoolId || schoolId) === schoolId);
+    let schoolStudents = studentsArr.filter((s) => s && !isDemoStudent(s) && (s.schoolId || schoolId) === schoolId);
+
+    // Safety fallback: If school-scoped filter yielded 0, but students exist in store, use all valid students
+    if (schoolStudents.length === 0 && studentsArr.length > 0) {
+      schoolStudents = studentsArr.filter((s) => s && !isDemoStudent(s));
+    }
 
     // Group by class
     const classMap = new Map<string, { className: string; teacherName: string; count: number; students: Student[] }>();
