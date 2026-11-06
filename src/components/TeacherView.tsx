@@ -13,7 +13,9 @@ import {
   DoorOpen,
   CalendarCheck,
   Check,
-  ChevronDown
+  ChevronDown,
+  GraduationCap,
+  UserCheck
 } from 'lucide-react';
 
 interface TeacherViewProps {
@@ -479,7 +481,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
           }`}
         >
           <Clock className="w-4 h-4 text-blue-600" />
-          <span>אישורים ששלחתי היום ({passesToday.length})</span>
+          <span>מעקב אישורי שחרור לכיתה ({passesToday.length})</span>
         </button>
       </div>
 
@@ -578,59 +580,95 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                   <div
                     key={student.id}
                     onClick={() => !isDisabled && toggleStudentSelection(student.id)}
-                    className={`min-h-[58px] p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer select-none ${
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
                       isSelected
                         ? 'bg-teal-50/80 border-teal-500 shadow-sm'
                         : isDisabled
-                        ? 'bg-slate-100/80 border-slate-200 opacity-75 cursor-not-allowed'
+                        ? 'bg-slate-100/90 border-slate-200 cursor-not-allowed'
                         : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm active:bg-slate-50'
                     }`}
                   >
-                    {/* Left Checkbox */}
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors shrink-0 ${
-                          isSelected
-                            ? 'bg-teal-600 border-teal-600 text-white'
-                            : isDisabled
-                            ? 'bg-slate-200 border-slate-300 text-slate-400'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
-                      </div>
-
-                      <div>
-                        <div className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-2">
-                          <span>{student.fullName}</span>
-                          <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                            {student.studentCode}
-                          </span>
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Left Checkbox & Name */}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors shrink-0 ${
+                            isSelected
+                              ? 'bg-teal-600 border-teal-600 text-white'
+                              : isDisabled
+                              ? 'bg-slate-200 border-slate-300 text-slate-400'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">כיתה {student.className}</div>
+
+                        <div>
+                          <div className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-2">
+                            <span>{student.fullName}</span>
+                            <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {student.studentCode}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">כיתה {student.className}</div>
+                        </div>
+                      </div>
+
+                      {/* Status Pill on the Right */}
+                      <div className="shrink-0">
+                        {hasActivePass && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-xl animate-pulse">
+                            <Clock className="w-3.5 h-3.5 text-amber-700" />
+                            <span>ממתין בשער ({pass.validFromTime})</span>
+                          </span>
+                        )}
+
+                        {hasUsedPass && (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-xl shadow-xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>✓ יצא/ה מהשער</span>
+                          </span>
+                        )}
+
+                        {!hasActivePass && !hasUsedPass && isSelected && (
+                          <span className="text-xs font-bold text-teal-700">מסומן לשליחה</span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Status Pill on the Right */}
-                    <div>
-                      {hasActivePass && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-xl animate-pulse">
-                          <Clock className="w-3.5 h-3.5 text-amber-700" />
-                          <span>ממתין בשער ({pass.validFromTime})</span>
-                        </span>
-                      )}
+                    {/* Prominent Authorizer and Release Info (For Homeroom and Subject Teacher tracking) */}
+                    {pass && (hasActivePass || hasUsedPass) && (
+                      <div className="mt-3 pt-2.5 border-t border-slate-200/80 bg-white/60 p-2.5 rounded-xl border border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-slate-500 font-bold text-[11px]">אישור שחרור ע״י:</span>
+                          <span className={`px-2 py-0.5 rounded-md font-extrabold text-[11px] flex items-center gap-1 ${
+                            pass.teacherName === user.fullName
+                              ? 'bg-teal-100 text-teal-800 border border-teal-200'
+                              : 'bg-blue-100 text-blue-900 border border-blue-200'
+                          }`}>
+                            <GraduationCap className="w-3.5 h-3.5" />
+                            <span>{pass.teacherName === user.fullName ? `על ידך (${user.fullName})` : pass.teacherName}</span>
+                          </span>
+                          {pass.reason && (
+                            <span className="text-slate-600 text-[11px] font-medium truncate max-w-[220px]">
+                              · {pass.reason}
+                            </span>
+                          )}
+                        </div>
 
-                      {hasUsedPass && (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-xl shadow-xs">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>✓ יצא/ה מהשער</span>
-                        </span>
-                      )}
-
-                      {!hasActivePass && !hasUsedPass && isSelected && (
-                        <span className="text-xs font-bold text-teal-700">מסומן לשליחה</span>
-                      )}
-                    </div>
+                        <div className="text-[11px] font-bold text-slate-700 font-mono">
+                          {hasUsedPass ? (
+                            <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              יציאה בשער: {pass.usedAt ? (pass.usedAt.includes('T') ? pass.usedAt.split('T')[1].substring(0, 5) : pass.usedAt) : ''}
+                            </span>
+                          ) : (
+                            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              תוקף יציאה: {pass.validFromTime}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -673,47 +711,80 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                     <div>
                       <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
                         <span>{pass.studentName}</span>
-                        <span className="text-xs font-normal text-slate-500">({pass.className})</span>
+                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">כיתה {pass.className}</span>
+                        <span className="text-[11px] font-mono text-slate-400">({pass.studentCode})</span>
                       </div>
-                      <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                      <div className="text-xs text-slate-600 mt-1 flex items-center gap-2 flex-wrap">
                         <span>הונפק לשעה: <strong>{pass.validFromTime}</strong></span>
-                        {pass.reason && <span>· {pass.reason}</span>}
+                        {pass.reason && <span>· סיבה: <strong>{pass.reason}</strong></span>}
                       </div>
                     </div>
 
                     {/* Status badge */}
                     <div className="shrink-0 text-left">
                       {isActive && (
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300 animate-pulse">
-                            <Clock className="w-3.5 h-3.5 text-amber-700" />
-                            <span>ממתין בשער</span>
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300 animate-pulse">
+                          <Clock className="w-3.5 h-3.5 text-amber-700" />
+                          <span>ממתין בשער</span>
+                        </span>
                       )}
 
                       {isUsed && (
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 shadow-xs">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>יצא בשעה {pass.usedAt ? new Date(pass.usedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                          </span>
-                          {pass.usedBy && (
-                            <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">אושר ע״י {pass.usedBy}</div>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 shadow-xs">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>יצא מהשער {pass.usedAt ? (pass.usedAt.includes('T') ? pass.usedAt.split('T')[1].substring(0, 5) : pass.usedAt) : ''}</span>
+                        </span>
                       )}
 
                       {isCancelled && (
-                        <div className="text-right">
-                          <span className="inline-block text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-lg">
-                            אישור בוטל
-                          </span>
-                          {pass.cancelledBy && (
-                            <div className="text-[10px] text-slate-400 mt-0.5">ע״י {pass.cancelledBy}</div>
-                          )}
+                        <span className="inline-block text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-200">
+                          אישור בוטל
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Authorization & Gate Exit Breakdown */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 bg-white rounded-xl border border-slate-200">
+                      <span className="text-[11px] text-slate-500 font-bold block mb-1">מי אישר את השחרור:</span>
+                      <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                        <GraduationCap className="w-4 h-4 text-blue-600 shrink-0" />
+                        <span className={pass.teacherName === user.fullName ? 'text-teal-700 font-black' : 'text-blue-950 font-black'}>
+                          {pass.teacherName === user.fullName ? `אישור שלך (${user.fullName})` : pass.teacherName}
+                        </span>
+                      </div>
+                      {pass.homeroomTeacher && pass.teacherName !== pass.homeroomTeacher && (
+                        <div className="text-[10px] text-slate-500 font-medium mt-1">
+                          מחנכת הכיתה: <strong className="text-slate-700">{pass.homeroomTeacher}</strong>
                         </div>
                       )}
+                    </div>
+
+                    <div className="p-2.5 bg-white rounded-xl border border-slate-200">
+                      <span className="text-[11px] text-slate-500 font-bold block mb-1">יציאה בפועל מהשער:</span>
+                      <div>
+                        {isUsed ? (
+                          <>
+                            <div className="font-extrabold text-emerald-800 flex items-center gap-1">
+                              <DoorOpen className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>יצא/ה בשעה {pass.usedAt ? (pass.usedAt.includes('T') ? pass.usedAt.split('T')[1].substring(0, 5) : pass.usedAt) : ''}</span>
+                            </div>
+                            {pass.usedBy && (
+                              <div className="text-[10px] text-emerald-700 font-medium mt-1">
+                                אושר פיזית בשער ע״י: <strong>{pass.usedBy}</strong>
+                              </div>
+                            )}
+                          </>
+                        ) : isCancelled ? (
+                          <div className="text-rose-700 font-bold">לא יצא (האישור בוטל)</div>
+                        ) : (
+                          <div className="text-amber-800 font-bold flex items-center gap-1">
+                            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>טרם יצא/ה (ממתין/ה ליציאה)</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

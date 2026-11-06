@@ -3504,7 +3504,12 @@ app.get("/api/teacher/my-classes", authenticate, requireRole("teacher", "vice_pr
 app.get("/api/teacher/passes", authenticate, requireRole("teacher", "vice_principal"), (req, res) => {
   const staff = req.user;
   const allToday = db.getPassesForToday();
-  const passes = staff.role === "admin" || staff.role === "vice_principal" ? allToday : allToday.filter((p) => p.teacherId === staff.id || staff.assignedClasses.includes(p.className));
+  const passes = staff.role === "admin" || staff.role === "vice_principal" || staff.assignedClasses.includes("*") || staff.assignedClasses.includes("\u05DB\u05DC \u05D4\u05DB\u05D9\u05EA\u05D5\u05EA") ? allToday : allToday.filter((p) => {
+    const normStr = (c) => (c || "").replace(/^כיתה\s*/i, "").replace(/['"`׳״\s]/g, "").toLowerCase();
+    const pClassNorm = normStr(p.className);
+    const teacherClassesNorm = (staff.assignedClasses || []).map(normStr);
+    return p.teacherId === staff.id || teacherClassesNorm.includes(pClassNorm) || p.homeroomTeacher && staff.fullName && normStr(p.homeroomTeacher).includes(normStr(staff.fullName)) || p.teacherName && staff.fullName && normStr(p.teacherName).includes(normStr(staff.fullName));
+  });
   res.json({
     passes: passes.reverse(),
     currentTime: getIsraelTimeString()

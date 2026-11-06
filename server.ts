@@ -265,9 +265,19 @@ app.get('/api/teacher/passes', authenticate, requireRole('teacher', 'vice_princi
   const allToday = db.getPassesForToday();
 
   const passes =
-    staff.role === 'admin' || staff.role === 'vice_principal'
+    staff.role === 'admin' || staff.role === 'vice_principal' || staff.assignedClasses.includes('*') || staff.assignedClasses.includes('כל הכיתות')
       ? allToday
-      : allToday.filter((p) => p.teacherId === staff.id || staff.assignedClasses.includes(p.className));
+      : allToday.filter((p) => {
+          const normStr = (c: string) => (c || '').replace(/^כיתה\s*/i, '').replace(/['"`׳״\s]/g, '').toLowerCase();
+          const pClassNorm = normStr(p.className);
+          const teacherClassesNorm = (staff.assignedClasses || []).map(normStr);
+          return (
+            p.teacherId === staff.id ||
+            teacherClassesNorm.includes(pClassNorm) ||
+            (p.homeroomTeacher && staff.fullName && normStr(p.homeroomTeacher).includes(normStr(staff.fullName))) ||
+            (p.teacherName && staff.fullName && normStr(p.teacherName).includes(normStr(staff.fullName)))
+          );
+        });
 
   res.json({
     passes: passes.reverse(),
