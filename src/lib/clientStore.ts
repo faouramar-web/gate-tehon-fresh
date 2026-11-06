@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   setDoc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -84,6 +85,8 @@ const FS_COLLECTION_SCHOOLS = 'schools_clean_v6';
 const FS_COLLECTION_STAFF = 'staff_clean_v6';
 const FS_COLLECTION_STUDENTS = 'students_clean_v6';
 const FS_COLLECTION_PASSES = 'gatepasses_clean_v6';
+const FS_BUNDLE_COLLECTION = 'app_sync_bundle_v2';
+const FS_BUNDLE_DOC_ID = 'global_data';
 
 // Demo data detection: ONLY matches obsolete initial test IDs, NEVER user-entered schools or names
 export function isDemoSchool(s: any): boolean {
@@ -392,18 +395,75 @@ class ClientStorageEngine {
             handleFirestoreQuotaError(err);
           }
         );
+        // 5. Cloud State Bundle realtime listener (guarantees GitHub Pages and smartphones receive 100% of data in 1 single read)
+        try {
+          const bundleRef = doc(firestoreDb, FS_BUNDLE_COLLECTION, FS_BUNDLE_DOC_ID);
+          onSnapshot(
+            bundleRef,
+            (snap) => {
+              if (snap.exists()) {
+                const data = snap.data();
+                let changed = false;
+                if (Array.isArray(data.schools) && data.schools.length > 0) {
+                  if (this.schools.length === 0 || data.schools.length >= this.schools.length) {
+                    this.schools = data.schools.filter((s: any) => s && !isDemoSchool(s));
+                    this.save(STORAGE_KEY_SCHOOLS, this.schools);
+                    changed = true;
+                  }
+                }
+                if (data.activeSchoolId && (!this.activeSchoolId || this.schools.some((s) => s.id === data.activeSchoolId))) {
+                  this.activeSchoolId = data.activeSchoolId;
+                  this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+                  changed = true;
+                }
+                if (Array.isArray(data.staff) && data.staff.length > 0) {
+                  const staffMap = new Map(this.staff.map((s) => [s.id, s]));
+                  for (const st of data.staff) {
+                    if (st && st.id && !isDemoStaff(st)) staffMap.set(st.id, st);
+                  }
+                  this.staff = Array.from(staffMap.values());
+                  this.ensureEssentialStaff();
+                  this.save(STORAGE_KEY_STAFF, this.staff);
+                  changed = true;
+                }
+                if (Array.isArray(data.students) && data.students.length > 0) {
+                  if (this.students.length === 0 || data.students.length >= this.students.length) {
+                    const studentMap = new Map(this.students.map((s) => [s.id, s]));
+                    for (const st of data.students) {
+                      if (st && st.id && !isDemoStudent(st)) studentMap.set(st.id, st);
+                    }
+                    this.students = Array.from(studentMap.values());
+                    this.save(STORAGE_KEY_STUDENTS, this.students);
+                    changed = true;
+                  }
+                }
+                if (changed) {
+                  this.notify();
+                }
+              }
+            },
+            () => {}
+          );
+        } catch {
+          // ignore
+        }
       } catch (err) {
         handleFirestoreQuotaError(err);
       }
 
-      // Auto-sync with server state (bridges cross-device gap when Firestore quota is hit or on local network/smartphones)
+      // Auto-sync with server state and cloud bundle
       setTimeout(() => {
         if (this.students.length > 0 || this.schools.length > 0) {
           this.pushStateToServer();
+          this.syncBundleToCloud();
         } else {
-          this.pullStateFromServer();
+          this.fetchBundleFromCloud().then((found) => {
+            if (!found) {
+              this.pullStateFromServer();
+            }
+          });
         }
-      }, 80);
+      }, 60);
     }
   }
 
@@ -540,6 +600,114 @@ class ClientStorageEngine {
     } catch {
       return false;
     }
+  }
+
+  public async syncBundleToCloud(): Promise<boolean> {
+    if (!firestoreDb) return false;
+    try {
+      const bundleRef = doc(firestoreDb, FS_BUNDLE_COLLECTION, FS_BUNDLE_DOC_ID);
+      await setDoc(
+        bundleRef,
+        {
+          schools: this.schools,
+          staff: this.staff,
+          students: this.students,
+          activeSchoolId: this.activeSchoolId,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return true;
+    } catch (e) {
+      console.warn('Could not sync bundle to cloud:', e);
+      return false;
+    }
+  }
+
+  public async fetchBundleFromCloud(): Promise<boolean> {
+    if (!firestoreDb) return false;
+    try {
+      const bundleRef = doc(firestoreDb, FS_BUNDLE_COLLECTION, FS_BUNDLE_DOC_ID);
+      const snap = await getDoc(bundleRef);
+      if (!snap.exists()) return false;
+
+      const data = snap.data();
+      let changed = false;
+
+      if (Array.isArray(data.schools) && data.schools.length > 0) {
+        if (this.schools.length === 0 || data.schools.length >= this.schools.length) {
+          this.schools = data.schools.filter((s: any) => s && !isDemoSchool(s));
+          this.save(STORAGE_KEY_SCHOOLS, this.schools);
+          changed = true;
+        }
+      }
+
+      if (data.activeSchoolId && (!this.activeSchoolId || this.schools.some((s) => s.id === data.activeSchoolId))) {
+        this.activeSchoolId = data.activeSchoolId;
+        this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+        changed = true;
+      }
+
+      if (Array.isArray(data.staff) && data.staff.length > 0) {
+        const staffMap = new Map(this.staff.map((s) => [s.id, s]));
+        for (const st of data.staff) {
+          if (st && st.id && !isDemoStaff(st)) staffMap.set(st.id, st);
+        }
+        this.staff = Array.from(staffMap.values());
+        this.ensureEssentialStaff();
+        this.save(STORAGE_KEY_STAFF, this.staff);
+        changed = true;
+      }
+
+      if (Array.isArray(data.students) && data.students.length > 0) {
+        if (this.students.length === 0 || data.students.length >= this.students.length) {
+          const studentMap = new Map(this.students.map((s) => [s.id, s]));
+          for (const st of data.students) {
+            if (st && st.id && !isDemoStudent(st)) studentMap.set(st.id, st);
+          }
+          this.students = Array.from(studentMap.values());
+          this.save(STORAGE_KEY_STUDENTS, this.students);
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.notify();
+      }
+      return changed;
+    } catch {
+      return false;
+    }
+  }
+
+  public async importSystemBackup(data: {
+    schools?: School[];
+    staff?: StaffMember[];
+    students?: Student[];
+    activeSchoolId?: string;
+  }): Promise<boolean> {
+    if (Array.isArray(data.schools) && data.schools.length > 0) {
+      this.schools = data.schools.filter((s) => s && !isDemoSchool(s));
+      this.save(STORAGE_KEY_SCHOOLS, this.schools);
+    }
+    if (data.activeSchoolId) {
+      this.activeSchoolId = data.activeSchoolId;
+      this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+    }
+    if (Array.isArray(data.staff) && data.staff.length > 0) {
+      this.staff = data.staff.filter((s) => s && !isDemoStaff(s));
+      this.ensureEssentialStaff();
+      this.deduplicateStaffPins();
+      this.save(STORAGE_KEY_STAFF, this.staff);
+    }
+    if (Array.isArray(data.students) && data.students.length > 0) {
+      this.students = data.students.filter((st) => st && !isDemoStudent(st));
+      this.save(STORAGE_KEY_STUDENTS, this.students);
+    }
+    this.broadcastChange();
+    await this.syncBundleToCloud();
+    await this.pushStateToServer();
+    return true;
   }
 
   private ensureSchoolIntegrity() {
@@ -727,6 +895,7 @@ class ClientStorageEngine {
   public syncLocalToCloud(): void {
     if (!firestoreDb) return;
     try {
+      this.syncBundleToCloud();
       for (const s of this.schools) {
         if (s && s.id) {
           this.syncSchoolToFirestore(s);
@@ -940,6 +1109,7 @@ class ClientStorageEngine {
 
     this.broadcastChange();
     this.pushStateToServer();
+    this.syncBundleToCloud();
     return { success: true, school: newSchool, coordinatorPin: vpPin };
   }
 
@@ -956,6 +1126,8 @@ class ClientStorageEngine {
     if (data.isSuspended !== undefined) school.isSuspended = data.isSuspended;
 
     this.broadcastChange();
+    this.pushStateToServer();
+    this.syncBundleToCloud();
     return { success: true, school };
   }
 
@@ -1593,6 +1765,10 @@ class ClientStorageEngine {
     };
   }
 
+  public getAllStudents(): Student[] {
+    return Array.isArray(this.students) ? this.students : [];
+  }
+
   public searchGuard(queryStr = ''): { results: GuardSearchResult[]; currentTime: string } {
     const q = queryStr.trim().toLowerCase();
     const today = getClientIsraelDateString();
@@ -1746,6 +1922,7 @@ class ClientStorageEngine {
 
     this.broadcastChange();
     this.pushStateToServer();
+    this.syncBundleToCloud();
     return { success: true, staff: this.staff };
   }
 
@@ -1942,6 +2119,7 @@ class ClientStorageEngine {
 
     this.broadcastChange();
     this.pushStateToServer();
+    this.syncBundleToCloud();
     const schoolTotal = this.students.filter((s) => (s.schoolId || schoolId) === schoolId).length;
     return { success: true, added, updated, total: schoolTotal };
   }

@@ -51,9 +51,20 @@ export const api = {
   // --- Auth ---
   async login(pinCode: string, targetSchoolId?: string): Promise<{ token: string; user: User }> {
     if (isStaticHost) {
-      const res = clientStore.login(pinCode, targetSchoolId);
-      setStoredToken(res.token);
-      return res;
+      try {
+        const res = clientStore.login(pinCode, targetSchoolId);
+        setStoredToken(res.token);
+        return res;
+      } catch (firstErr) {
+        // Try fetching cloud bundle from Firestore in case it's a new device or GitHub Pages
+        const fetched = await clientStore.fetchBundleFromCloud();
+        if (fetched) {
+          const res = clientStore.login(pinCode, targetSchoolId);
+          setStoredToken(res.token);
+          return res;
+        }
+        throw firstErr;
+      }
     }
 
     try {
@@ -70,6 +81,12 @@ export const api = {
         setStoredToken(res.token);
         return res;
       } catch (clientErr: any) {
+        const fetched = await clientStore.fetchBundleFromCloud();
+        if (fetched) {
+          const res = clientStore.login(pinCode, targetSchoolId);
+          setStoredToken(res.token);
+          return res;
+        }
         throw new Error(clientErr.message || err.message || 'קוד גישה שגוי');
       }
     }

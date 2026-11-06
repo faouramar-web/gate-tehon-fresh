@@ -146,18 +146,61 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const handleSyncAllToCloud = async () => {
     setIsSyncingCloud(true);
     try {
+      await clientStore.syncBundleToCloud();
       clientStore.syncLocalToCloud();
+      await clientStore.pushStateToServer();
       if (staffList.length > 0) {
         await api.saveStaff(staffList).catch(() => {});
       }
-      setCloudSyncMsg('✅ כל הנתונים (בית הספר, הצוות, התלמידים והאישורים) סונכרנו בהצלחה לענן! כעת גם ב-GitHub Pages וגם בכל הסמארטפונים הנתונים מעודכנים ב-100%.');
-      setTimeout(() => setCloudSyncMsg(null), 6000);
+      setCloudSyncMsg('✅ כל הנתונים (בתי ספר, צוות, תלמידים ואישורים) סונכרנו בהצלחה מלאה לענן! כעת הם זמינים מיידית ב-GitHub Pages ובכל הטלפונים.');
+      setTimeout(() => setCloudSyncMsg(null), 8000);
     } catch (err: any) {
       setCloudSyncMsg('שגיאה בסנכרון: ' + (err.message || 'נסה שוב'));
       setTimeout(() => setCloudSyncMsg(null), 6000);
     } finally {
       setIsSyncingCloud(false);
     }
+  };
+
+  const handleExportSystemBackup = () => {
+    const data = {
+      version: 'v8',
+      exportedAt: new Date().toISOString(),
+      schools: clientStore.getSchools().schools,
+      activeSchoolId: clientStore.getSchools().activeSchoolId,
+      staff: clientStore.getStaff().staff,
+      students: clientStore.getAllStudents(),
+    };
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `גיבוי_מערכת_שער_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportSystemBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target?.result as string);
+        if (!parsed || !Array.isArray(parsed.schools)) {
+          alert('קובץ גיבוי לא תקין');
+          return;
+        }
+        await clientStore.importSystemBackup(parsed);
+        alert('הגיבוי שוחזר בהצלחה מלאה! כל בתי הספר, הצוות והתלמידים נטענו למערכת.');
+        window.location.reload();
+      } catch (err: any) {
+        alert('שגיאה בקריאת קובץ הגיבוי: ' + (err.message || 'שגיאה'));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Edit Activation Code state
@@ -307,8 +350,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   // Load Schools (Amar Faour)
   const loadSchools = async () => {
     try {
-      const res = await api.getSchools();
-      const schoolList = Array.isArray(res?.schools) ? res.schools : [];
+      let res = await api.getSchools();
+      let schoolList = Array.isArray(res?.schools) ? res.schools : [];
+      if (schoolList.length === 0) {
+        const fetched = await clientStore.fetchBundleFromCloud();
+        if (fetched) {
+          res = await api.getSchools();
+          schoolList = Array.isArray(res?.schools) ? res.schools : [];
+        }
+      }
       setSchools(schoolList);
       const activeId = clientStore.getActiveSchoolId();
       if (activeId && schoolList.some((s) => s.id === activeId)) {
@@ -738,17 +788,47 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   };
 
   // Staff management methods
-  const handleToggleStaffActive = (staffId: string) => {
-    setStaffList((prev) =>
-      prev.map((s) => (s.id === staffId ? { ...s, isActive: !s.isActive } : s))
-    );
+  const handleToggleStaffActive = async (staffId: string) => {
+    const member = staffList.find((s) => s.id === staffId);
+    if (member?.pinCode === '160525') {
+      alert('לא ניתן לבטל את קוד מנהל המערכת הראשי');
+      return;
+    }
+    const updatedList = staffList.map((s) => (s.id === staffId ? { ...s, isActive: !s.isActive } : s));
+    setStaffList(updatedList);
+    try {
+      await api.saveStaff(updatedList);
+      const updatedMember = updatedList.find((s) => s.id === staffId);
+      setStaffSuccess(`סטטוס של ${member?.fullName || 'איש הצוות'} עודכן ל: ${updatedMember?.isActive ? 'פעיל' : 'מבוטל'}`);
+      setTimeout(() => setStaffSuccess(null), 4000);
+    } catch {
+      // ignore
+    }
   };
 
-  const handleRegeneratePin = (staffId: string) => {
+  const handleRegeneratePin = async (staffId: string) => {
+    const member = staffList.find((s) => s.id === staffId);
+    if (!member) return;
+    if (member.pinCode === '160525') {
+      alert('קוד מנהל ראשי 160525 הוא קוד קבוע ובלעדי ואינו ניתן לשינוי');
+      return;
+    }
+
     const randomPin = generateUniquePin(staffList);
-    setStaffList((prev) =>
-      prev.map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s))
-    );
+    const updatedList = staffList.map((s) => (s.id === staffId ? { ...s, pinCode: randomPin } : s));
+    setStaffList(updatedList);
+    setRevealedPins((prev) => ({ ...prev, [staffId]: true }));
+
+    try {
+      setSavingStaff(true);
+      await api.saveStaff(updatedList);
+      setStaffSuccess(`🎲 קוד הגישה עבור ${member.fullName} הוגרל ונשמר בהצלחה! קוד חדש: ${randomPin}`);
+      setTimeout(() => setStaffSuccess(null), 5000);
+    } catch (err: any) {
+      alert(err.message || 'שגיאה בשמירת הקוד החדש');
+    } finally {
+      setSavingStaff(false);
+    }
   };
 
   const handleAddClassToTeacher = (staffId: string, newClass: string) => {
@@ -1411,8 +1491,34 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   title="סנכרן את כל הצוות, התלמידים והאישורים לענן ול-GitHub Pages"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-sky-300 ${isSyncingCloud ? 'animate-spin' : ''}`} />
-                  <span>{isSyncingCloud ? 'מסנכרן...' : '🔄 סנכרן ל-GitHub Pages'}</span>
+                  <span>{isSyncingCloud ? 'מסנכרן...' : '🔄 סנכרן עכשיו ל-GitHub Pages'}</span>
                 </button>
+
+                {/* System Backup Download */}
+                <button
+                  type="button"
+                  onClick={handleExportSystemBackup}
+                  className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 flex items-center gap-1.5 cursor-pointer text-xs"
+                  title="הורד קובץ גיבוי של כל בתי הספר, הצוות והתלמידים"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>הורד גיבוי</span>
+                </button>
+
+                {/* System Backup Restore */}
+                <label
+                  className="px-2.5 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 flex items-center gap-1.5 cursor-pointer text-xs"
+                  title="שחזר מערכת מקובץ גיבוי קיים (מעולה ל-GitHub Pages או למחשב חדש)"
+                >
+                  <Upload className="w-3.5 h-3.5 text-teal-400" />
+                  <span>שחזר גיבוי</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportSystemBackup}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
               {/* Maintenance Tools (Roll Pins, Clear Data, Delete School) */}
@@ -2579,14 +2685,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                               <Copy className="w-3.5 h-3.5" />
                             )}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRegeneratePin(member.id)}
-                            className="text-[10px] text-teal-700 hover:underline mr-1 font-semibold"
-                            title="חולל קוד חדש"
-                          >
-                            (חולל חדש)
-                          </button>
+                          {member.pinCode !== '160525' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRegeneratePin(member.id)}
+                              className="px-2 py-0.5 text-[11px] font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors flex items-center gap-1 mr-1 shadow-2xs cursor-pointer"
+                              title="הגרל קוד 4 ספרות חדש לאיש צוות זה"
+                            >
+                              <RefreshCw className="w-3 h-3 text-teal-600" />
+                              <span>הגרל קוד חדש</span>
+                            </button>
+                          )}
                         </div>
 
                         {member.phone && (
@@ -2648,18 +2757,32 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                         <span>📱 שלח בוואטסאפ</span>
                       </button>
 
+                      {member.pinCode !== '160525' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRegeneratePin(member.id)}
+                          className="px-2.5 py-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:border-teal-500"
+                          title="הגרל קוד 4 ספרות חדש אישי"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-teal-600" />
+                          <span>הגרל קוד חדש</span>
+                        </button>
+                      )}
+
                       {/* Toggle Active Switch */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStaffActive(member.id)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
-                          member.isActive
-                            ? 'text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100'
-                            : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
-                        }`}
-                      >
-                        {member.isActive ? 'בטל קוד' : 'הפעל קוד'}
-                      </button>
+                      {member.pinCode !== '160525' && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStaffActive(member.id)}
+                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                            member.isActive
+                              ? 'text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100'
+                              : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {member.isActive ? 'בטל קוד' : 'הפעל קוד'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3535,14 +3658,23 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">קוד אישי סודי (השאר ריק לחילול אוטומטי):</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">קוד אישי סודי (PIN):</label>
+                <button
+                  type="button"
+                  onClick={() => setNewStaffPin(generateUniquePin(staffList))}
+                  className="text-[11px] font-bold text-teal-700 hover:text-teal-900 underline cursor-pointer"
+                >
+                  🎲 הגרל קוד 4 ספרות
+                </button>
+              </div>
               <input
                 type="text"
                 value={newStaffPin}
                 onChange={(e) => setNewStaffPin(e.target.value)}
-                placeholder="הקלד קוד סודי בן 4-6 ספרות או השאר ריק"
+                placeholder="הקלד קוד סודי בן 4-6 ספרות או השאר ריק להגרלה אוטומטית"
                 maxLength={8}
-                className="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-mono"
+                className="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-mono font-bold tracking-widest text-center"
               />
             </div>
 
