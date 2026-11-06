@@ -3625,9 +3625,36 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   type="text"
                   value={newStaffClass}
                   onChange={(e) => setNewStaffClass(e.target.value)}
-                  placeholder="לדוגמה: י1, י2, יא1, יב2"
-                  className="w-full p-2.5 bg-slate-50 border rounded-xl text-xs"
+                  placeholder="לדוגמה: יב4, י1, יא2"
+                  className="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-bold"
                 />
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <span className="text-[10px] text-slate-400 font-bold">בחירה מהירה:</span>
+                  {['י1', 'י2', 'י3', 'י4', 'יא1', 'יא2', 'יא3', 'יא4', 'יב1', 'יב2', 'יב3', 'יב4'].map((c) => {
+                    const currentList = newStaffClass.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+                    const isSelected = currentList.includes(c);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setNewStaffClass(currentList.filter((x) => x !== c).join(', '));
+                          } else {
+                            setNewStaffClass([...currentList, c].join(', '));
+                          }
+                        }}
+                        className={`text-[10px] px-2 py-0.5 rounded-lg border font-bold transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
                 <p className="text-[11px] text-slate-500 mt-1">
                   המורה יוכל לעבור בין כיתות אלו ולשחרר תלמידים מהן בלבד.
                 </p>

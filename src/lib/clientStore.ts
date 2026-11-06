@@ -1294,11 +1294,6 @@ class ClientStorageEngine {
       }
     }
 
-    // Fallback 2: If there is only one school registered in the system, connect directly
-    if (!school && this.schools.length === 1) {
-      school = this.schools[0];
-    }
-
     if (!school) {
       throw new Error('קוד הפעלה בית ספרי שגוי. אנא ודא את הקוד שקיבלת מעמאר פאעור.');
     }
@@ -1652,10 +1647,7 @@ class ClientStorageEngine {
         return matchClass || matchTeacher;
       });
 
-      // If matched students found, use them. If none matched (e.g. newly added teacher without classes yet), show all school students
-      if (matchedStudents.length > 0) {
-        students = matchedStudents;
-      }
+      students = matchedStudents;
     }
 
     // Extract real unique class names from students

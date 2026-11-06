@@ -133,17 +133,19 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
     try {
       const act = db.activateSchoolByCode(pinCode);
       if (act && act.school) {
-        staff = db.getAllStaff().find((s) => s.schoolId === act.school.id && s.role === 'vice_principal') ||
-                db.getAllStaff().find((s) => s.schoolId === act.school.id);
+        res.json({
+          schoolActivated: true,
+          schoolName: act.school.name,
+          message: act.message || `בית הספר "${act.school.name}" זוהה והופעל בהצלחה במכשיר זה! אנא הזן כעת את קוד הגישה האישי שלך.`,
+        });
+        return;
       }
     } catch {
       // Not an activation code
     }
-  }
 
-  if (!staff) {
     res.status(401).json({
-      error: 'קוד אישי שגוי או שהגישה הושעתה. אנא פנה למנהל המערכת (עמאר פאעור).',
+      error: 'קוד אישי שגוי או שהגישה הושעתה. אנא ודא את הקוד או פנה למנהל המערכת (עמאר פאעור).',
     });
     return;
   }

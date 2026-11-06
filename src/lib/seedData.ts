@@ -244,6 +244,19 @@ export const SEEDED_STAFF: StaffMember[] = [
     "schoolId": "school-1793938314748",
     "phone": "0525557368",
     "fullName": "תיראן סעיד (סגן מנהל / אחראי שחרורים)"
+  },
+  {
+    "id": "staff-teacher-amar-1605",
+    "pinCode": "1605",
+    "assignedClasses": [
+      "יב4"
+    ],
+    "staffCode": "T-1605",
+    "isActive": true,
+    "role": "teacher",
+    "schoolId": "school-1793938314748",
+    "phone": "",
+    "fullName": "עמאר פאעור (מורה מקצועי יב4)"
   }
 ];
 

@@ -251,19 +251,66 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
   const activePassesCount = passesToday.filter((p) => p.status === 'active').length;
   const exitedPassesCount = passesToday.filter((p) => p.status === 'used').length;
 
+  // Map each class to its homeroom teacher name from actual student records
+  const classHomeroomMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const student of students) {
+      if (student.className && student.teacherName) {
+        map.set(student.className.trim(), student.teacherName.trim());
+      }
+    }
+    return map;
+  }, [students]);
+
+  const classStudentsCountMap = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const student of students) {
+      if (student.className) {
+        const cur = map.get(student.className.trim()) || 0;
+        map.set(student.className.trim(), cur + 1);
+      }
+    }
+    return map;
+  }, [students]);
+
+  // Determine if acting as subject teacher
+  const isSubjectTeacher = React.useMemo(() => {
+    if (user.fullName && (user.fullName.includes('מקצועי') || user.fullName.includes('עמאר פאעור'))) return true;
+    if (assignedClasses.length > 1) return true;
+    if (assignedClasses.length === 1) {
+      const cls = assignedClasses[0];
+      const homeroom = classHomeroomMap.get(cls);
+      if (homeroom && user.fullName && !homeroom.includes(user.fullName) && !user.fullName.includes(homeroom)) {
+        return true;
+      }
+    }
+    return false;
+  }, [user.fullName, assignedClasses, classHomeroomMap]);
+
   return (
     <div className="pb-28 max-w-2xl mx-auto px-4 pt-4 sm:pt-6">
       {/* Teacher Top Card - Deep Blue Header */}
       <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-blue-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-800 mb-4">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs text-teal-300 font-semibold tracking-wide">הכיתה שלי</div>
-            <h1 className="text-xl sm:text-2xl font-bold font-['Rubik'] mt-0.5">{user.fullName}</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-[11px] font-black px-2.5 py-0.5 rounded-full border ${
+                isSubjectTeacher
+                  ? 'bg-blue-500/25 text-blue-300 border-blue-400/40'
+                  : 'bg-teal-500/25 text-teal-300 border-teal-400/40'
+              }`}>
+                {isSubjectTeacher ? 'מורה מקצועי' : 'מחנכת כיתה'}
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold font-['Rubik']">{user.fullName}</h1>
             <p className="text-xs text-slate-300 mt-1">
-              כיתה: <span className="font-semibold text-white">{selectedClass || assignedClasses.join(', ') || 'כל הכיתות'}</span>
+              כיתות משויכות:{' '}
+              <span className="font-bold text-teal-300">
+                {assignedClasses.length > 0 ? assignedClasses.join(', ') : 'כל הכיתות'}
+              </span>
             </p>
           </div>
-          <div className="text-left bg-white/10 rounded-2xl px-3 py-2 border border-white/10">
+          <div className="text-left bg-white/10 rounded-2xl px-3 py-2 border border-white/10 shrink-0">
             <div className="text-[11px] text-slate-300">אישורי היום</div>
             <div className="text-sm font-bold text-teal-300">
               {activePassesCount} ממתינים · {exitedPassesCount} יצאו
@@ -271,44 +318,113 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
           </div>
         </div>
 
-        {/* Class Selector (if teacher has multiple classes) */}
-        {assignedClasses.length > 1 && (
-          <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 overflow-x-auto no-scrollbar">
-            <span className="text-xs text-slate-300 shrink-0 font-medium">בחר כיתה:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedClass('כל הכיתות');
-                setSelectedStudentIds(new Set());
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all shrink-0 ${
-                selectedClass === 'כל הכיתות' || !selectedClass
-                  ? 'bg-teal-500 text-white shadow-sm'
-                  : 'bg-white/10 text-slate-200 hover:bg-white/20'
-              }`}
-            >
-              כל הכיתות
-            </button>
-            {assignedClasses.map((cls) => (
-              <button
-                key={cls}
-                type="button"
-                onClick={() => {
-                  setSelectedClass(cls);
-                  setSelectedStudentIds(new Set());
-                }}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all shrink-0 ${
-                  selectedClass === cls
-                    ? 'bg-teal-500 text-white shadow-sm'
-                    : 'bg-white/10 text-slate-200 hover:bg-white/20'
-                }`}
-              >
-                כיתה {cls}
-              </button>
-            ))}
+        {/* Categories Bar / Tabs for Classes */}
+        {assignedClasses.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-white/10">
+            <div className="text-[11px] font-bold text-slate-300 mb-2 flex items-center justify-between">
+              <span>תפריט כיתות שאני מלמד/ת (בחר כיתה לשחרור תלמידים):</span>
+              {assignedClasses.length > 1 && (
+                <span className="text-[10px] text-teal-300 font-bold">
+                  {assignedClasses.length} כיתות
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-0.5">
+              {assignedClasses.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedClass('כל הכיתות');
+                    setSelectedStudentIds(new Set());
+                  }}
+                  className={`p-2.5 rounded-2xl text-right transition-all flex items-center justify-between cursor-pointer border ${
+                    selectedClass === 'כל הכיתות' || !selectedClass
+                      ? 'bg-teal-500 text-white border-teal-400 shadow-md scale-[1.01]'
+                      : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  <div>
+                    <div className="font-black text-xs sm:text-sm">כל הכיתות שלי</div>
+                    <div className={`text-[10px] mt-0.5 ${selectedClass === 'כל הכיתות' ? 'text-teal-100 font-medium' : 'text-slate-400'}`}>
+                      הצג את כל התלמידים שאני מלמד
+                    </div>
+                  </div>
+                  <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${
+                    selectedClass === 'כל הכיתות' ? 'bg-white text-teal-800' : 'bg-white/15 text-white'
+                  }`}>
+                    {students.length}
+                  </span>
+                </button>
+              )}
+
+              {assignedClasses.map((cls) => {
+                const isSelected = selectedClass === cls || (assignedClasses.length === 1 && (!selectedClass || selectedClass === cls));
+                const homeroom = classHomeroomMap.get(cls.trim()) || '';
+                const count = classStudentsCountMap.get(cls.trim()) || 0;
+
+                return (
+                  <button
+                    key={cls}
+                    type="button"
+                    onClick={() => {
+                      setSelectedClass(cls);
+                      setSelectedStudentIds(new Set());
+                    }}
+                    className={`p-2.5 rounded-2xl text-right transition-all flex items-center justify-between cursor-pointer border ${
+                      isSelected
+                        ? 'bg-blue-600 text-white border-blue-400 shadow-md scale-[1.01]'
+                        : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-black text-xs sm:text-sm flex items-center gap-1.5">
+                        <span>כיתה {cls}</span>
+                        {isSelected && <span className="text-[10px] bg-white text-blue-900 px-1.5 py-0.2 rounded font-black">נבחרה</span>}
+                      </div>
+                      {homeroom && (
+                        <div className={`text-[10px] mt-0.5 truncate max-w-[170px] ${isSelected ? 'text-blue-100 font-bold' : 'text-slate-300'}`}>
+                          מחנכת: {homeroom}
+                        </div>
+                      )}
+                    </div>
+                    <span className={`text-xs font-black px-2 py-0.5 rounded-lg shrink-0 ${
+                      isSelected ? 'bg-white text-blue-900' : 'bg-white/15 text-white'
+                    }`}>
+                      {count} תלמידים
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Active Class Indicator Banner (When specific class selected) */}
+      {selectedClass && selectedClass !== 'כל הכיתות' && (
+        <div className="mb-4 p-3.5 bg-blue-50/95 border-2 border-blue-300 rounded-2xl text-blue-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
+              {selectedClass}
+            </div>
+            <div>
+              <div className="text-sm font-black flex items-center gap-2">
+                <span>כיתה {selectedClass}</span>
+                <span className="text-[11px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-lg">
+                  {filteredStudents.length} תלמידים בכיתה
+                </span>
+              </div>
+              <div className="text-xs text-blue-900 font-medium mt-0.5">
+                מחנכת הכיתה: <strong className="font-black text-blue-950">{classHomeroomMap.get(selectedClass) || 'צוות בית הספר'}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="text-[11px] font-bold text-blue-800 bg-white px-2.5 py-1.5 rounded-xl border border-blue-200 self-start sm:self-center shrink-0">
+            הנך משחרר/ת תלמידים כמורה מקצועי
+          </div>
+        </div>
+      )}
 
       {/* Success Notification Banner */}
       {successBanner && (
@@ -734,6 +850,29 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                   placeholder="לדוגמה: שחרור מוקדם באישור הורים / רופא"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:border-teal-600 focus:outline-none"
                 />
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <span className="text-[10px] text-slate-400 font-bold">סיבות מהירות:</span>
+                  {[
+                    isSubjectTeacher ? 'שחרור מוקדם באישור מורה מקצועי' : 'שחרור מוקדם באישור מחנכת',
+                    'שחרור מוקדם באישור הורים',
+                    'בדיקה רפואית / רופא',
+                    'אירוע משפחתי',
+                    'סיום יום לימודים מוקדם',
+                  ].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setPassReason(r)}
+                      className={`text-[11px] px-2 py-0.5 rounded-lg border font-medium transition-colors cursor-pointer ${
+                        passReason === r
+                          ? 'bg-teal-600 text-white border-teal-600 font-bold'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

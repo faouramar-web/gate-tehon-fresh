@@ -8,6 +8,7 @@ export interface Student {
   className: string;
   teacherName?: string;
   notes?: string;
+  schoolId?: string;
 }
 
 export interface Staff {
@@ -28,6 +29,7 @@ export interface GatePass {
   studentCode: string;
   studentName: string;
   className: string;
+  homeroomTeacher?: string;
   teacherId: string;
   teacherName: string;
   dateStr: string; // YYYY-MM-DD (Israel time)
@@ -361,7 +363,7 @@ class SchoolDatabase {
       return false;
     });
 
-    return matched.length > 0 ? matched : this.data.students;
+    return matched;
   }
 
   public getPassesForToday(): GatePass[] {
@@ -482,6 +484,7 @@ class SchoolDatabase {
           studentCode: student.studentCode,
           studentName: student.fullName,
           className: student.className,
+          homeroomTeacher: student.teacherName || '',
           teacherId: teacher.id,
           teacherName: teacher.fullName,
           dateStr: today,
@@ -489,7 +492,8 @@ class SchoolDatabase {
           status: 'active',
           createdAt: new Date().toISOString(),
           createdBy: teacher.fullName,
-          reason: reason || 'יציאה באישור מחנכת',
+          reason: reason || 'שחרור מוקדם באישור מורה',
+          schoolId: student.schoolId || teacher.schoolId || 'school-1793938314748',
         };
 
         data.passes.push(newPass);
@@ -1058,11 +1062,6 @@ class SchoolDatabase {
           school = schools.find((s) => s.id === staffMember.schoolId);
         }
       }
-    }
-
-    // Fallback 2: If there is only one school in system
-    if (!school && schools.length === 1) {
-      school = schools[0];
     }
 
     if (!school) {

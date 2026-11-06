@@ -250,6 +250,19 @@ var SEEDED_STAFF = [
     "schoolId": "school-1793938314748",
     "phone": "0525557368",
     "fullName": "\u05EA\u05D9\u05E8\u05D0\u05DF \u05E1\u05E2\u05D9\u05D3 (\u05E1\u05D2\u05DF \u05DE\u05E0\u05D4\u05DC / \u05D0\u05D7\u05E8\u05D0\u05D9 \u05E9\u05D7\u05E8\u05D5\u05E8\u05D9\u05DD)"
+  },
+  {
+    "id": "staff-teacher-amar-1605",
+    "pinCode": "1605",
+    "assignedClasses": [
+      "\u05D9\u05D14"
+    ],
+    "staffCode": "T-1605",
+    "isActive": true,
+    "role": "teacher",
+    "schoolId": "school-1793938314748",
+    "phone": "",
+    "fullName": "\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8 (\u05DE\u05D5\u05E8\u05D4 \u05DE\u05E7\u05E6\u05D5\u05E2\u05D9 \u05D9\u05D14)"
   }
 ];
 var SEEDED_STUDENTS = [
@@ -2649,7 +2662,7 @@ var SchoolDatabase = class {
       }
       return false;
     });
-    return matched.length > 0 ? matched : this.data.students;
+    return matched;
   }
   getPassesForToday() {
     const today = getIsraelDateString();
@@ -2731,6 +2744,7 @@ var SchoolDatabase = class {
           studentCode: student.studentCode,
           studentName: student.fullName,
           className: student.className,
+          homeroomTeacher: student.teacherName || "",
           teacherId: teacher.id,
           teacherName: teacher.fullName,
           dateStr: today,
@@ -2738,7 +2752,8 @@ var SchoolDatabase = class {
           status: "active",
           createdAt: (/* @__PURE__ */ new Date()).toISOString(),
           createdBy: teacher.fullName,
-          reason: reason || "\u05D9\u05E6\u05D9\u05D0\u05D4 \u05D1\u05D0\u05D9\u05E9\u05D5\u05E8 \u05DE\u05D7\u05E0\u05DB\u05EA"
+          reason: reason || "\u05E9\u05D7\u05E8\u05D5\u05E8 \u05DE\u05D5\u05E7\u05D3\u05DD \u05D1\u05D0\u05D9\u05E9\u05D5\u05E8 \u05DE\u05D5\u05E8\u05D4",
+          schoolId: student.schoolId || teacher.schoolId || "school-1793938314748"
         };
         data.passes.push(newPass);
         created.push(newPass);
@@ -3226,9 +3241,6 @@ var SchoolDatabase = class {
         }
       }
     }
-    if (!school && schools.length === 1) {
-      school = schools[0];
-    }
     if (!school) {
       throw new Error("\u05E7\u05D5\u05D3 \u05D4\u05E4\u05E2\u05DC\u05D4 \u05D1\u05D9\u05EA \u05E1\u05E4\u05E8\u05D9 \u05E9\u05D2\u05D5\u05D9. \u05D0\u05E0\u05D0 \u05D5\u05D3\u05D0 \u05D0\u05EA \u05D4\u05E7\u05D5\u05D3 \u05D0\u05D5 \u05E4\u05E0\u05D4 \u05DC\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8.");
     }
@@ -3385,14 +3397,17 @@ app.post("/api/auth/login", (req, res) => {
     try {
       const act = db.activateSchoolByCode(pinCode);
       if (act && act.school) {
-        staff = db.getAllStaff().find((s) => s.schoolId === act.school.id && s.role === "vice_principal") || db.getAllStaff().find((s) => s.schoolId === act.school.id);
+        res.json({
+          schoolActivated: true,
+          schoolName: act.school.name,
+          message: act.message || `\u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 "${act.school.name}" \u05D6\u05D5\u05D4\u05D4 \u05D5\u05D4\u05D5\u05E4\u05E2\u05DC \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4 \u05D1\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D6\u05D4! \u05D0\u05E0\u05D0 \u05D4\u05D6\u05DF \u05DB\u05E2\u05EA \u05D0\u05EA \u05E7\u05D5\u05D3 \u05D4\u05D2\u05D9\u05E9\u05D4 \u05D4\u05D0\u05D9\u05E9\u05D9 \u05E9\u05DC\u05DA.`
+        });
+        return;
       }
     } catch {
     }
-  }
-  if (!staff) {
     res.status(401).json({
-      error: "\u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9 \u05E9\u05D2\u05D5\u05D9 \u05D0\u05D5 \u05E9\u05D4\u05D2\u05D9\u05E9\u05D4 \u05D4\u05D5\u05E9\u05E2\u05EA\u05D4. \u05D0\u05E0\u05D0 \u05E4\u05E0\u05D4 \u05DC\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA (\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8)."
+      error: "\u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9 \u05E9\u05D2\u05D5\u05D9 \u05D0\u05D5 \u05E9\u05D4\u05D2\u05D9\u05E9\u05D4 \u05D4\u05D5\u05E9\u05E2\u05EA\u05D4. \u05D0\u05E0\u05D0 \u05D5\u05D3\u05D0 \u05D0\u05EA \u05D4\u05E7\u05D5\u05D3 \u05D0\u05D5 \u05E4\u05E0\u05D4 \u05DC\u05DE\u05E0\u05D4\u05DC \u05D4\u05DE\u05E2\u05E8\u05DB\u05EA (\u05E2\u05DE\u05D0\u05E8 \u05E4\u05D0\u05E2\u05D5\u05E8)."
     });
     return;
   }

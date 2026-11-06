@@ -61,6 +61,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const [newStaffModal, setNewStaffModal] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRoleType, setNewStaffRoleType] = useState<'homeroom' | 'subject_all' | 'subject_classes' | 'guard'>('homeroom');
+  const [newStaffSelectedClasses, setNewStaffSelectedClasses] = useState<string[]>([]);
   const [newStaffClass, setNewStaffClass] = useState('');
   const [newStaffPin, setNewStaffPin] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
@@ -313,12 +314,9 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     if (newStaffRoleType === 'homeroom') {
       role = 'teacher';
       assignedClasses = [newStaffClass.trim() || allClasses[0] || ''];
-    } else if (newStaffRoleType === 'subject_all') {
+    } else if (newStaffRoleType === 'subject_all' || newStaffRoleType === 'subject_classes') {
       role = 'teacher';
-      assignedClasses = ['*'];
-    } else if (newStaffRoleType === 'subject_classes') {
-      role = 'teacher';
-      assignedClasses = newStaffClass.split(/[,;\s]+/).map((c) => c.trim()).filter(Boolean);
+      assignedClasses = newStaffSelectedClasses.length > 0 ? newStaffSelectedClasses : ['*'];
     } else if (newStaffRoleType === 'guard') {
       role = 'guard';
       assignedClasses = [];
@@ -340,6 +338,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
     try {
       const updated = [...schoolStaff, newMember];
       setSchoolStaff(updated);
+      clientStore.saveStaff(updated);
       await api.saveStaff(updated);
       setStaffFeedback({
         type: 'success',
@@ -351,6 +350,7 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
       setNewStaffName('');
       setNewStaffPhone('');
       setNewStaffPin('');
+      setNewStaffSelectedClasses([]);
       setNewStaffRoleType('homeroom');
     } catch (err: any) {
       setStaffFeedback({
@@ -2069,6 +2069,94 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                   </button>
                 </div>
               </div>
+
+              {/* Subject Teacher Class Selection Multi-Select */}
+              {(newStaffRoleType === 'subject_all' || newStaffRoleType === 'subject_classes') && (
+                <div className="bg-blue-50/80 border-2 border-blue-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <label className="block text-xs font-extrabold text-blue-950">
+                        איזה כיתות המורה מלמד/ת? (בחר אחת או יותר):
+                      </label>
+                      <p className="text-[11px] text-blue-800 font-medium">
+                        המורה ישחרר אך ורק תלמידים מהכיתות שיסומנו.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setNewStaffSelectedClasses([...classesOptions])}
+                        className="text-[11px] font-bold text-blue-700 bg-white hover:bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        סמן הכל ({classesOptions.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewStaffSelectedClasses([])}
+                        className="text-[11px] font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-300 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        נקה
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Grid of classes */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto p-1">
+                    {classesOptions.map((cls) => {
+                      const isSelected = newStaffSelectedClasses.includes(cls);
+                      const homeroom = classHomeroomMap.get(cls.trim()) || '';
+                      return (
+                        <button
+                          key={cls}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setNewStaffSelectedClasses(newStaffSelectedClasses.filter((c) => c !== cls));
+                            } else {
+                              setNewStaffSelectedClasses([...newStaffSelectedClasses, cls]);
+                            }
+                          }}
+                          className={`p-2 rounded-xl border-2 text-right transition-all flex flex-col justify-between cursor-pointer ${
+                            isSelected
+                              ? 'bg-blue-700 text-white border-blue-800 shadow-sm'
+                              : 'bg-white text-slate-800 border-slate-200 hover:border-blue-300 hover:bg-blue-50/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-xs sm:text-sm">כיתה {cls}</span>
+                            <span
+                              className={`w-4 h-4 rounded-md flex items-center justify-center border text-[10px] ${
+                                isSelected ? 'bg-white text-blue-800 border-white font-black' : 'border-slate-300 bg-slate-50'
+                              }`}
+                            >
+                              {isSelected ? '✓' : ''}
+                            </span>
+                          </div>
+                          {homeroom && (
+                            <span
+                              className={`text-[10px] font-medium mt-0.5 truncate ${
+                                isSelected ? 'text-blue-100' : 'text-slate-500'
+                              }`}
+                              title={`מחנכת: ${homeroom}`}
+                            >
+                              מחנכת: {homeroom}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-[11px] font-bold text-blue-900 bg-white p-2 rounded-xl border border-blue-200 flex items-center justify-between">
+                    <span>כיתות שנבחרו:</span>
+                    <span className="text-blue-700 font-extrabold">
+                      {newStaffSelectedClasses.length > 0
+                        ? newStaffSelectedClasses.join(', ')
+                        : 'לא נבחרו כיתות (יוגדר כמורה לכלל הכיתות *)'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {newStaffRoleType === 'homeroom' && (
                 <div>

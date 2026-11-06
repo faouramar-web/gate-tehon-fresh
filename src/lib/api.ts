@@ -68,19 +68,37 @@ export const api = {
     }
 
     try {
-      const res = await request<{ token: string; user: User }>('/api/auth/login', {
+      const res = await request<any>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ pinCode, targetSchoolId }),
       });
+      if (res && res.schoolActivated) {
+        throw new Error(res.message || 'בית הספר הופעל בהצלחה במכשיר זה!');
+      }
       setStoredToken(res.token);
       clientStore.setSessionUser(res.user);
-      return res;
+      return res as { token: string; user: User };
     } catch (err: any) {
-      // If server route is unreachable (404/static host), fallback seamlessly to clientStore
+      if (err.message && err.message.includes('הופעל בהצלחה')) {
+        throw err;
+      }
+      // If server does not have the code yet (e.g. newly added staff on client), fallback seamlessly to clientStore
       try {
         const res = clientStore.login(pinCode, targetSchoolId);
         setStoredToken(res.token);
         clientStore.setSessionUser(res.user);
+        // Push staff to server in background so server is in sync
+        try {
+          const allStaff = clientStore.getStaff(res.user.schoolId).staff;
+          if (allStaff && allStaff.length > 0) {
+            request('/api/admin/staff', {
+              method: 'POST',
+              body: JSON.stringify({ staffList: allStaff }),
+            }).catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
         return res;
       } catch (clientErr: any) {
         const fetched = await clientStore.fetchBundleFromCloud();
@@ -90,7 +108,7 @@ export const api = {
           clientStore.setSessionUser(res.user);
           return res;
         }
-        throw new Error(clientErr.message || err.message || 'קוד גישה שגוי');
+        throw new Error(clientErr.message || err.message || 'קוד אישי שגוי');
       }
     }
   },
