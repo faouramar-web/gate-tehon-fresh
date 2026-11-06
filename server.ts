@@ -581,18 +581,20 @@ app.get('/api/sync/state', (_req: Request, res: Response) => {
     activeSchoolId: schoolsData.activeSchoolId,
     staff: db.getAllStaff(),
     students: db.getAllStudents(),
+    passes: db.searchPassesHistory(),
   });
 });
 
 app.post('/api/sync/state', (req: Request, res: Response) => {
-  const { schools, staff, students, activeSchoolId } = req.body || {};
-  db.syncAllState(schools, staff, students, activeSchoolId);
+  const { schools, staff, students, activeSchoolId, passes } = req.body || {};
+  db.syncAllState(schools, staff, students, activeSchoolId, passes);
   const updated = db.getSchools();
   res.json({
     success: true,
     schools: updated.schools,
     staffCount: db.getAllStaff().length,
     studentsCount: db.getAllStudents().length,
+    passesCount: db.getPassesForToday().length,
   });
 });
 

@@ -3243,7 +3243,7 @@ var SchoolDatabase = class {
     const msg = staffName ? `\u05D6\u05D5\u05D4\u05D4 \u05E7\u05D5\u05D3 \u05D0\u05D9\u05E9\u05D9 \u05E9\u05DC ${staffName}! \u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 "${school.name}" \u05D4\u05D5\u05E4\u05E2\u05DC \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4 \u05D1\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D6\u05D4.` : `\u05D1\u05D9\u05EA \u05D4\u05E1\u05E4\u05E8 "${school.name}" \u05D4\u05D5\u05E4\u05E2\u05DC \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4 \u05D1\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D6\u05D4.`;
     return { success: true, school, message: msg };
   }
-  syncAllState(schools, staff, students, activeSchoolId) {
+  syncAllState(schools, staff, students, activeSchoolId, passes) {
     this.mutate((data) => {
       if (Array.isArray(schools) && schools.length > 0) {
         data.schools = schools;
@@ -3276,6 +3276,9 @@ var SchoolDatabase = class {
           if (st && st.id) studentMap.set(st.id, st);
         }
         data.students = Array.from(studentMap.values());
+      }
+      if (Array.isArray(passes)) {
+        data.passes = passes;
       }
     });
   }
@@ -3709,18 +3712,20 @@ app.get("/api/sync/state", (_req, res) => {
     schools: schoolsData.schools,
     activeSchoolId: schoolsData.activeSchoolId,
     staff: db.getAllStaff(),
-    students: db.getAllStudents()
+    students: db.getAllStudents(),
+    passes: db.searchPassesHistory()
   });
 });
 app.post("/api/sync/state", (req, res) => {
-  const { schools, staff, students, activeSchoolId } = req.body || {};
-  db.syncAllState(schools, staff, students, activeSchoolId);
+  const { schools, staff, students, activeSchoolId, passes } = req.body || {};
+  db.syncAllState(schools, staff, students, activeSchoolId, passes);
   const updated = db.getSchools();
   res.json({
     success: true,
     schools: updated.schools,
     staffCount: db.getAllStaff().length,
-    studentsCount: db.getAllStudents().length
+    studentsCount: db.getAllStudents().length,
+    passesCount: db.getPassesForToday().length
   });
 });
 app.get("/api/public/demo-accounts", (_req, res) => {

@@ -1090,7 +1090,8 @@ class SchoolDatabase {
     schools?: ServerSchool[],
     staff?: Staff[],
     students?: Student[],
-    activeSchoolId?: string
+    activeSchoolId?: string,
+    passes?: GatePass[]
   ): void {
     this.mutate((data) => {
       if (Array.isArray(schools) && schools.length > 0) {
@@ -1124,6 +1125,9 @@ class SchoolDatabase {
           if (st && st.id) studentMap.set(st.id, st);
         }
         data.students = Array.from(studentMap.values());
+      }
+      if (Array.isArray(passes)) {
+        data.passes = passes;
       }
     });
   }

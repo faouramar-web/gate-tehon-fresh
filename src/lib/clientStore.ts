@@ -433,6 +433,11 @@ class ClientStorageEngine {
                     changed = true;
                   }
                 }
+                if (Array.isArray(data.passes)) {
+                  this.passes = data.passes.filter((p: any) => p && !isDemoPass(p));
+                  this.save(STORAGE_KEY_PASSES, this.passes);
+                  changed = true;
+                }
                 if (changed) {
                   this.notify();
                 }
@@ -540,6 +545,7 @@ class ClientStorageEngine {
           staff: this.staff,
           students: this.students,
           activeSchoolId: this.activeSchoolId,
+          passes: this.passes,
         }),
       });
     } catch {
@@ -564,7 +570,7 @@ class ClientStorageEngine {
         }
       }
 
-      if (data.activeSchoolId && (!this.activeSchoolId || !this.schools.some((s) => s.id === this.activeSchoolId))) {
+      if (data.activeSchoolId && (!this.activeSchoolId || !this.schools.some((s) => s.id === data.activeSchoolId))) {
         this.activeSchoolId = data.activeSchoolId;
         this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
         changed = true;
@@ -597,6 +603,12 @@ class ClientStorageEngine {
         }
       }
 
+      if (Array.isArray(data.passes)) {
+        this.passes = data.passes.filter((p: any) => p && !isDemoPass(p));
+        this.save(STORAGE_KEY_PASSES, this.passes);
+        changed = true;
+      }
+
       if (changed) {
         this.notify();
       }
@@ -619,6 +631,7 @@ class ClientStorageEngine {
       if (this.staff.length > 0) payload.staff = this.staff;
       if (this.students.length > 0) payload.students = this.students;
       if (this.activeSchoolId) payload.activeSchoolId = this.activeSchoolId;
+      payload.passes = this.passes || [];
 
       await setDoc(bundleRef, payload, { merge: true });
       return true;
@@ -673,6 +686,12 @@ class ClientStorageEngine {
           this.save(STORAGE_KEY_STUDENTS, this.students);
           changed = true;
         }
+      }
+
+      if (Array.isArray(data.passes)) {
+        this.passes = data.passes.filter((p: any) => p && !isDemoPass(p));
+        this.save(STORAGE_KEY_PASSES, this.passes);
+        changed = true;
       }
 
       if (changed) {
@@ -1370,7 +1389,11 @@ class ClientStorageEngine {
     this.passes = this.passes.filter((p) => p.schoolId !== schoolId);
     const deletedPasses = passesBefore - this.passes.length;
 
+    this.save(STORAGE_KEY_STUDENTS, this.students);
+    this.save(STORAGE_KEY_PASSES, this.passes);
     this.broadcastChange();
+    this.syncBundleToCloud();
+    this.pushStateToServer();
     return {
       success: true,
       message: `מאגר התלמידים (${deletedStudents}) והאישורים (${deletedPasses}) של "${schoolName}" אופס ללוח נקי! שאר בתי הספר לא נפגעו כלל.`,
@@ -2058,9 +2081,7 @@ class ClientStorageEngine {
     }
 
     // Persist to local storage
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('gate_local_passes', JSON.stringify(this.passes));
-    }
+    this.save(STORAGE_KEY_PASSES, this.passes);
 
     // Attempt deletion from Firestore
     try {
@@ -2072,6 +2093,8 @@ class ClientStorageEngine {
     }
 
     this.broadcastChange();
+    this.syncBundleToCloud();
+    this.pushStateToServer();
     return { success: true, deletedCount: toDelete.length };
   }
 

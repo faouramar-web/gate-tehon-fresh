@@ -692,17 +692,18 @@ export const api = {
     toDate?: string;
     schoolId?: string;
   }): Promise<{ success: boolean; deletedCount: number }> {
-    if (isStaticHost) {
-      return clientStore.deletePasses(options);
+    const localRes = clientStore.deletePasses(options);
+    if (!isStaticHost) {
+      try {
+        await request('/api/admin/passes/delete', {
+          method: 'POST',
+          body: JSON.stringify(options),
+        });
+      } catch {
+        // ignore
+      }
     }
-    try {
-      return await request('/api/admin/passes/delete', {
-        method: 'POST',
-        body: JSON.stringify(options),
-      });
-    } catch {
-      return clientStore.deletePasses(options);
-    }
+    return localRes;
   },
 
   async searchHistory(params: {
@@ -883,16 +884,17 @@ export const api = {
   },
 
   async clearSchoolData(schoolId: string): Promise<{ success: boolean; message: string }> {
-    if (isStaticHost) {
-      return clientStore.clearSchoolData(schoolId);
+    const localRes = clientStore.clearSchoolData(schoolId);
+    if (!isStaticHost) {
+      try {
+        await request<{ success: boolean; message: string }>(`/api/admin/schools/${schoolId}/clear-data`, {
+          method: 'POST',
+        });
+      } catch {
+        // ignore
+      }
     }
-    try {
-      return await request<{ success: boolean; message: string }>(`/api/admin/schools/${schoolId}/clear-data`, {
-        method: 'POST',
-      });
-    } catch {
-      return clientStore.clearSchoolData(schoolId);
-    }
+    return localRes;
   },
 
   async setSchoolStatus(schoolId: string, status: SchoolStatus): Promise<{ success: boolean; school: School; message: string }> {
