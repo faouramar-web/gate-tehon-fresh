@@ -785,7 +785,7 @@ class SchoolDatabase {
   }
 
   public createSchool(schoolData: any): { success: boolean; school: ServerSchool; coordinatorPin: string } {
-    const schoolId = `school-${Date.now()}`;
+    const schoolId = schoolData.id || `school-${Date.now()}`;
     const code = schoolData.code || `SCH-${(this.data.schools?.length || 0) + 1}`;
     const activationCode = schoolData.activationCode || Math.floor(1000 + Math.random() * 9000).toString();
     const vpPin = schoolData.contactPin || `${3000 + (this.data.schools?.length || 0)}`;
@@ -796,7 +796,7 @@ class SchoolDatabase {
       city: schoolData.city || '',
       code,
       activationCode,
-      status: schoolData.status || 'pending',
+      status: schoolData.status || 'active',
       contactPerson: schoolData.contactPerson || '',
       phone: schoolData.phone || '',
       isSuspended: false,

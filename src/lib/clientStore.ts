@@ -85,82 +85,31 @@ const FS_COLLECTION_STAFF = 'staff_clean_v6';
 const FS_COLLECTION_STUDENTS = 'students_clean_v6';
 const FS_COLLECTION_PASSES = 'gatepasses_clean_v6';
 
-// Demo data detection and sanitization helpers
+// Demo data detection: ONLY matches obsolete initial test IDs, NEVER user-entered schools or names
 export function isDemoSchool(s: any): boolean {
   if (!s || typeof s !== 'object') return false;
   const id = String(s.id || '').toLowerCase();
   const name = String(s.name || '').trim();
-  const code = String(s.activationCode || s.code || '').trim();
-  if (
-    id === 'school-main' ||
-    id === 'school-ibnsina' ||
-    id === 'school-yanuh' ||
-    name === 'בית ספר חדש (ריק)' ||
-    name.includes('בית ספר מקיף') ||
-    name.includes('תיכון אבן סינא') ||
-    name.includes('יאנוח') ||
-    name.includes('יאנו') ||
-    name.includes('ינוח') ||
-    name.includes('עמל') ||
-    code === '8181' ||
-    code === '5940'
-  ) {
-    return true;
-  }
-  return false;
+  // NEVER delete user created schools!
+  return id === 'school-main' || id === 'school-ibnsina' || name === 'בית ספר לדוגמה (מערכת ישנה)';
 }
 
 export function isDemoStudent(st: any): boolean {
   if (!st || typeof st !== 'object') return false;
   const id = String(st.id || '').toLowerCase();
-  const code = String(st.studentCode || '').toUpperCase().trim();
-  const name = String(st.fullName || '').trim();
-  const schoolId = String(st.schoolId || '');
-
-  if (id.startsWith('s-0') || /^s-0[0-9]{2}$/i.test(id)) return true;
-  if (/^S0(0[1-9]|1[0-9]|2[0-5])$/i.test(code)) return true;
-
-  const demoNames = [
-    'אדם נאסר', 'מרים סאלח', 'יוסף חמדאן', 'נור עבדאללה', 'ליאן סעיד',
-    'אמיר חורי', 'תאלה חנא', 'ראמי עיסא', 'דינה סלים', 'סאמר עבוד',
-    'רים זידאן', 'איאד חלבי', 'סלמא עזאם', 'נדים שאהין', 'מאיה יעקוב',
-    'האני ח׳טיב', 'האני חטיב', 'ליאן חסן', 'אמל דאהר', 'כרים עלי', 'נור פארס',
-    'לין סעד', 'מאלכ איברהים', 'ג׳נא עודה', 'גנא עודה', 'אדם מנסור', 'סוהיל סלאמה',
-    'שהד בריק', 'מילאן מאלק ביבאר', 'מילאן ביבאר', 'מלאק פרג׳', 'מלאק פרג', 'תולין ביבאר', 'רימאס בריק'
-  ];
-  if (demoNames.some((dn) => name.includes(dn))) return true;
-  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh' || schoolId.includes('yanuh')) return true;
-  return false;
+  return id === 's-demo-mock-01';
 }
 
 export function isDemoStaff(st: any): boolean {
   if (!st || typeof st !== 'object') return false;
-  const pin = String(st.pinCode || '').trim();
-  if (pin === '160525' || pin === '5940' || pin === '2001') return false;
-
   const id = String(st.id || '').toLowerCase();
-  if (id.startsWith('staff-t0') || id === 'staff-g01' || id === 'staff-g02' || id === 'staff-vp01') return true;
-
-  const name = String(st.fullName || '').trim();
-  const demoTeachers = [
-    'לינא ח׳ליל', 'לינא חליל', 'סוהא מנצור', 'דלאל חביב', 'נאדיה סרחאן', 'רימא ג׳אבר', 'רימא גאבר', 'מוחמד עלי',
-    'אברהם כהן', 'יוסי לוי', 'סגן מנהל (אחראי שחרורים)', 'ג׳יבאר נג׳מאגה', 'גיבאר נגמאגה', 'קסיס האני'
-  ];
-  if (demoTeachers.some((dt) => name.includes(dt))) return true;
-
-  const schoolId = String(st.schoolId || '');
-  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh' || schoolId.includes('yanuh')) return true;
-  return false;
+  return id === 'staff-demo-mock-01';
 }
 
 export function isDemoPass(p: any): boolean {
   if (!p || typeof p !== 'object') return false;
   const id = String(p.id || '').toLowerCase();
-  if (id.startsWith('pass-hist-') || id === 'pass-hist-1' || id === 'pass-hist-2') return true;
-  if (p.studentName && isDemoStudent({ fullName: p.studentName })) return true;
-  const schoolId = String(p.schoolId || '');
-  if (schoolId === 'school-main' || schoolId === 'school-ibnsina' || schoolId === 'school-yanuh' || schoolId.includes('yanuh')) return true;
-  return false;
+  return id === 'pass-hist-demo-mock-1';
 }
 
 const INITIAL_STAFF: StaffMember[] = [
@@ -726,6 +675,41 @@ class ClientStorageEngine {
     }
     this.broadcastChange();
     return { success: true, activeSchoolId: this.activeSchoolId, activeSchoolName: school.name };
+  }
+
+  public syncSchoolsFromServer(serverSchools: School[], activeSchoolId?: string) {
+    if (!Array.isArray(serverSchools) || serverSchools.length === 0) return;
+    for (const ss of serverSchools) {
+      if (!ss || !ss.id) continue;
+      const existing = this.schools.find((s) => s.id === ss.id);
+      if (existing) {
+        Object.assign(existing, ss);
+      } else {
+        this.schools.push(ss);
+      }
+    }
+    if (activeSchoolId && this.schools.some((s) => s.id === activeSchoolId)) {
+      this.activeSchoolId = activeSchoolId;
+    } else if (!this.activeSchoolId && this.schools.length > 0) {
+      this.activeSchoolId = this.schools[0].id;
+    }
+    this.save(STORAGE_KEY_SCHOOLS, this.schools);
+    this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+    this.broadcastChange();
+  }
+
+  public syncSchoolFromServer(school: School) {
+    if (!school || !school.id) return;
+    const existing = this.schools.find((s) => s.id === school.id);
+    if (existing) {
+      Object.assign(existing, school);
+    } else {
+      this.schools.push(school);
+    }
+    this.activeSchoolId = school.id;
+    this.save(STORAGE_KEY_SCHOOLS, this.schools);
+    this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
+    this.broadcastChange();
   }
 
   public createSchool(data: {

@@ -693,7 +693,11 @@ export const api = {
       return clientStore.getSchools();
     }
     try {
-      return await request<{ schools: School[]; activeSchoolId: string }>('/api/admin/schools');
+      const res = await request<{ schools: School[]; activeSchoolId: string }>('/api/admin/schools');
+      if (res && Array.isArray(res.schools)) {
+        clientStore.syncSchoolsFromServer(res.schools, res.activeSchoolId);
+      }
+      return res;
     } catch {
       return clientStore.getSchools();
     }
@@ -726,17 +730,22 @@ export const api = {
     contactPin?: string;
     phone?: string;
   }): Promise<{ success: boolean; school: School; coordinatorPin?: string }> {
-    if (isStaticHost) {
-      return clientStore.createSchool(data);
+    const localRes = clientStore.createSchool(data);
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{ success: boolean; school: School; coordinatorPin?: string }>('/api/admin/schools', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+        if (serverRes && serverRes.school) {
+          clientStore.syncSchoolFromServer(serverRes.school);
+          return serverRes;
+        }
+      } catch {
+        return localRes;
+      }
     }
-    try {
-      return await request<{ success: boolean; school: School; coordinatorPin?: string }>('/api/admin/schools', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      return clientStore.createSchool(data);
-    }
+    return localRes;
   },
 
   async updateSchool(schoolId: string, data: Partial<School>): Promise<{ success: boolean; school: School }> {
@@ -835,16 +844,20 @@ export const api = {
   },
 
   async activateSchoolByCode(code: string): Promise<{ success: boolean; school: School; message: string }> {
-    if (isStaticHost) {
-      return clientStore.activateSchoolByCode(code);
+    if (!isStaticHost) {
+      try {
+        const serverRes = await request<{ success: boolean; school: School; message: string }>('/api/public/activate-school', {
+          method: 'POST',
+          body: JSON.stringify({ code }),
+        });
+        if (serverRes && serverRes.school) {
+          clientStore.syncSchoolFromServer(serverRes.school);
+          return serverRes;
+        }
+      } catch {
+        // Fallback to clientStore
+      }
     }
-    try {
-      return await request<{ success: boolean; school: School; message: string }>('/api/public/activate-school', {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      });
-    } catch {
-      return clientStore.activateSchoolByCode(code);
-    }
+    return clientStore.activateSchoolByCode(code);
   },
 };

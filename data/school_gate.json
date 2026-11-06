@@ -1,10 +1,23 @@
 {
   "settings": {
     "schoolName": "מערכת אישור לשער",
-    "lastUpdated": "2026-11-05T12:00:00.000Z"
+    "lastUpdated": "2026-11-06T02:53:47.325Z"
   },
-  "schools": [],
-  "activeSchoolId": "",
+  "schools": [
+    {
+      "id": "school-1793933627266",
+      "name": "רב תחומי עמל יאנוח-ג׳ת",
+      "city": "",
+      "code": "SCH-1",
+      "activationCode": "8181",
+      "status": "active",
+      "contactPerson": "",
+      "phone": "",
+      "isSuspended": false,
+      "createdAt": "2026-11-06T02:53:47.266Z"
+    }
+  ],
+  "activeSchoolId": "school-1793933627266",
   "staff": [
     {
       "id": "staff-admin-amar",
@@ -17,6 +30,26 @@
       ],
       "isActive": true,
       "schoolId": "*"
+    },
+    {
+      "id": "staff-vp-school-1793933627266",
+      "staffCode": "VP01",
+      "fullName": "סגן מנהל (רב תחומי עמל יאנוח-ג׳ת)",
+      "role": "vice_principal",
+      "pinCode": "3001",
+      "assignedClasses": [
+        "*"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-guard-school-1793933627266",
+      "staffCode": "G01",
+      "fullName": "שומר שער (רב תחומי עמל יאנוח-ג׳ת)",
+      "role": "guard",
+      "pinCode": "2001",
+      "assignedClasses": [],
+      "isActive": true
     }
   ],
   "students": [],
