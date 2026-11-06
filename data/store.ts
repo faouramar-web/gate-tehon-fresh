@@ -161,15 +161,22 @@ export function generateUniqueStaffPin(
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.resolve(DATA_DIR, 'school_gate.json');
 
+import {
+  SEEDED_SCHOOLS,
+  SEEDED_ACTIVE_SCHOOL_ID,
+  SEEDED_STAFF,
+  SEEDED_STUDENTS,
+} from '../src/lib/seedData.ts';
+
 // Exact demo data extracted from the user's provided PDF files
 export const INITIAL_DEMO_DATA: DatabaseSchema = {
   settings: {
-    schoolName: "מערכת אישור לשער",
+    schoolName: "רב תחומי עמל יאנוח ג'ת",
     lastUpdated: new Date().toISOString(),
   },
-  schools: [],
-  activeSchoolId: "",
-  staff: [
+  schools: (SEEDED_SCHOOLS as any[]) || [],
+  activeSchoolId: SEEDED_ACTIVE_SCHOOL_ID || '',
+  staff: (SEEDED_STAFF as any[]) || [
     {
       id: "staff-admin-amar",
       staffCode: "ADMIN",
@@ -181,7 +188,7 @@ export const INITIAL_DEMO_DATA: DatabaseSchema = {
       schoolId: "*",
     },
   ],
-  students: [],
+  students: (SEEDED_STUDENTS as any[]) || [],
   passes: [],
   auditLogs: [],
 };
@@ -211,6 +218,26 @@ class SchoolDatabase {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed.staff && parsed.students) {
+          let updated = false;
+          if ((!parsed.students || parsed.students.length === 0) && SEEDED_STUDENTS.length > 0) {
+            parsed.students = JSON.parse(JSON.stringify(SEEDED_STUDENTS));
+            updated = true;
+          }
+          if ((!parsed.schools || parsed.schools.length === 0) && SEEDED_SCHOOLS.length > 0) {
+            parsed.schools = JSON.parse(JSON.stringify(SEEDED_SCHOOLS));
+            updated = true;
+          }
+          if ((!parsed.staff || parsed.staff.length <= 1) && SEEDED_STAFF.length > 1) {
+            parsed.staff = JSON.parse(JSON.stringify(SEEDED_STAFF));
+            updated = true;
+          }
+          if (!parsed.activeSchoolId && SEEDED_ACTIVE_SCHOOL_ID) {
+            parsed.activeSchoolId = SEEDED_ACTIVE_SCHOOL_ID;
+            updated = true;
+          }
+          if (updated) {
+            this.saveData(parsed);
+          }
           return parsed;
         }
       }
@@ -409,7 +436,17 @@ class SchoolDatabase {
 
     this.mutate((data) => {
       for (const studentId of studentIds) {
-        const student = data.students.find((s) => s.id === studentId);
+        let student = data.students.find((s) => s.id === studentId);
+        if (!student) {
+          student = data.students.find((s) => s.studentCode === studentId || s.fullName === studentId);
+        }
+        if (!student) {
+          const seeded = SEEDED_STUDENTS.find((s) => s.id === studentId || s.studentCode === studentId || s.fullName === studentId);
+          if (seeded) {
+            student = { ...seeded };
+            data.students.push(student);
+          }
+        }
         if (!student) {
           errors.push(`תלמיד לא נמצא: ${studentId}`);
           continue;

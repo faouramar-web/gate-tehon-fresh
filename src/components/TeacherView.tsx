@@ -70,13 +70,19 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
 
       let loadedStudents = classRes.students || [];
 
-      // If no students returned (e.g. mobile smartphone first opening), try pulling server state
+      // If no students returned (e.g. mobile smartphone first opening or GitHub Pages), try fetching bundle or pulling server state
       if (loadedStudents.length === 0) {
-        const pullRes = await clientStore.pullStateFromServer();
-        if (pullRes) {
-          const fresh = clientStore.getTeacherClasses(user);
-          if (fresh.students && fresh.students.length > 0) {
-            loadedStudents = fresh.students;
+        await clientStore.fetchBundleFromCloud();
+        let fresh = clientStore.getTeacherClasses(user);
+        if (fresh.students && fresh.students.length > 0) {
+          loadedStudents = fresh.students;
+        } else {
+          const pullRes = await clientStore.pullStateFromServer();
+          if (pullRes) {
+            fresh = clientStore.getTeacherClasses(user);
+            if (fresh.students && fresh.students.length > 0) {
+              loadedStudents = fresh.students;
+            }
           }
         }
       }

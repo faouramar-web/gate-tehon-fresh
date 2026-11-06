@@ -159,22 +159,18 @@ export function generateUniquePin(
 }
 
 
-export const INITIAL_SCHOOLS: School[] = [];
+import {
+  SEEDED_SCHOOLS,
+  SEEDED_ACTIVE_SCHOOL_ID,
+  SEEDED_STAFF,
+  SEEDED_STUDENTS,
+} from './seedData.ts';
 
-export const INITIAL_STAFF: StaffMember[] = [
-  {
-    id: 'staff-admin-amar',
-    staffCode: 'ADMIN',
-    fullName: 'עמאר פאעור (מנהל המערכת)',
-    role: 'admin',
-    pinCode: '160525',
-    assignedClasses: ['*'],
-    isActive: true,
-    schoolId: '*',
-  },
-];
+export const INITIAL_SCHOOLS: School[] = SEEDED_SCHOOLS;
 
-export const INITIAL_STUDENTS: Student[] = [];
+export const INITIAL_STAFF: StaffMember[] = SEEDED_STAFF;
+
+export const INITIAL_STUDENTS: Student[] = SEEDED_STUDENTS;
 
 const INITIAL_PASSES: GatePass[] = [];
 
@@ -455,7 +451,9 @@ class ClientStorageEngine {
       setTimeout(() => {
         if (this.students.length > 0) {
           this.pushStateToServer();
-          this.syncBundleToCloud();
+          if (!isFirestoreQuotaExhausted) {
+            this.syncBundleToCloud();
+          }
         } else {
           this.fetchBundleFromCloud().then((found) => {
             if (!found) {
@@ -490,31 +488,37 @@ class ClientStorageEngine {
   }
 
   private reloadFromStorage() {
-    const rawSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, []);
-    this.schools = Array.isArray(rawSchools)
-      ? rawSchools.filter((s) => s && !isDemoSchool(s))
-      : [];
-    if (this.schools.length === 0) {
-      this.schools = [];
+    const rawSchools = this.load<School[]>(STORAGE_KEY_SCHOOLS, INITIAL_SCHOOLS);
+    this.schools = Array.isArray(rawSchools) && rawSchools.length > 0
+      ? rawSchools.filter((s: School) => s && !isDemoSchool(s))
+      : JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
+    if (this.schools.length === 0 && INITIAL_SCHOOLS.length > 0) {
+      this.schools = JSON.parse(JSON.stringify(INITIAL_SCHOOLS));
     }
-    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, this.schools[0]?.id || '');
+    this.activeSchoolId = this.load<string>(STORAGE_KEY_ACTIVE_SCHOOL, SEEDED_ACTIVE_SCHOOL_ID || this.schools[0]?.id || '');
     if (!this.schools.some((s) => s.id === this.activeSchoolId)) {
-      this.activeSchoolId = this.schools[0]?.id || '';
+      this.activeSchoolId = this.schools[0]?.id || SEEDED_ACTIVE_SCHOOL_ID || '';
     }
 
     const rawStaff = this.load<StaffMember[]>(STORAGE_KEY_STAFF, INITIAL_STAFF);
-    this.staff = (Array.isArray(rawStaff) ? rawStaff : JSON.parse(JSON.stringify(INITIAL_STAFF))).filter(
+    this.staff = (Array.isArray(rawStaff) && rawStaff.length > 0 ? rawStaff : JSON.parse(JSON.stringify(INITIAL_STAFF))).filter(
       (s: StaffMember) => s && !isDemoStaff(s)
     );
+    if (this.staff.length <= 1 && INITIAL_STAFF.length > 1) {
+      this.staff = JSON.parse(JSON.stringify(INITIAL_STAFF));
+    }
 
-    const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, []);
-    this.students = (Array.isArray(rawStudents) ? rawStudents : []).filter(
-      (st) => st && !isDemoStudent(st)
+    const rawStudents = this.load<Student[]>(STORAGE_KEY_STUDENTS, INITIAL_STUDENTS);
+    this.students = (Array.isArray(rawStudents) && rawStudents.length > 0 ? rawStudents : JSON.parse(JSON.stringify(INITIAL_STUDENTS))).filter(
+      (st: Student) => st && !isDemoStudent(st)
     );
+    if (this.students.length === 0 && INITIAL_STUDENTS.length > 0) {
+      this.students = JSON.parse(JSON.stringify(INITIAL_STUDENTS));
+    }
 
     const rawPasses = this.load<GatePass[]>(STORAGE_KEY_PASSES, []);
     this.passes = (Array.isArray(rawPasses) ? rawPasses : []).filter(
-      (p) => p && !isDemoPass(p)
+      (p: GatePass) => p && !isDemoPass(p)
     );
 
     this.save(STORAGE_KEY_STUDENTS, this.students);
@@ -603,7 +607,7 @@ class ClientStorageEngine {
   }
 
   public async syncBundleToCloud(): Promise<boolean> {
-    if (!firestoreDb) return false;
+    if (isFirestoreQuotaExhausted || !firestoreDb) return false;
     if (this.schools.length === 0 && this.students.length === 0 && this.staff.length <= 1) return false;
 
     try {
@@ -619,7 +623,7 @@ class ClientStorageEngine {
       await setDoc(bundleRef, payload, { merge: true });
       return true;
     } catch (e) {
-      console.warn('Could not sync bundle to cloud:', e);
+      handleFirestoreQuotaError(e);
       return false;
     }
   }
@@ -848,7 +852,7 @@ class ClientStorageEngine {
   }
 
   public syncStaffToFirestore(member: StaffMember): void {
-    if (!firestoreDb || !member || !member.id) return;
+    if (isFirestoreQuotaExhausted || !firestoreDb || !member || !member.id) return;
     try {
       setDoc(doc(firestoreDb, FS_COLLECTION_STAFF, member.id), member, { merge: true }).catch(handleFirestoreQuotaError);
     } catch (e) {
@@ -857,7 +861,7 @@ class ClientStorageEngine {
   }
 
   public deleteStaffFromFirestore(staffId: string): void {
-    if (!firestoreDb || !staffId) return;
+    if (isFirestoreQuotaExhausted || !firestoreDb || !staffId) return;
     try {
       deleteDoc(doc(firestoreDb, FS_COLLECTION_STAFF, staffId)).catch(handleFirestoreQuotaError);
     } catch (e) {
@@ -866,7 +870,7 @@ class ClientStorageEngine {
   }
 
   public syncStudentToFirestore(student: Student): void {
-    if (!firestoreDb || !student || !student.id) return;
+    if (isFirestoreQuotaExhausted || !firestoreDb || !student || !student.id) return;
     try {
       setDoc(doc(firestoreDb, FS_COLLECTION_STUDENTS, student.id), student, { merge: true }).catch(handleFirestoreQuotaError);
     } catch (e) {
@@ -875,7 +879,7 @@ class ClientStorageEngine {
   }
 
   public deleteStudentFromFirestore(studentId: string): void {
-    if (!firestoreDb || !studentId) return;
+    if (isFirestoreQuotaExhausted || !firestoreDb || !studentId) return;
     try {
       deleteDoc(doc(firestoreDb, FS_COLLECTION_STUDENTS, studentId)).catch(handleFirestoreQuotaError);
     } catch (e) {
@@ -886,14 +890,14 @@ class ClientStorageEngine {
   public syncPassToFirestore(pass: GatePass): void {
     if (!firestoreDb || !pass || !pass.id) return;
     try {
-      setDoc(doc(firestoreDb, FS_COLLECTION_PASSES, pass.id), pass, { merge: true }).catch(handleFirestoreQuotaError);
-    } catch (e) {
-      handleFirestoreQuotaError(e);
+      setDoc(doc(firestoreDb, FS_COLLECTION_PASSES, pass.id), pass, { merge: true }).catch(() => {});
+    } catch {
+      // ignore
     }
   }
 
   public syncLocalToCloud(): void {
-    if (!firestoreDb) return;
+    if (isFirestoreQuotaExhausted || !firestoreDb) return;
     try {
       this.syncBundleToCloud();
       for (const s of this.schools) {
@@ -1837,8 +1841,8 @@ class ClientStorageEngine {
     const guardName = guardUser?.fullName || 'שומר שער';
 
     if (!pass) {
-      // Even if pass isn't in local memory yet, update Firestore directly if quota allows
-      if (!isFirestoreQuotaExhausted && firestoreDb && passId) {
+      // Even if pass isn't in local memory yet, update Firestore directly
+      if (firestoreDb && passId) {
         setDoc(
           doc(firestoreDb, FS_COLLECTION_PASSES, passId),
           {
@@ -1847,7 +1851,7 @@ class ClientStorageEngine {
             usedBy: guardName,
           },
           { merge: true }
-        ).catch(handleFirestoreQuotaError);
+        ).catch(() => {});
       }
 
       this.broadcastChange();
@@ -2105,21 +2109,22 @@ class ClientStorageEngine {
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
 
-    // Sync newly imported teachers and students to Firestore for GitHub Pages and all devices
-    for (const member of this.staff) {
-      if (member && member.id && (member.schoolId || schoolId) === schoolId) {
-        this.syncStaffToFirestore(member);
+    // Sync newly imported teachers and students to Firestore for GitHub Pages and all devices (if quota allows)
+    if (!isFirestoreQuotaExhausted) {
+      for (const member of this.staff) {
+        if (member && member.id && (member.schoolId || schoolId) === schoolId) {
+          this.syncStaffToFirestore(member);
+        }
       }
-    }
-    for (const stud of this.students) {
-      if (stud && stud.id && (stud.schoolId || schoolId) === schoolId) {
-        this.syncStudentToFirestore(stud);
+      for (const stud of this.students) {
+        if (stud && stud.id && (stud.schoolId || schoolId) === schoolId) {
+          this.syncStudentToFirestore(stud);
+        }
       }
+      this.syncBundleToCloud();
     }
-
     this.broadcastChange();
     this.pushStateToServer();
-    this.syncBundleToCloud();
     const schoolTotal = this.students.filter((s) => (s.schoolId || schoolId) === schoolId).length;
     return { success: true, added, updated, total: schoolTotal };
   }

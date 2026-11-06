@@ -1,25 +1,2461 @@
 {
   "settings": {
     "schoolName": "מערכת אישור לשער",
-    "lastUpdated": "2026-11-06T04:05:00.000Z"
+    "lastUpdated": "2026-11-06T06:24:46.089Z"
   },
-  "schools": [],
-  "activeSchoolId": "",
+  "schools": [
+    {
+      "id": "school-1793938314748",
+      "status": "active",
+      "createdAt": "2026-11-06T04:11:54.748Z",
+      "name": "רב תחומי עמל יאנוח ג'ת",
+      "contactPerson": "תיראן סעיד",
+      "code": "SCH-01",
+      "city": "יאנוח ג'ת",
+      "isSuspended": false,
+      "phone": "0525557368",
+      "activationCode": "9201"
+    }
+  ],
+  "activeSchoolId": "school-1793938314748",
   "staff": [
     {
+      "id": "staff-1793938342639-2ra",
+      "role": "teacher",
+      "assignedClasses": [
+        "יב4"
+      ],
+      "fullName": "חאג_ רימה",
+      "isActive": true,
+      "staffCode": "T19",
+      "pinCode": "4860",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "staff-1793938342639-32x",
+      "pinCode": "2591",
+      "fullName": "עבד אל חק ראניה",
+      "role": "teacher",
+      "isActive": true,
+      "staffCode": "T10",
+      "assignedClasses": [
+        "י3"
+      ],
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "staff-1793938342639-40e",
+      "schoolId": "school-1793938314748",
+      "pinCode": "5587",
+      "assignedClasses": [
+        "יא4"
+      ],
+      "isActive": true,
+      "role": "teacher",
+      "fullName": "פרג_ ולאא",
+      "staffCode": "T15"
+    },
+    {
+      "id": "staff-1793938342639-4wk",
+      "fullName": "סעד סברין",
+      "pinCode": "6507",
+      "role": "teacher",
+      "schoolId": "school-1793938314748",
+      "staffCode": "T14",
+      "assignedClasses": [
+        "יא3"
+      ],
+      "isActive": true
+    },
+    {
+      "id": "staff-1793938342639-bs1",
+      "role": "teacher",
+      "pinCode": "1528",
+      "schoolId": "school-1793938314748",
+      "assignedClasses": [
+        "יא1"
+      ],
+      "staffCode": "T12",
+      "isActive": true,
+      "fullName": "ברכאת עתאב"
+    },
+    {
+      "id": "staff-1793938342639-ff7",
+      "fullName": "ביבאר נסרין",
+      "assignedClasses": [
+        "יב2"
+      ],
+      "role": "teacher",
+      "pinCode": "6850",
+      "staffCode": "T17",
+      "schoolId": "school-1793938314748",
+      "isActive": true
+    },
+    {
+      "id": "staff-1793938342639-hrg",
+      "assignedClasses": [
+        "יב3"
+      ],
+      "fullName": "ברכאת ערין",
+      "isActive": true,
+      "pinCode": "4208",
+      "staffCode": "T18",
+      "schoolId": "school-1793938314748",
+      "role": "teacher"
+    },
+    {
+      "id": "staff-1793938342639-jdp",
+      "assignedClasses": [
+        "יב1"
+      ],
+      "staffCode": "T16",
+      "fullName": "פרג_ ערין",
+      "pinCode": "9820",
+      "isActive": true,
+      "schoolId": "school-1793938314748",
+      "role": "teacher"
+    },
+    {
+      "id": "staff-1793938342639-mum",
+      "schoolId": "school-1793938314748",
+      "isActive": true,
+      "pinCode": "4126",
+      "fullName": "ביבאר גומאנה",
+      "assignedClasses": [
+        "י2"
+      ],
+      "staffCode": "T9",
+      "role": "teacher"
+    },
+    {
+      "id": "staff-1793938342639-nhn",
+      "schoolId": "school-1793938314748",
+      "isActive": true,
+      "staffCode": "T11",
+      "fullName": "סעיד טירן",
+      "pinCode": "8865",
+      "assignedClasses": [
+        "י4"
+      ],
+      "role": "teacher"
+    },
+    {
+      "id": "staff-1793938342639-ybz",
+      "fullName": "קסיס האני",
+      "pinCode": "5659",
+      "schoolId": "school-1793938314748",
+      "isActive": true,
+      "role": "teacher",
+      "staffCode": "T8",
+      "assignedClasses": [
+        "י1"
+      ]
+    },
+    {
+      "id": "staff-1793938342639-z1u",
+      "assignedClasses": [
+        "יא2"
+      ],
+      "fullName": "שמא רולה",
+      "pinCode": "1648",
+      "role": "teacher",
+      "isActive": true,
+      "staffCode": "T13",
+      "schoolId": "school-1793938314748"
+    },
+    {
       "id": "staff-admin-amar",
-      "staffCode": "ADMIN",
-      "fullName": "עמאר פאעור (מנהל המערכת)",
-      "role": "admin",
       "pinCode": "160525",
+      "schoolId": "*",
+      "role": "admin",
       "assignedClasses": [
         "*"
       ],
       "isActive": true,
-      "schoolId": "*"
+      "fullName": "עמאר פאעור (מנהל המערכת)",
+      "staffCode": "ADMIN"
+    },
+    {
+      "id": "staff-bisan-khattas",
+      "isActive": true,
+      "schoolId": "school-1793934341104",
+      "staffCode": "T-BISAN",
+      "role": "teacher",
+      "assignedClasses": [
+        "י2"
+      ],
+      "fullName": "ביסאן גטאס",
+      "pinCode": "2021"
+    },
+    {
+      "id": "staff-guard-school-1793934341104",
+      "fullName": "שומר שער (רב תחומי עמל יאנוח-ג׳ת)",
+      "role": "guard",
+      "isActive": true,
+      "staffCode": "G01",
+      "pinCode": "2001",
+      "assignedClasses": [],
+      "schoolId": "school-1793934341104"
+    },
+    {
+      "id": "staff-guard-school-1793938314748",
+      "staffCode": "G01",
+      "assignedClasses": [],
+      "fullName": "שומר שער (רב תחומי עמל יאנוח ג'ת)",
+      "pinCode": "5691",
+      "isActive": true,
+      "schoolId": "school-1793938314748",
+      "role": "guard"
+    },
+    {
+      "id": "staff-katiss-hani",
+      "role": "teacher",
+      "isActive": true,
+      "schoolId": "school-1793934341104",
+      "staffCode": "T-KATISS",
+      "assignedClasses": [
+        "י1"
+      ],
+      "pinCode": "2022",
+      "fullName": "קטיס האני"
+    },
+    {
+      "id": "staff-vp-school-1793934341104",
+      "role": "vice_principal",
+      "pinCode": "3380",
+      "assignedClasses": [
+        "*"
+      ],
+      "phone": "0525557368",
+      "fullName": "תיראן סעיד (סגן מנהל / אחראי שחרורים)",
+      "staffCode": "VP01",
+      "schoolId": "school-1793934341104",
+      "isActive": true
+    },
+    {
+      "id": "staff-vp-school-1793938314748",
+      "pinCode": "3431",
+      "assignedClasses": [
+        "*"
+      ],
+      "staffCode": "VP01",
+      "isActive": true,
+      "role": "vice_principal",
+      "schoolId": "school-1793938314748",
+      "phone": "0525557368",
+      "fullName": "תיראן סעיד (סגן מנהל / אחראי שחרורים)"
     }
   ],
-  "students": [],
+  "students": [
+    {
+      "className": "י1",
+      "fullName": "עדן זאהר",
+      "id": "s-1793910056272-2jc9",
+      "studentCode": "י1-08",
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "fullName": "ארז ביסאן",
+      "className": "י1",
+      "id": "s-1793910056272-4kze",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י1-10",
+      "teacherName": "קסיס האני"
+    },
+    {
+      "id": "s-1793910056272-78mc",
+      "schoolId": "school-1793938314748",
+      "className": "י1",
+      "studentCode": "י1-07",
+      "teacherName": "קסיס האני",
+      "fullName": "תמיר פרג'"
+    },
+    {
+      "className": "י1",
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י1-04",
+      "fullName": "ויסאם זיאדה",
+      "id": "s-1793910056272-k0a7"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "studentCode": "י1-06",
+      "teacherName": "קסיס האני",
+      "fullName": "לין פרג'",
+      "className": "י1",
+      "id": "s-1793910056272-klhk"
+    },
+    {
+      "teacherName": "קסיס האני",
+      "className": "י1",
+      "studentCode": "י1-05",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056272-pg9j",
+      "fullName": "מלאק פרג'"
+    },
+    {
+      "id": "s-1793910056272-q72a",
+      "studentCode": "י1-09",
+      "fullName": "סעיד סעיד",
+      "teacherName": "קסיס האני",
+      "className": "י1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "י1",
+      "fullName": "תולין ביבאר",
+      "id": "s-1793910056272-vb3o",
+      "studentCode": "י1-02",
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056272-xv88",
+      "className": "י1",
+      "studentCode": "י1-01",
+      "fullName": "גדי ביסאן",
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י1-11",
+      "fullName": "איה מונא פרג'",
+      "className": "י1",
+      "id": "s-1793910056272-ydsr"
+    },
+    {
+      "fullName": "רימאס בריק",
+      "id": "s-1793910056272-yj67",
+      "className": "י1",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י1-03",
+      "teacherName": "קסיס האני"
+    },
+    {
+      "className": "י1",
+      "fullName": "מלק ח'טיב",
+      "studentCode": "י1-12",
+      "teacherName": "קסיס האני",
+      "id": "s-1793910056273-1s7i",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056273-2fx8",
+      "className": "י2",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-18",
+      "fullName": "שהד בריק"
+    },
+    {
+      "fullName": "אמל חבקה",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-06",
+      "className": "י3",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-2ibi"
+    },
+    {
+      "fullName": "ינאל עבאס",
+      "teacherName": "עבד אל חק ראניה",
+      "id": "s-1793910056273-2xiu",
+      "studentCode": "י3-02",
+      "className": "י3",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "fullName": "אסיל ברכאת",
+      "className": "י4",
+      "id": "s-1793910056273-3hoh",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י4-11",
+      "teacherName": "סעיד טירן"
+    },
+    {
+      "fullName": "עפו ביסאן",
+      "teacherName": "סעיד טירן",
+      "id": "s-1793910056273-3s1o",
+      "studentCode": "י4-15",
+      "className": "י4",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "סעיד טירן",
+      "id": "s-1793910056273-4ddh",
+      "studentCode": "י4-14",
+      "className": "י4",
+      "fullName": "שאדי ביבאר"
+    },
+    {
+      "id": "s-1793910056273-4hiz",
+      "fullName": "ג'ואן קטימה",
+      "className": "י4",
+      "schoolId": "school-1793938314748",
+      "teacherName": "סעיד טירן",
+      "studentCode": "י4-09"
+    },
+    {
+      "fullName": "רימאס עביד",
+      "id": "s-1793910056273-4j3e",
+      "schoolId": "school-1793938314748",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-07",
+      "className": "י3"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י3",
+      "id": "s-1793910056273-4rdg",
+      "fullName": "סימא עביד",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-05"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-4sme",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-17",
+      "className": "י2",
+      "fullName": "אייל חבקה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-52yx",
+      "className": "י3",
+      "studentCode": "י3-13",
+      "fullName": "ג'וד סעד",
+      "teacherName": "עבד אל חק ראניה"
+    },
+    {
+      "className": "י2",
+      "fullName": "עמאר עבאס",
+      "id": "s-1793910056273-5edz",
+      "studentCode": "י2-25",
+      "teacherName": "ביבאר גומאנה",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "fullName": "מילאן מאלק ביבאר",
+      "className": "י2",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-22",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-5h7h"
+    },
+    {
+      "teacherName": "ברכאת עתאב",
+      "fullName": "סירין ביסאן",
+      "studentCode": "יא1-02",
+      "id": "s-1793910056273-5tch",
+      "className": "יא1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056273-66mo",
+      "studentCode": "י3-20",
+      "schoolId": "school-1793938314748",
+      "teacherName": "עבד אל חק ראניה",
+      "className": "י3",
+      "fullName": "סעיד סעד"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-67e7",
+      "className": "י3",
+      "fullName": "פאדי ביבאר",
+      "studentCode": "י3-09",
+      "teacherName": "עבד אל חק ראניה"
+    },
+    {
+      "id": "s-1793910056273-6aid",
+      "className": "י2",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י2-20",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "עארף סיף"
+    },
+    {
+      "fullName": "סילא בריק",
+      "className": "י3",
+      "schoolId": "school-1793938314748",
+      "teacherName": "עבד אל חק ראניה",
+      "id": "s-1793910056273-6dyo",
+      "studentCode": "י3-16"
+    },
+    {
+      "studentCode": "י3-08",
+      "teacherName": "עבד אל חק ראניה",
+      "schoolId": "school-1793938314748",
+      "className": "י3",
+      "id": "s-1793910056273-6e7x",
+      "fullName": "רם חבקה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-72jo",
+      "className": "י4",
+      "fullName": "מוראד עבאס",
+      "studentCode": "י4-01",
+      "teacherName": "סעיד טירן"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י4",
+      "studentCode": "י4-13",
+      "id": "s-1793910056273-78tw",
+      "teacherName": "סעיד טירן",
+      "fullName": "גונייד ח'טיב"
+    },
+    {
+      "className": "י3",
+      "studentCode": "י3-19",
+      "schoolId": "school-1793938314748",
+      "teacherName": "עבד אל חק ראניה",
+      "id": "s-1793910056273-7931",
+      "fullName": "ראני עג'מיה"
+    },
+    {
+      "studentCode": "י2-02",
+      "className": "י2",
+      "teacherName": "ביבאר גומאנה",
+      "id": "s-1793910056273-822z",
+      "fullName": "רפיף פואד",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "יא1",
+      "fullName": "עטאף ביבאר",
+      "studentCode": "יא1-03",
+      "teacherName": "ברכאת עתאב",
+      "id": "s-1793910056273-8nbu",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "קסיס האני",
+      "studentCode": "י1-24",
+      "schoolId": "school-1793938314748",
+      "fullName": "עדן חמדאן",
+      "className": "י1",
+      "id": "s-1793910056273-8rn9"
+    },
+    {
+      "id": "s-1793910056273-9my9",
+      "fullName": "ג'וד ברכאת",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "className": "י2",
+      "studentCode": "י2-26"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "חסן אל דין עבאס",
+      "studentCode": "י2-08",
+      "id": "s-1793910056273-a959",
+      "className": "י2"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-05",
+      "id": "s-1793910056273-cd7e",
+      "fullName": "סארה ברכאת",
+      "className": "י2"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-11",
+      "id": "s-1793910056273-d8v5",
+      "fullName": "ליאן ביבאר",
+      "className": "י2"
+    },
+    {
+      "className": "י2",
+      "schoolId": "school-1793938314748",
+      "fullName": "ליאן חאסבאני",
+      "studentCode": "י2-27",
+      "id": "s-1793910056273-dd0k",
+      "teacherName": "ביבאר גומאנה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "fullName": "כמאל זיאדה",
+      "id": "s-1793910056273-djuc",
+      "teacherName": "סעיד טירן",
+      "studentCode": "י4-07",
+      "className": "י4"
+    },
+    {
+      "id": "s-1793910056273-dqw8",
+      "fullName": "סאלח פרג",
+      "teacherName": "קסיס האני",
+      "className": "י1",
+      "studentCode": "י1-21",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "fullName": "מלק שמא",
+      "className": "י2",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-eb0u",
+      "studentCode": "י2-13",
+      "teacherName": "ביבאר גומאנה"
+    },
+    {
+      "id": "s-1793910056273-eu4i",
+      "teacherName": "קסיס האני",
+      "fullName": "עידן סעד",
+      "studentCode": "י1-16",
+      "className": "י1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-eu9j",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-23",
+      "fullName": "גולאן סעד",
+      "className": "י3"
+    },
+    {
+      "teacherName": "סעיד טירן",
+      "studentCode": "י4-02",
+      "id": "s-1793910056273-f9hy",
+      "fullName": "ריאן סביתי",
+      "className": "י4",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "עבד אל חק ראניה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י3-22",
+      "fullName": "ג'זל חסבאני",
+      "id": "s-1793910056273-fab4",
+      "className": "י3"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-fkdi",
+      "studentCode": "י2-21",
+      "teacherName": "ביבאר גומאנה",
+      "className": "י2",
+      "fullName": "ג'ולינאר עביד"
+    },
+    {
+      "studentCode": "י2-24",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "סעיד אבו ג'דעאן",
+      "className": "י2",
+      "id": "s-1793910056273-fmd7",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-03",
+      "className": "י2",
+      "fullName": "פארס פרג'",
+      "id": "s-1793910056273-h869"
+    },
+    {
+      "id": "s-1793910056273-i5g3",
+      "className": "י1",
+      "fullName": "תולין עביד",
+      "studentCode": "י1-13",
+      "schoolId": "school-1793938314748",
+      "teacherName": "קסיס האני"
+    },
+    {
+      "id": "s-1793910056273-iifc",
+      "schoolId": "school-1793938314748",
+      "className": "י2",
+      "studentCode": "י2-06",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "ג'וליאן סעד"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יא1",
+      "studentCode": "יא1-01",
+      "teacherName": "ברכאת עתאב",
+      "fullName": "חלא פרג'",
+      "id": "s-1793910056273-irnt"
+    },
+    {
+      "className": "י2",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י2-14",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "אלין סעיד",
+      "id": "s-1793910056273-kn2v"
+    },
+    {
+      "fullName": "מיראל ביסאן",
+      "id": "s-1793910056273-kx0k",
+      "className": "י3",
+      "teacherName": "עבד אל חק ראניה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י3-18"
+    },
+    {
+      "studentCode": "י1-17",
+      "id": "s-1793910056273-l4zo",
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748",
+      "className": "י1",
+      "fullName": "ג'ואן ביבאר"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י2",
+      "studentCode": "י2-09",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "יינאל ביבאר",
+      "id": "s-1793910056273-lkyd"
+    },
+    {
+      "id": "s-1793910056273-ll00",
+      "fullName": "לין עבדאללה",
+      "className": "י1",
+      "teacherName": "קסיס האני",
+      "studentCode": "י1-23",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056273-lqvk",
+      "schoolId": "school-1793938314748",
+      "fullName": "תיראן חסבאני",
+      "teacherName": "עבד אל חק ראניה",
+      "className": "י3",
+      "studentCode": "י3-04"
+    },
+    {
+      "id": "s-1793910056273-m5pf",
+      "teacherName": "קסיס האני",
+      "className": "י1",
+      "studentCode": "י1-20",
+      "schoolId": "school-1793938314748",
+      "fullName": "ליראן סעד"
+    },
+    {
+      "teacherName": "קסיס האני",
+      "id": "s-1793910056273-mvut",
+      "studentCode": "י1-26",
+      "schoolId": "school-1793938314748",
+      "className": "י1",
+      "fullName": "כרמל עבאס"
+    },
+    {
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "שפיק זיאדה",
+      "id": "s-1793910056273-ntq8",
+      "studentCode": "י2-23",
+      "className": "י2",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "י1",
+      "fullName": "לוזאן חמדאן",
+      "id": "s-1793910056273-nuny",
+      "studentCode": "י1-25",
+      "teacherName": "קסיס האני",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056273-nva7",
+      "className": "י3",
+      "studentCode": "י3-11",
+      "teacherName": "עבד אל חק ראניה",
+      "fullName": "באסל ח'טיב",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "י1",
+      "id": "s-1793910056273-nvpl",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י1-19",
+      "fullName": "חוסיין סעד",
+      "teacherName": "קסיס האני"
+    },
+    {
+      "id": "s-1793910056273-o25n",
+      "fullName": "סלימאן סעד",
+      "className": "י4",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י4-04",
+      "teacherName": "סעיד טירן"
+    },
+    {
+      "teacherName": "סעיד טירן",
+      "studentCode": "י4-12",
+      "schoolId": "school-1793938314748",
+      "className": "י4",
+      "id": "s-1793910056273-oo6o",
+      "fullName": "יאסמין חטיב"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-opa4",
+      "className": "י2",
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "אלמה עגמיה",
+      "studentCode": "י2-12"
+    },
+    {
+      "teacherName": "ביבאר גומאנה",
+      "fullName": "תלין סעד",
+      "studentCode": "י2-19",
+      "id": "s-1793910056273-oqql",
+      "className": "י2",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "studentCode": "י4-08",
+      "fullName": "רואד סעיד",
+      "teacherName": "סעיד טירן",
+      "id": "s-1793910056273-ortx",
+      "className": "י4",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י2",
+      "fullName": "תאמר סעד",
+      "studentCode": "י2-07",
+      "id": "s-1793910056273-pifb",
+      "teacherName": "ביבאר גומאנה"
+    },
+    {
+      "fullName": "גולן ביסאן",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-24",
+      "className": "י3",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-podh"
+    },
+    {
+      "id": "s-1793910056273-pu0w",
+      "studentCode": "י1-14",
+      "fullName": "בשיר סביתי",
+      "teacherName": "קסיס האני",
+      "className": "י1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "ביבאר גומאנה",
+      "id": "s-1793910056273-qmm4",
+      "studentCode": "י2-16",
+      "schoolId": "school-1793938314748",
+      "fullName": "סילא עביד",
+      "className": "י2"
+    },
+    {
+      "id": "s-1793910056273-qqw5",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י4-16",
+      "teacherName": "סעיד טירן",
+      "fullName": "ריאן עבאס",
+      "className": "י4"
+    },
+    {
+      "fullName": "ג'אול ביסאן",
+      "id": "s-1793910056273-qxtf",
+      "className": "י1",
+      "teacherName": "קסיס האני",
+      "studentCode": "י1-15",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-14",
+      "id": "s-1793910056273-rf6l",
+      "fullName": "אדם עבאס",
+      "className": "י3"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י1",
+      "id": "s-1793910056273-rgzm",
+      "studentCode": "י1-22",
+      "fullName": "ג'זל חמדאן",
+      "teacherName": "קסיס האני"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-s0hl",
+      "fullName": "תיא דאהר",
+      "className": "י3",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-21"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-s8yh",
+      "fullName": "ליאן שמא",
+      "className": "י2",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-01"
+    },
+    {
+      "className": "י4",
+      "id": "s-1793910056273-t7e2",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י4-05",
+      "fullName": "גמיל עביד",
+      "teacherName": "סעיד טירן"
+    },
+    {
+      "id": "s-1793910056273-uual",
+      "fullName": "מיאר סעד",
+      "teacherName": "סעיד טירן",
+      "className": "י4",
+      "studentCode": "י4-03",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "י2",
+      "id": "s-1793910056273-v4as",
+      "schoolId": "school-1793938314748",
+      "fullName": "מקבולה זיאדה",
+      "studentCode": "י2-28",
+      "teacherName": "ביבאר גומאנה"
+    },
+    {
+      "studentCode": "י3-15",
+      "teacherName": "עבד אל חק ראניה",
+      "id": "s-1793910056273-v6mq",
+      "schoolId": "school-1793938314748",
+      "className": "י3",
+      "fullName": "וידאד עבאס"
+    },
+    {
+      "studentCode": "י3-17",
+      "fullName": "רואן עביד",
+      "teacherName": "עבד אל חק ראניה",
+      "className": "י3",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-v9ap"
+    },
+    {
+      "className": "י2",
+      "fullName": "שאדי קטימה",
+      "id": "s-1793910056273-vui4",
+      "studentCode": "י2-15",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י1",
+      "id": "s-1793910056273-vvke",
+      "studentCode": "י1-18",
+      "teacherName": "קסיס האני",
+      "fullName": "אדם דהר"
+    },
+    {
+      "teacherName": "סעיד טירן",
+      "schoolId": "school-1793938314748",
+      "studentCode": "י4-06",
+      "fullName": "ג'וליאן עביד",
+      "id": "s-1793910056273-w0dv",
+      "className": "י4"
+    },
+    {
+      "studentCode": "י2-10",
+      "teacherName": "ביבאר גומאנה",
+      "schoolId": "school-1793938314748",
+      "className": "י2",
+      "id": "s-1793910056273-w4jq",
+      "fullName": "אוניר סיף"
+    },
+    {
+      "studentCode": "י4-10",
+      "fullName": "קיואן פרג'",
+      "teacherName": "סעיד טירן",
+      "id": "s-1793910056273-wduc",
+      "schoolId": "school-1793938314748",
+      "className": "י4"
+    },
+    {
+      "fullName": "גולן ביבאר",
+      "teacherName": "סעיד טירן",
+      "className": "י4",
+      "studentCode": "י4-17",
+      "id": "s-1793910056273-xqvm",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר גומאנה",
+      "studentCode": "י2-04",
+      "id": "s-1793910056273-xwe3",
+      "fullName": "תומר סעיד",
+      "className": "י2"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "י3",
+      "id": "s-1793910056273-y1w8",
+      "fullName": "חכים זאהר",
+      "studentCode": "י3-12",
+      "teacherName": "עבד אל חק ראניה"
+    },
+    {
+      "id": "s-1793910056273-zjz0",
+      "fullName": "סירין פרג'",
+      "className": "י3",
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-10",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "עבד אל חק ראניה",
+      "studentCode": "י3-01",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056273-zx4y",
+      "fullName": "ילין סעד",
+      "className": "י3"
+    },
+    {
+      "studentCode": "י3-03",
+      "schoolId": "school-1793938314748",
+      "className": "י3",
+      "id": "s-1793910056273-zxji",
+      "teacherName": "עבד אל חק ראניה",
+      "fullName": "לירן עבאס"
+    },
+    {
+      "id": "s-1793910056274-0wga",
+      "studentCode": "יא2-17",
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "className": "יא2",
+      "fullName": "סלימאן קטימה"
+    },
+    {
+      "id": "s-1793910056274-1n0u",
+      "className": "יא2",
+      "fullName": "מערוף סייף",
+      "studentCode": "יא2-18",
+      "teacherName": "שמא רולה",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-09",
+      "className": "יא1",
+      "fullName": "דנה סעד",
+      "id": "s-1793910056274-29u2"
+    },
+    {
+      "className": "יא1",
+      "id": "s-1793910056274-2wkc",
+      "fullName": "נארמין זיאדה",
+      "studentCode": "יא1-11",
+      "teacherName": "ברכאת עתאב",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-3hjh",
+      "studentCode": "יא2-26",
+      "className": "יא2",
+      "teacherName": "שמא רולה",
+      "fullName": "דן אבו ג'דעאן"
+    },
+    {
+      "teacherName": "ברכאת עתאב",
+      "fullName": "לנא חטיב",
+      "studentCode": "יא1-14",
+      "id": "s-1793910056274-4jgh",
+      "className": "יא1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-04",
+      "fullName": "למאר פיאד",
+      "className": "יא2",
+      "id": "s-1793910056274-4lek",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-5di1",
+      "teacherName": "שמא רולה",
+      "fullName": "כיואן ח'טיב",
+      "className": "יא2",
+      "studentCode": "יא2-03"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-6drr",
+      "className": "יא1",
+      "studentCode": "יא1-17",
+      "teacherName": "ברכאת עתאב",
+      "fullName": "יוסף פרג'"
+    },
+    {
+      "className": "יא2",
+      "fullName": "ג'וסלין סעד",
+      "teacherName": "שמא רולה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-25",
+      "id": "s-1793910056274-6ru6"
+    },
+    {
+      "fullName": "עפיפה חבקה",
+      "id": "s-1793910056274-8bsz",
+      "className": "יא2",
+      "teacherName": "שמא רולה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-23"
+    },
+    {
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-25",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-8eci",
+      "fullName": "סלאם חבקה",
+      "className": "יא1"
+    },
+    {
+      "fullName": "וקאר זאהר",
+      "className": "יא1",
+      "teacherName": "ברכאת עתאב",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא1-24",
+      "id": "s-1793910056274-ccwr"
+    },
+    {
+      "fullName": "עפאף סעד",
+      "teacherName": "ברכאת עתאב",
+      "id": "s-1793910056274-cnfn",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא1-21",
+      "className": "יא1"
+    },
+    {
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-01",
+      "schoolId": "school-1793938314748",
+      "fullName": "גזל בסאן",
+      "id": "s-1793910056274-cz6x",
+      "className": "יא3"
+    },
+    {
+      "className": "יא2",
+      "fullName": "רימאס סיף",
+      "id": "s-1793910056274-eaws",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-16",
+      "teacherName": "שמא רולה"
+    },
+    {
+      "studentCode": "יא2-02",
+      "id": "s-1793910056274-eaxl",
+      "fullName": "עדן פרג'",
+      "teacherName": "שמא רולה",
+      "className": "יא2",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "fullName": "סלוה סיף",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-09",
+      "className": "יא2",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-ervz"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-12",
+      "id": "s-1793910056274-f7yh",
+      "fullName": "מיראל עביד",
+      "className": "יא1"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-24",
+      "teacherName": "שמא רולה",
+      "className": "יא2",
+      "fullName": "אראם סאלח",
+      "id": "s-1793910056274-fty7"
+    },
+    {
+      "fullName": "אלמא סעד",
+      "id": "s-1793910056274-hcl0",
+      "className": "יא2",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-05",
+      "teacherName": "שמא רולה"
+    },
+    {
+      "id": "s-1793910056274-hrk0",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת עתאב",
+      "fullName": "תלין שמא",
+      "className": "יא1",
+      "studentCode": "יא1-27"
+    },
+    {
+      "id": "s-1793910056274-ib96",
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-13",
+      "fullName": "ארז סואטירי",
+      "className": "יא2"
+    },
+    {
+      "id": "s-1793910056274-ifj0",
+      "fullName": "ראזי ברכאת",
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-06",
+      "className": "יא1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "יא2",
+      "id": "s-1793910056274-ldu1",
+      "fullName": "סול סעיד",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-10",
+      "teacherName": "שמא רולה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-nne6",
+      "fullName": "אסינאת נזאל",
+      "className": "יא2",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-27"
+    },
+    {
+      "teacherName": "שמא רולה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-15",
+      "id": "s-1793910056274-o41c",
+      "fullName": "דניל בסאן",
+      "className": "יא2"
+    },
+    {
+      "studentCode": "יא1-15",
+      "id": "s-1793910056274-oez7",
+      "teacherName": "ברכאת עתאב",
+      "className": "יא1",
+      "fullName": "ארז סעיד",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "יא1",
+      "fullName": "סירין חמדאן",
+      "id": "s-1793910056274-omy2",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא1-04",
+      "teacherName": "ברכאת עתאב"
+    },
+    {
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-26",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-ot9o",
+      "fullName": "רוז חטיב",
+      "className": "יא1"
+    },
+    {
+      "studentCode": "יא1-20",
+      "id": "s-1793910056274-pf23",
+      "className": "יא1",
+      "teacherName": "ברכאת עתאב",
+      "fullName": "רנין פרג",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056274-pj5w",
+      "schoolId": "school-1793938314748",
+      "className": "יא1",
+      "studentCode": "יא1-05",
+      "fullName": "ג'נביה חמדאן",
+      "teacherName": "ברכאת עתאב"
+    },
+    {
+      "id": "s-1793910056274-pjri",
+      "fullName": "ראזי עביד",
+      "className": "יא2",
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-20"
+    },
+    {
+      "id": "s-1793910056274-psmg",
+      "className": "יא2",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא2-22",
+      "teacherName": "שמא רולה",
+      "fullName": "לארה זיאדה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-qi94",
+      "className": "יא2",
+      "teacherName": "שמא רולה",
+      "fullName": "ג'בר קטימה",
+      "studentCode": "יא2-11"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-01",
+      "fullName": "רהף סעיד",
+      "id": "s-1793910056274-r52d",
+      "className": "יא2"
+    },
+    {
+      "id": "s-1793910056274-srpu",
+      "fullName": "תולין חמדאן",
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-18",
+      "className": "יא1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-19",
+      "fullName": "רימא סעד",
+      "id": "s-1793910056274-ta1h",
+      "className": "יא2"
+    },
+    {
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-08",
+      "fullName": "ארז ביסאן",
+      "id": "s-1793910056274-u1q8",
+      "schoolId": "school-1793938314748",
+      "className": "יא2"
+    },
+    {
+      "fullName": "נביל עבאס",
+      "id": "s-1793910056274-ugrm",
+      "className": "יא3",
+      "schoolId": "school-1793938314748",
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-02"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-uiqv",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-12",
+      "fullName": "לאנא סעד",
+      "className": "יא2"
+    },
+    {
+      "fullName": "סילין עג'מייה",
+      "id": "s-1793910056274-uuai",
+      "className": "יא2",
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-21"
+    },
+    {
+      "fullName": "מיאר עאמר",
+      "teacherName": "ברכאת עתאב",
+      "className": "יא1",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-uwxh",
+      "studentCode": "יא1-16"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-uxax",
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-19",
+      "fullName": "רפיף ח'טיב",
+      "className": "יא1"
+    },
+    {
+      "fullName": "אמיר חמדאן",
+      "id": "s-1793910056274-vzak",
+      "teacherName": "ברכאת עתאב",
+      "className": "יא1",
+      "studentCode": "יא1-23",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056274-wcmu",
+      "teacherName": "שמא רולה",
+      "fullName": "גולן פרג'",
+      "studentCode": "יא2-14",
+      "schoolId": "school-1793938314748",
+      "className": "יא2"
+    },
+    {
+      "id": "s-1793910056274-ym5y",
+      "schoolId": "school-1793938314748",
+      "className": "יא1",
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-22",
+      "fullName": "שרה סעד"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056274-yo65",
+      "className": "יא1",
+      "studentCode": "יא1-07",
+      "fullName": "סמר חמדאן",
+      "teacherName": "ברכאת עתאב"
+    },
+    {
+      "fullName": "נילמאר חמדאן",
+      "id": "s-1793910056274-yruh",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת עתאב",
+      "className": "יא1",
+      "studentCode": "יא1-08"
+    },
+    {
+      "className": "יא2",
+      "studentCode": "יא2-07",
+      "teacherName": "שמא רולה",
+      "schoolId": "school-1793938314748",
+      "fullName": "מלק ביבאר",
+      "id": "s-1793910056274-z0hi"
+    },
+    {
+      "teacherName": "ברכאת עתאב",
+      "className": "יא1",
+      "studentCode": "יא1-10",
+      "schoolId": "school-1793938314748",
+      "fullName": "אראם ביבאר",
+      "id": "s-1793910056274-z5a4"
+    },
+    {
+      "teacherName": "ברכאת עתאב",
+      "studentCode": "יא1-13",
+      "fullName": "תולאי עג'מיה",
+      "id": "s-1793910056274-z9r2",
+      "className": "יא1",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "שמא רולה",
+      "studentCode": "יא2-06",
+      "fullName": "ג'ינא סעד",
+      "className": "יא2",
+      "id": "s-1793910056274-zxfm"
+    },
+    {
+      "teacherName": "סעד סברין",
+      "className": "יא3",
+      "studentCode": "יא3-18",
+      "schoolId": "school-1793938314748",
+      "fullName": "סראא פרג'",
+      "id": "s-1793910056275-1nrq"
+    },
+    {
+      "className": "יא4",
+      "fullName": "מלק ביסאן",
+      "id": "s-1793910056275-22h7",
+      "studentCode": "יא4-10",
+      "schoolId": "school-1793938314748",
+      "teacherName": "פרג_ ולאא"
+    },
+    {
+      "className": "יב1",
+      "fullName": "ירין ביבאר",
+      "id": "s-1793910056275-2j0c",
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-11",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056275-2n23",
+      "className": "יב1",
+      "schoolId": "school-1793938314748",
+      "fullName": "ג'זל סעד",
+      "studentCode": "יב1-16",
+      "teacherName": "פרג_ ערין"
+    },
+    {
+      "className": "יא3",
+      "id": "s-1793910056275-3574",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא3-23",
+      "teacherName": "סעד סברין",
+      "fullName": "ליף חסבאני"
+    },
+    {
+      "studentCode": "יב1-17",
+      "teacherName": "פרג_ ערין",
+      "className": "יב1",
+      "fullName": "גזל סיף",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-470o"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יא3",
+      "studentCode": "יא3-22",
+      "fullName": "איסם עגמייה",
+      "teacherName": "סעד סברין",
+      "id": "s-1793910056275-4vsj"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-53ii",
+      "fullName": "חלא עבדאללה",
+      "className": "יב1",
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-10"
+    },
+    {
+      "teacherName": "סעד סברין",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא3-11",
+      "id": "s-1793910056275-5w8q",
+      "fullName": "סימאר סיף",
+      "className": "יא3"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "fullName": "ליית ביבאר",
+      "teacherName": "פרג_ ולאא",
+      "id": "s-1793910056275-6n9r",
+      "className": "יא4",
+      "studentCode": "יא4-08"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "פרג_ ולאא",
+      "studentCode": "יא4-09",
+      "className": "יא4",
+      "fullName": "אליסאר סעד",
+      "id": "s-1793910056275-77df"
+    },
+    {
+      "id": "s-1793910056275-7f0s",
+      "schoolId": "school-1793938314748",
+      "className": "יב1",
+      "fullName": "סינאל ח'טיב",
+      "studentCode": "יב1-07",
+      "teacherName": "פרג_ ערין"
+    },
+    {
+      "className": "יא4",
+      "fullName": "לימאר ביסאן",
+      "id": "s-1793910056275-7k9t",
+      "studentCode": "יא4-02",
+      "schoolId": "school-1793938314748",
+      "teacherName": "פרג_ ולאא"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יא3",
+      "studentCode": "יא3-15",
+      "teacherName": "סעד סברין",
+      "fullName": "שאדי ביסאן",
+      "id": "s-1793910056275-8307"
+    },
+    {
+      "teacherName": "פרג_ ולאא",
+      "studentCode": "יא4-01",
+      "className": "יא4",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-84om",
+      "fullName": "רוי ביסאן"
+    },
+    {
+      "className": "יא3",
+      "studentCode": "יא3-20",
+      "teacherName": "סעד סברין",
+      "fullName": "סלמאן חבקה",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-8a68"
+    },
+    {
+      "fullName": "לירז פרג'",
+      "className": "יא3",
+      "id": "s-1793910056275-8b4n",
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-19",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-a2yn",
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-04",
+      "fullName": "סלמאן ח'טיב",
+      "className": "יב1"
+    },
+    {
+      "className": "יא3",
+      "id": "s-1793910056275-chs2",
+      "fullName": "גנאה בובאר",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא3-14",
+      "teacherName": "סעד סברין"
+    },
+    {
+      "fullName": "איאן ביסאן",
+      "teacherName": "פרג_ ולאא",
+      "studentCode": "יא4-04",
+      "className": "יא4",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-cq6w"
+    },
+    {
+      "id": "s-1793910056275-d12x",
+      "className": "יא4",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא4-11",
+      "teacherName": "פרג_ ולאא",
+      "fullName": "רזאן דאהר"
+    },
+    {
+      "teacherName": "סעד סברין",
+      "className": "יא3",
+      "studentCode": "יא3-05",
+      "fullName": "יזן ביבאר",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-d9mx"
+    },
+    {
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-06",
+      "fullName": "ג'ינא עבאס",
+      "id": "s-1793910056275-dei1",
+      "schoolId": "school-1793938314748",
+      "className": "יב1"
+    },
+    {
+      "teacherName": "פרג_ ולאא",
+      "className": "יא4",
+      "studentCode": "יא4-05",
+      "fullName": "ג'ואד גדבאן",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-djpp"
+    },
+    {
+      "className": "יב1",
+      "teacherName": "פרג_ ערין",
+      "fullName": "נור פרג'",
+      "studentCode": "יב1-08",
+      "id": "s-1793910056275-e9rz",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "פרג_ ערין",
+      "fullName": "תאמר שמא",
+      "studentCode": "יב1-09",
+      "className": "יב1",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-fzqy"
+    },
+    {
+      "fullName": "וסים סעד",
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-16",
+      "id": "s-1793910056275-g30c",
+      "className": "יא3",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "fullName": "ג'וליאן קארוט",
+      "className": "יב1",
+      "id": "s-1793910056275-g5pu",
+      "schoolId": "school-1793938314748",
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-12"
+    },
+    {
+      "fullName": "לייאא סעד",
+      "id": "s-1793910056275-i8b1",
+      "studentCode": "יא3-25",
+      "schoolId": "school-1793938314748",
+      "teacherName": "סעד סברין",
+      "className": "יא3"
+    },
+    {
+      "className": "יא3",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-j34b",
+      "studentCode": "יא3-08",
+      "fullName": "ריאן פרג'",
+      "teacherName": "סעד סברין"
+    },
+    {
+      "studentCode": "יא3-06",
+      "teacherName": "סעד סברין",
+      "id": "s-1793910056275-j3hg",
+      "className": "יא3",
+      "fullName": "יזן סעד",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "פרג_ ולאא",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא4-03",
+      "id": "s-1793910056275-m6p4",
+      "fullName": "ג'ולן גדבאן",
+      "className": "יא4"
+    },
+    {
+      "studentCode": "יא3-13",
+      "schoolId": "school-1793938314748",
+      "teacherName": "סעד סברין",
+      "id": "s-1793910056275-m9wu",
+      "className": "יא3",
+      "fullName": "יזן ברכאת"
+    },
+    {
+      "className": "יא3",
+      "studentCode": "יא3-21",
+      "fullName": "נורסין סרכוס",
+      "teacherName": "סעד סברין",
+      "id": "s-1793910056275-mauy",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "יב1",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב1-13",
+      "teacherName": "פרג_ ערין",
+      "fullName": "ורד סיף",
+      "id": "s-1793910056275-md7x"
+    },
+    {
+      "teacherName": "פרג_ ולאא",
+      "studentCode": "יא4-07",
+      "schoolId": "school-1793938314748",
+      "fullName": "אייסם דהר",
+      "className": "יא4",
+      "id": "s-1793910056275-mdcp"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יא4",
+      "fullName": "אלין שמא",
+      "id": "s-1793910056275-n5wa",
+      "teacherName": "פרג_ ולאא",
+      "studentCode": "יא4-06"
+    },
+    {
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-24",
+      "fullName": "סארי בסאן",
+      "className": "יא3",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-nvua"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יא3",
+      "fullName": "מיראל סעד",
+      "id": "s-1793910056275-nzkg",
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-07"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056275-o9gn",
+      "className": "יא3",
+      "fullName": "דיילה בריק",
+      "teacherName": "סעד סברין",
+      "studentCode": "יא3-04"
+    },
+    {
+      "id": "s-1793910056275-pezr",
+      "fullName": "פארס סביתי",
+      "studentCode": "יא3-12",
+      "schoolId": "school-1793938314748",
+      "teacherName": "סעד סברין",
+      "className": "יא3"
+    },
+    {
+      "studentCode": "יב1-01",
+      "fullName": "מייס ביסאן",
+      "teacherName": "פרג_ ערין",
+      "schoolId": "school-1793938314748",
+      "className": "יב1",
+      "id": "s-1793910056275-pfnc"
+    },
+    {
+      "teacherName": "סעד סברין",
+      "id": "s-1793910056275-qlt0",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא3-03",
+      "className": "יא3",
+      "fullName": "סויאן חמדאן"
+    },
+    {
+      "id": "s-1793910056275-qyf4",
+      "fullName": "ירין קטימה",
+      "className": "יב1",
+      "teacherName": "פרג_ ערין",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב1-02"
+    },
+    {
+      "teacherName": "פרג_ ערין",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב1-03",
+      "id": "s-1793910056275-sppj",
+      "fullName": "וטפה זיאדה",
+      "className": "יב1"
+    },
+    {
+      "className": "יב1",
+      "id": "s-1793910056275-theq",
+      "fullName": "אניל ביבאר",
+      "studentCode": "יב1-05",
+      "teacherName": "פרג_ ערין",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "id": "s-1793910056275-u1v7",
+      "schoolId": "school-1793938314748",
+      "className": "יב1",
+      "studentCode": "יב1-14",
+      "fullName": "למאר חבקה",
+      "teacherName": "פרג_ ערין"
+    },
+    {
+      "className": "יא3",
+      "schoolId": "school-1793938314748",
+      "fullName": "סאלח ביסאן",
+      "studentCode": "יא3-17",
+      "teacherName": "סעד סברין",
+      "id": "s-1793910056275-vshj"
+    },
+    {
+      "id": "s-1793910056275-wey1",
+      "schoolId": "school-1793938314748",
+      "className": "יב1",
+      "studentCode": "יב1-18",
+      "fullName": "ג'ורי קארוט",
+      "teacherName": "פרג_ ערין"
+    },
+    {
+      "id": "s-1793910056275-wm9c",
+      "schoolId": "school-1793938314748",
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-15",
+      "className": "יב1",
+      "fullName": "ג'ואן חמדאן"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "studentCode": "יא3-09",
+      "teacherName": "סעד סברין",
+      "className": "יא3",
+      "id": "s-1793910056275-x46n",
+      "fullName": "מוהנא סעד"
+    },
+    {
+      "studentCode": "יא3-10",
+      "teacherName": "סעד סברין",
+      "schoolId": "school-1793938314748",
+      "className": "יא3",
+      "id": "s-1793910056275-xrg9",
+      "fullName": "אדיר פרג'"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יב2",
+      "fullName": "אדיר שקרה",
+      "studentCode": "יב2-18",
+      "teacherName": "ביבאר נסרין",
+      "id": "s-1793910056276-0g49"
+    },
+    {
+      "fullName": "למאר ביבאר",
+      "studentCode": "יב1-22",
+      "teacherName": "פרג_ ערין",
+      "className": "יב1",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-1uxx"
+    },
+    {
+      "fullName": "דניאל חבקה",
+      "studentCode": "יב1-27",
+      "teacherName": "פרג_ ערין",
+      "id": "s-1793910056276-1x81",
+      "schoolId": "school-1793938314748",
+      "className": "יב1"
+    },
+    {
+      "className": "יב1",
+      "fullName": "אמירה חמדאן",
+      "id": "s-1793910056276-2ikh",
+      "studentCode": "יב1-23",
+      "schoolId": "school-1793938314748",
+      "teacherName": "פרג_ ערין"
+    },
+    {
+      "id": "s-1793910056276-3d89",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-01",
+      "fullName": "גנא חבקה",
+      "className": "יב3"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-3hih",
+      "className": "יב2",
+      "studentCode": "יב2-23",
+      "fullName": "פואד סעד",
+      "teacherName": "ביבאר נסרין"
+    },
+    {
+      "className": "יב2",
+      "fullName": "תולין ברכאת",
+      "studentCode": "יב2-03",
+      "teacherName": "ביבאר נסרין",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-3x8w"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-3yni",
+      "teacherName": "ביבאר נסרין",
+      "fullName": "אייל חסבאני",
+      "studentCode": "יב2-10",
+      "className": "יב2"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יב3",
+      "fullName": "אדהם פרג'",
+      "studentCode": "יב3-11",
+      "id": "s-1793910056276-5a30",
+      "teacherName": "ברכאת ערין"
+    },
+    {
+      "studentCode": "יב1-24",
+      "teacherName": "פרג_ ערין",
+      "fullName": "מלאק בריק",
+      "className": "יב1",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-71cs"
+    },
+    {
+      "id": "s-1793910056276-79rv",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-14",
+      "schoolId": "school-1793938314748",
+      "fullName": "רון עבאס",
+      "className": "יב3"
+    },
+    {
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-20",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-7apb",
+      "fullName": "חמד ביסאן",
+      "className": "יב2"
+    },
+    {
+      "className": "יב3",
+      "fullName": "מוהנד ביסאן",
+      "studentCode": "יב3-02",
+      "teacherName": "ברכאת ערין",
+      "id": "s-1793910056276-7zy3",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-15",
+      "fullName": "ביאן חאסבאני",
+      "className": "יב3",
+      "id": "s-1793910056276-88xd",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יב1",
+      "studentCode": "יב1-25",
+      "teacherName": "פרג_ ערין",
+      "id": "s-1793910056276-96gf",
+      "fullName": "ג'ואן ביסאן"
+    },
+    {
+      "studentCode": "יב2-21",
+      "teacherName": "ביבאר נסרין",
+      "schoolId": "school-1793938314748",
+      "fullName": "קנאן קטימה",
+      "className": "יב2",
+      "id": "s-1793910056276-9qqf"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-16",
+      "id": "s-1793910056276-9s98",
+      "fullName": "וואיל עבדאללה",
+      "className": "יב3"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-9z9w",
+      "fullName": "יאנא ברכאת",
+      "className": "יב2",
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-08"
+    },
+    {
+      "fullName": "רינאל ביבאר",
+      "className": "יב2",
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-13",
+      "id": "s-1793910056276-cuxo",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-czjr",
+      "studentCode": "יב1-26",
+      "teacherName": "פרג_ ערין",
+      "className": "יב1",
+      "fullName": "ארין סיף"
+    },
+    {
+      "className": "יב2",
+      "studentCode": "יב2-22",
+      "teacherName": "ביבאר נסרין",
+      "id": "s-1793910056276-d6al",
+      "schoolId": "school-1793938314748",
+      "fullName": "נור סיף"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "fullName": "לין סעיד",
+      "id": "s-1793910056276-d8lj",
+      "className": "יב1",
+      "teacherName": "פרג_ ערין",
+      "studentCode": "יב1-20"
+    },
+    {
+      "id": "s-1793910056276-dv4y",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-11",
+      "fullName": "אניס ביסאן",
+      "className": "יב2"
+    },
+    {
+      "className": "יב3",
+      "studentCode": "יב3-04",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-ego7",
+      "teacherName": "ברכאת ערין",
+      "fullName": "תולין אבו ג'דעאן"
+    },
+    {
+      "className": "יב2",
+      "fullName": "נרמין סיף",
+      "studentCode": "יב2-26",
+      "id": "s-1793910056276-f6jz",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר נסרין"
+    },
+    {
+      "teacherName": "פרג_ ערין",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב1-21",
+      "fullName": "יניב זיאדה",
+      "id": "s-1793910056276-fhzf",
+      "className": "יב1"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "fullName": "שהד חבקה",
+      "id": "s-1793910056276-fv75",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-12",
+      "className": "יב3"
+    },
+    {
+      "id": "s-1793910056276-g5ht",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-06",
+      "className": "יב3",
+      "fullName": "דניאל דאהר"
+    },
+    {
+      "fullName": "ראזי שמא",
+      "teacherName": "ביבאר נסרין",
+      "className": "יב2",
+      "studentCode": "יב2-02",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-g8ds"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-gmf0",
+      "teacherName": "ביבאר נסרין",
+      "fullName": "ג'זל עביד",
+      "studentCode": "יב2-19",
+      "className": "יב2"
+    },
+    {
+      "fullName": "ארז ח'טיב",
+      "id": "s-1793910056276-gwqv",
+      "className": "יב2",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-15"
+    },
+    {
+      "fullName": "עירן שקרה",
+      "className": "יב2",
+      "id": "s-1793910056276-i25b",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב2-04",
+      "teacherName": "ביבאר נסרין"
+    },
+    {
+      "id": "s-1793910056276-kaqv",
+      "schoolId": "school-1793938314748",
+      "className": "יב2",
+      "studentCode": "יב2-07",
+      "fullName": "סלימאן ביסאן",
+      "teacherName": "ביבאר נסרין"
+    },
+    {
+      "id": "s-1793910056276-kgmd",
+      "className": "יב3",
+      "fullName": "רוזאן עביד",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב3-07",
+      "teacherName": "ברכאת ערין"
+    },
+    {
+      "fullName": "גולן עאמר",
+      "className": "יב3",
+      "teacherName": "ברכאת ערין",
+      "id": "s-1793910056276-ldoy",
+      "studentCode": "יב3-10",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "יב2",
+      "id": "s-1793910056276-lfc5",
+      "schoolId": "school-1793938314748",
+      "fullName": "כרם קטימה",
+      "studentCode": "יב2-06",
+      "teacherName": "ביבאר נסרין"
+    },
+    {
+      "className": "יב2",
+      "fullName": "סאלי ביבאר",
+      "studentCode": "יב2-09",
+      "teacherName": "ביבאר נסרין",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-lhbh"
+    },
+    {
+      "fullName": "אייסר קטימה",
+      "teacherName": "ביבאר נסרין",
+      "className": "יב2",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-m4xy",
+      "studentCode": "יב2-05"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר נסרין",
+      "className": "יב2",
+      "id": "s-1793910056276-mfa4",
+      "studentCode": "יב2-01",
+      "fullName": "תימאא בריק"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יב3",
+      "fullName": "מלק עבאס",
+      "teacherName": "ברכאת ערין",
+      "id": "s-1793910056276-naw5",
+      "studentCode": "יב3-05"
+    },
+    {
+      "className": "יב3",
+      "studentCode": "יב3-09",
+      "id": "s-1793910056276-pk2k",
+      "teacherName": "ברכאת ערין",
+      "schoolId": "school-1793938314748",
+      "fullName": "תמיר סביתי"
+    },
+    {
+      "className": "יב3",
+      "id": "s-1793910056276-tog5",
+      "fullName": "הייתם חבקה",
+      "studentCode": "יב3-13",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת ערין"
+    },
+    {
+      "className": "יב2",
+      "id": "s-1793910056276-u812",
+      "fullName": "פריד סרכוס",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב2-12",
+      "teacherName": "ביבאר נסרין"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יב3",
+      "studentCode": "יב3-03",
+      "fullName": "חמד מעדי",
+      "teacherName": "ברכאת ערין",
+      "id": "s-1793910056276-vdp5"
+    },
+    {
+      "studentCode": "יב1-19",
+      "schoolId": "school-1793938314748",
+      "className": "יב1",
+      "teacherName": "פרג_ ערין",
+      "fullName": "חלא סעד",
+      "id": "s-1793910056276-vv8k"
+    },
+    {
+      "className": "יב1",
+      "studentCode": "יב1-28",
+      "teacherName": "פרג_ ערין",
+      "schoolId": "school-1793938314748",
+      "fullName": "שאדי פרג'",
+      "id": "s-1793910056276-w0xk"
+    },
+    {
+      "id": "s-1793910056276-wh4y",
+      "className": "יב2",
+      "fullName": "עומר עבאס",
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-25",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-24",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056276-wilu",
+      "fullName": "ג'אד פרג",
+      "className": "יב2"
+    },
+    {
+      "fullName": "נור חמרי",
+      "id": "s-1793910056276-x63m",
+      "className": "יב2",
+      "schoolId": "school-1793938314748",
+      "teacherName": "ביבאר נסרין",
+      "studentCode": "יב2-17"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב3-08",
+      "id": "s-1793910056276-yfqj",
+      "teacherName": "ברכאת ערין",
+      "className": "יב3",
+      "fullName": "ענאד אמון"
+    },
+    {
+      "fullName": "יולין ביסאן",
+      "id": "s-1793910056276-z5cz",
+      "className": "יב2",
+      "teacherName": "ביבאר נסרין",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב2-16"
+    },
+    {
+      "studentCode": "יב3-23",
+      "teacherName": "ברכאת ערין",
+      "schoolId": "school-1793938314748",
+      "id": "s-1793910056277-017l",
+      "className": "יב3",
+      "fullName": "כרמי סעד"
+    },
+    {
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-18",
+      "fullName": "ח'דר פרג'",
+      "id": "s-1793910056277-1ed4",
+      "className": "יב3",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "חאג_ רימה",
+      "studentCode": "יב4-09",
+      "fullName": "מלק עלי",
+      "className": "יב4",
+      "id": "s-1793910056277-1r9g"
+    },
+    {
+      "teacherName": "חאג_ רימה",
+      "studentCode": "יב4-06",
+      "fullName": "ניל סעיד",
+      "id": "s-1793910056277-4udy",
+      "className": "יב4",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "teacherName": "חאג_ רימה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב4-05",
+      "id": "s-1793910056277-98uw",
+      "fullName": "מדליין עביד",
+      "className": "יב4"
+    },
+    {
+      "fullName": "מוהנד זיאדה",
+      "className": "יב4",
+      "teacherName": "חאג_ רימה",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב4-07",
+      "id": "s-1793910056277-bl3a"
+    },
+    {
+      "className": "יב4",
+      "fullName": "לואי חמאדן",
+      "id": "s-1793910056277-diee",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב4-11",
+      "teacherName": "חאג_ רימה"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-20",
+      "fullName": "סמאח פיאד",
+      "className": "יב3",
+      "id": "s-1793910056277-jjng"
+    },
+    {
+      "id": "s-1793910056277-lsqn",
+      "schoolId": "school-1793938314748",
+      "className": "יב3",
+      "fullName": "סוקרט עג'מיה",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-17"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "className": "יב4",
+      "studentCode": "יב4-08",
+      "id": "s-1793910056277-qfpe",
+      "teacherName": "חאג_ רימה",
+      "fullName": "גזל זיאדה"
+    },
+    {
+      "studentCode": "יב4-01",
+      "fullName": "לונה ביסאן",
+      "teacherName": "חאג_ רימה",
+      "id": "s-1793910056277-ql35",
+      "className": "יב4",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "className": "יב3",
+      "fullName": "איאן סעיד",
+      "id": "s-1793910056277-rdc9",
+      "schoolId": "school-1793938314748",
+      "studentCode": "יב3-22",
+      "teacherName": "ברכאת ערין"
+    },
+    {
+      "id": "s-1793910056277-u5x5",
+      "schoolId": "school-1793938314748",
+      "teacherName": "חאג_ רימה",
+      "studentCode": "יב4-04",
+      "className": "יב4",
+      "fullName": "מירנה עביד"
+    },
+    {
+      "fullName": "ג'ואד חמרי",
+      "id": "s-1793910056277-v1w3",
+      "className": "יב4",
+      "schoolId": "school-1793938314748",
+      "teacherName": "חאג_ רימה",
+      "studentCode": "יב4-10"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "fullName": "דרין פרג'",
+      "className": "יב4",
+      "teacherName": "חאג_ רימה",
+      "id": "s-1793910056277-xiuc",
+      "studentCode": "יב4-03"
+    },
+    {
+      "id": "s-1793910056277-ybve",
+      "fullName": "הנד סיף",
+      "studentCode": "יב3-19",
+      "className": "יב3",
+      "teacherName": "ברכאת ערין",
+      "schoolId": "school-1793938314748"
+    },
+    {
+      "schoolId": "school-1793938314748",
+      "teacherName": "ברכאת ערין",
+      "studentCode": "יב3-21",
+      "id": "s-1793910056277-yscz",
+      "fullName": "מיליא קטימה",
+      "className": "יב3"
+    },
+    {
+      "teacherName": "חאג_ רימה",
+      "studentCode": "יב4-02",
+      "className": "יב4",
+      "id": "s-1793910056277-zfyw",
+      "schoolId": "school-1793938314748",
+      "fullName": "איימן בסאן"
+    }
+  ],
   "passes": [],
-  "auditLogs": []
+  "auditLogs": [
+    {
+      "id": "log-1793946286086-90vt",
+      "timestamp": "2026-11-06T06:24:46.086Z",
+      "actionType": "PASS_CREATED",
+      "actorId": "staff-admin-amar",
+      "actorName": "עמאר פאעור (מנהל המערכת)",
+      "actorRole": "admin",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "הונפק אישור יציאה לשעה 08:00"
+    },
+    {
+      "id": "log-1793946286088-huaw",
+      "timestamp": "2026-11-06T06:24:46.088Z",
+      "actionType": "PASS_USED",
+      "actorId": "staff-guard-school-1793938314748",
+      "actorName": "שומר שער (רב תחומי עמל יאנוח ג'ת)",
+      "actorRole": "guard",
+      "studentName": "עדן זאהר",
+      "className": "י1",
+      "details": "יציאה אושרה בשער על ידי שומר שער (רב תחומי עמל יאנוח ג'ת) בשעה 08:24"
+    },
+    {
+      "id": "log-1793946286089",
+      "timestamp": "2026-11-06T06:24:46.089Z",
+      "actionType": "PASSES_DELETED",
+      "actorId": "staff-admin-amar",
+      "actorName": "עמאר פאעור (מנהל המערכת)",
+      "actorRole": "admin",
+      "details": "מחיקת 1 אישורי יציאה מהמאגר "
+    }
+  ]
 }
