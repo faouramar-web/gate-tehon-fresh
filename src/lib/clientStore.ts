@@ -1627,6 +1627,35 @@ class ClientStorageEngine {
     }
   }
 
+  public updateStudentParentPhone(studentId: string, parentPhone: string): void {
+    const student = this.students.find((s) => s.id === studentId);
+    if (student) {
+      student.parentPhone = parentPhone.trim();
+      this.save(STORAGE_KEY_STUDENTS, this.students);
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(`gatepass_parent_phone_${studentId}`, parentPhone.trim());
+        } catch {
+          // ignore
+        }
+      }
+      this.broadcastChange();
+      this.notify();
+    }
+  }
+
+  public getParentPhone(studentId: string): string {
+    const student = this.students.find((s) => s.id === studentId);
+    if (student?.parentPhone) return student.parentPhone;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        return localStorage.getItem(`gatepass_parent_phone_${studentId}`) || '';
+      } catch {
+        // ignore
+      }
+    }
+    return '';
+  }
 
   // --- Teacher ---
   public getTeacherClasses(user: User): {

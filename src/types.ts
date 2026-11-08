@@ -31,6 +31,7 @@ export interface Student {
   fullName: string;
   className: string;
   teacherName?: string;
+  parentPhone?: string; // Homeroom teacher's parent contact phone
   notes?: string;
   currentPass?: GatePass | null;
   schoolId?: string;
@@ -42,6 +43,7 @@ export interface GatePass {
   studentCode: string;
   studentName: string;
   className: string;
+  parentPhone?: string;
   homeroomTeacher?: string; // Student's permanent homeroom teacher
   teacherId: string;
   teacherName: string; // The teacher who issued this gate pass

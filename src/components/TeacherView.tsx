@@ -15,8 +15,20 @@ import {
   Check,
   ChevronDown,
   GraduationCap,
-  UserCheck
+  UserCheck,
+  MessageCircle,
+  Users,
+  Share2,
+  Copy,
+  Phone,
+  ExternalLink
 } from 'lucide-react';
+import {
+  buildClassExitWhatsAppMessage,
+  buildStudentExitWhatsAppMessage,
+  createWhatsAppUrl,
+  formatWhatsAppPhone
+} from '../lib/whatsapp.ts';
 
 interface TeacherViewProps {
   user: User;
@@ -48,6 +60,15 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
 
   // Cancel pass state
   const [cancellingPassId, setCancellingPassId] = useState<string | null>(null);
+
+  // Parent WhatsApp Notification States (Only for exited students after guard confirmation)
+  const [selectedExitedPassIds, setSelectedExitedPassIds] = useState<Set<string>>(new Set());
+  const [showClassGroupModal, setShowClassGroupModal] = useState<boolean>(false);
+  const [showIndividualParentsModal, setShowIndividualParentsModal] = useState<boolean>(false);
+  const [activeSingleStudentPass, setActiveSingleStudentPass] = useState<GatePass | null>(null);
+  const [copiedTextToast, setCopiedTextToast] = useState<string | null>(null);
+  const [parentPhoneMap, setParentPhoneMap] = useState<Record<string, string>>({});
+  const [customGroupText, setCustomGroupText] = useState<string>('');
 
   // Helper to normalize class names (handles "י1", "י 1", "י'1", "כיתה י1")
   const normalizeClass = (val: string): string => {
@@ -197,6 +218,115 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
     return normalizeClass(p.className) === normalizeClass(selectedClass);
   });
 
+  // Map each class to its homeroom teacher name from actual student records
+  const classHomeroomMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const student of students) {
+      if (student.className && student.teacherName) {
+        map.set(student.className.trim(), student.teacherName.trim());
+      }
+    }
+    return map;
+  }, [students]);
+
+  const classStudentsCountMap = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const student of students) {
+      if (student.className) {
+        const cur = map.get(student.className.trim()) || 0;
+        map.set(student.className.trim(), cur + 1);
+      }
+    }
+    return map;
+  }, [students]);
+
+  // Strictly only students who have PHYSICALLY EXITED the gate (confirmed by guard)
+  const exitedPasses = filteredPasses.filter((p) => p.status === 'used');
+  const pendingPasses = filteredPasses.filter((p) => p.status === 'active');
+
+  const toggleExitedPassSelection = (passId: string) => {
+    const next = new Set(selectedExitedPassIds);
+    if (next.has(passId)) {
+      next.delete(passId);
+    } else {
+      next.add(passId);
+    }
+    setSelectedExitedPassIds(next);
+  };
+
+  const handleSelectAllExited = () => {
+    if (selectedExitedPassIds.size === exitedPasses.length) {
+      setSelectedExitedPassIds(new Set());
+    } else {
+      setSelectedExitedPassIds(new Set(exitedPasses.map((p) => p.id)));
+    }
+  };
+
+  const getStudentParentPhone = (studentId: string): string => {
+    if (parentPhoneMap[studentId]) return parentPhoneMap[studentId];
+    return clientStore.getParentPhone(studentId);
+  };
+
+  const handleSaveParentPhone = (studentId: string, phone: string) => {
+    setParentPhoneMap((prev) => ({ ...prev, [studentId]: phone }));
+    clientStore.updateStudentParentPhone(studentId, phone);
+  };
+
+  const copyToClipboard = (text: string, label = 'ההודעה הועתקה בהצלחה ללוח!') => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      setCopiedTextToast(label);
+      setTimeout(() => setCopiedTextToast(null), 3000);
+    }
+  };
+
+  const schoolName = user.schoolName || 'בית הספר';
+
+  const defaultClassGroupMessage = React.useMemo(() => {
+    const targetClass = selectedClass && selectedClass !== 'כל הכיתות' ? selectedClass : (assignedClasses[0] || 'הכיתה');
+    const latestExit = exitedPasses[0]?.usedAt
+      ? (exitedPasses[0].usedAt.includes('T') ? exitedPasses[0].usedAt.split('T')[1].substring(0, 5) : exitedPasses[0].usedAt)
+      : undefined;
+    const homeroom = classHomeroomMap.get(targetClass.trim()) || user.fullName;
+
+    return buildClassExitWhatsAppMessage({
+      className: targetClass,
+      exitTime: latestExit,
+      homeroomTeacher: homeroom,
+      schoolName,
+      studentCount: exitedPasses.length,
+    });
+  }, [selectedClass, assignedClasses, exitedPasses, classHomeroomMap, user.fullName, schoolName]);
+
+  const buildIndividualMessage = (pass: GatePass): string => {
+    const homeroom = pass.homeroomTeacher || classHomeroomMap.get(pass.className.trim()) || user.fullName;
+    const exitTime = pass.usedAt ? (pass.usedAt.includes('T') ? pass.usedAt.split('T')[1].substring(0, 5) : pass.usedAt) : 'לאחרונה';
+    return buildStudentExitWhatsAppMessage({
+      studentName: pass.studentName,
+      studentCode: pass.studentCode,
+      className: pass.className,
+      exitTime,
+      homeroomTeacher: homeroom,
+      authorizedBy: pass.teacherName,
+      guardName: pass.usedBy || 'שומר השער',
+      reason: pass.reason,
+      schoolName,
+    });
+  };
+
+  const handleOpenClassGroupWhatsApp = () => {
+    const textToSend = customGroupText || defaultClassGroupMessage;
+    const url = createWhatsAppUrl(textToSend);
+    window.open(url, '_blank');
+  };
+
+  const handleOpenStudentWhatsApp = (pass: GatePass, customPhone?: string) => {
+    const phone = customPhone || getStudentParentPhone(pass.studentId);
+    const msg = buildIndividualMessage(pass);
+    const url = createWhatsAppUrl(msg, phone);
+    window.open(url, '_blank');
+  };
+
   const toggleStudentSelection = (studentId: string) => {
     // Check if student already has active pass
     const student = (students || []).find((s) => s.id === studentId);
@@ -281,28 +411,6 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
   const selectedStudentsList = students.filter((s) => selectedStudentIds.has(s.id));
   const activePassesCount = passesToday.filter((p) => p.status === 'active').length;
   const exitedPassesCount = passesToday.filter((p) => p.status === 'used').length;
-
-  // Map each class to its homeroom teacher name from actual student records
-  const classHomeroomMap = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const student of students) {
-      if (student.className && student.teacherName) {
-        map.set(student.className.trim(), student.teacherName.trim());
-      }
-    }
-    return map;
-  }, [students]);
-
-  const classStudentsCountMap = React.useMemo(() => {
-    const map = new Map<string, number>();
-    for (const student of students) {
-      if (student.className) {
-        const cur = map.get(student.className.trim()) || 0;
-        map.set(student.className.trim(), cur + 1);
-      }
-    }
-    return map;
-  }, [students]);
 
   // Determine if acting as subject teacher
   const isSubjectTeacher = React.useMemo(() => {
@@ -718,6 +826,118 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
             )}
           </div>
 
+          {/* Parent WhatsApp Notification Hub (Exclusively after gate exit confirmation) */}
+          <div className="bg-gradient-to-l from-emerald-950 via-slate-900 to-teal-950 text-white rounded-3xl p-4 sm:p-5 border border-emerald-500/30 shadow-md space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <MessageCircle className="w-3 h-3" />
+                    <span>יידוע הורים בוואטסאפ (מחנכת כיתה)</span>
+                  </span>
+                  <span className="text-xs text-slate-300 font-bold">
+                    {exitedPasses.length} יצאו מהשער בפועל
+                  </span>
+                </div>
+                <h3 className="text-sm sm:text-base font-extrabold mt-1 text-white">
+                  עדכון הורים על יציאת תלמידים מבית הספר
+                </h3>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  הודעות נשלחות אך ורק לאחר שהשומר אישר פיזית שהתלמידים עברו את השער (לא כשהם מסתובבים בחצר)
+                </p>
+              </div>
+
+              <div className="shrink-0 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 text-center">
+                <span className="text-[10px] text-emerald-300 block font-bold">בטוח ומאומת</span>
+                <span className="text-xs font-black text-white flex items-center justify-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>יצאו מהשער</span>
+                </span>
+              </div>
+            </div>
+
+            {exitedPasses.length === 0 ? (
+              <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-xs text-slate-300 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  {pendingPasses.length > 0
+                    ? `ישנם כרגע ${pendingPasses.length} תלמידים שממתינים בשער או בחצר. כפתורי שליחת הוואטסאפ להורים ייפתחו ברגע שהשומר יאשר יציאה פיזית בשער.`
+                    : 'ברגע שיונפקו אישורים והשומר יאשר את יציאת התלמידים בשער, תוכל לשלוח הודעות לוואטסאפ כאן.'}
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {/* Option 1: Whole Class WhatsApp Group */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomGroupText(defaultClassGroupMessage);
+                      setShowClassGroupModal(true);
+                    }}
+                    className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-extrabold text-xs sm:text-sm shadow-md transition-all flex items-center justify-between cursor-pointer border border-emerald-400/50"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                        <Users className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-xs sm:text-sm">1. הודעה לקבוצת ההורים של כל הכיתה</div>
+                        <div className="text-[10px] text-emerald-100 font-medium">מתאים לשחרור כיתתי / יציאה מרוכזת</div>
+                      </div>
+                    </div>
+                    <Share2 className="w-4 h-4 text-emerald-200 shrink-0 mr-1" />
+                  </button>
+
+                  {/* Option 2: Individual Parent WhatsApp for Selected Students */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedExitedPassIds.size === 0) {
+                        setSelectedExitedPassIds(new Set(exitedPasses.map((p) => p.id)));
+                      }
+                      setShowIndividualParentsModal(true);
+                    }}
+                    className="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-extrabold text-xs sm:text-sm shadow-md transition-all flex items-center justify-between cursor-pointer border border-blue-400/50"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                        <MessageCircle className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-xs sm:text-sm">
+                          2. בחירת תלמידים להודעה פרטית
+                        </div>
+                        <div className="text-[10px] text-blue-100 font-medium">
+                          {selectedExitedPassIds.size > 0
+                            ? `נבחרו ${selectedExitedPassIds.size} תלמידים שיצאו מהשער`
+                            : `בחר מתוך ${exitedPasses.length} תלמידים שיצאו`}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs bg-white text-blue-900 font-black px-2 py-0.5 rounded-lg shrink-0 mr-1">
+                      {selectedExitedPassIds.size > 0 ? selectedExitedPassIds.size : exitedPasses.length}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Exited Selection Bar Controls */}
+                <div className="flex items-center justify-between text-xs px-2 pt-1 text-slate-300">
+                  <span className="text-[11px]">
+                    סמן למטה תלמידים שיצאו כדי לשלוח הודעה פרטית מותאמת אישית:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllExited}
+                    className="text-emerald-300 hover:text-white font-bold underline cursor-pointer text-xs"
+                  >
+                    {selectedExitedPassIds.size === exitedPasses.length ? 'בטל בחירת הכל' : 'סמן את כל מי שיצא'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {filteredPasses.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
               <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -830,15 +1050,52 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                     </div>
                   </div>
 
-                  {/* Cancel button if pass is still active */}
+                  {/* Gate exit confirmed: WhatsApp parent notification actions */}
+                  {isUsed && (
+                    <div className="mt-3 pt-2.5 border-t border-emerald-200/80 flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                          <input
+                            type="checkbox"
+                            checked={selectedExitedPassIds.has(pass.id)}
+                            onChange={() => toggleExitedPassSelection(pass.id)}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                          />
+                          <span>סמן להודעה פרטית</span>
+                        </label>
+                        {getStudentParentPhone(pass.studentId) && (
+                          <span className="text-[11px] font-mono text-slate-500 bg-white/80 px-2 py-0.5 rounded-md border border-slate-200">
+                            טלפון: {getStudentParentPhone(pass.studentId)}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveSingleStudentPass(pass);
+                          setShowIndividualParentsModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition-all cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>📲 וואטסאפ אישי להורה</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Active pass: explicitly explain that parent notifications are blocked until physical gate exit */}
                   {isActive && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400">התלמיד טרם יצא מבית הספר</span>
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="text-[11px] text-amber-800 bg-amber-100/70 border border-amber-200 px-2.5 py-1 rounded-xl flex items-center gap-1.5 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>התלמיד עדיין בחצר / ממתין בשער. הודעת יציאה להורים תיפתח רק לאחר אישור השומר בשער.</span>
+                      </div>
                       <button
                         type="button"
                         disabled={cancellingPassId === pass.id}
                         onClick={() => handleCancelPass(pass.id)}
-                        className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition-colors flex items-center gap-1"
+                        className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition-colors flex items-center gap-1 shrink-0 self-end sm:self-center cursor-pointer"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         <span>{cancellingPassId === pass.id ? 'מבטל...' : 'ביטול אישור'}</span>
@@ -1016,6 +1273,224 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Modal 1: WhatsApp Message to Class Parents Group */}
+      {showClassGroupModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="w-10 h-1.5 bg-slate-300 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 font-['Rubik']">
+                    הודעה לקבוצת ההורים של הכיתה
+                  </h2>
+                  <p className="text-[11px] text-emerald-700 font-bold">
+                    שחרור כיתתי · {exitedPasses.length} תלמידים יצאו מהשער
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClassGroupModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3">
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">יציאה פיזית מאומתת</span>
+                  <span>ההודעה מאשרת שהתלמידים עברו את בדיקת השומר ויצאו בפועל ממתחם בית הספר.</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  נוסח ההודעה שתישלח לקבוצת הוואטסאפ (ניתן לערוך במידת הצורך):
+                </label>
+                <textarea
+                  rows={8}
+                  value={customGroupText || defaultClassGroupMessage}
+                  onChange={(e) => setCustomGroupText(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 leading-relaxed focus:bg-white focus:border-emerald-600 focus:outline-none"
+                  dir="rtl"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => copyToClipboard(customGroupText || defaultClassGroupMessage, 'נוסח ההודעה לקבוצת ההורים הועתק!')}
+                className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-2xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Copy className="w-4 h-4 text-slate-600" />
+                <span>העתק נוסח</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenClassGroupWhatsApp}
+                className="flex-1 w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-emerald-700/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>📲 פתח בוואטסאפ ושגר לקבוצת ההורים</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Individual WhatsApp Messages to Parents of Exited Students */}
+      {showIndividualParentsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <div className="bg-white w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-200 max-h-[92vh] flex flex-col">
+            <div className="w-10 h-1.5 bg-slate-300 rounded-full mx-auto mb-3 sm:hidden" />
+
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 font-['Rubik']">
+                    הודעות פרטיות להורי התלמידים שיצאו
+                  </h2>
+                  <p className="text-[11px] text-blue-700 font-bold">
+                    {activeSingleStudentPass
+                      ? `תלמיד: ${activeSingleStudentPass.studentName}`
+                      : `${selectedExitedPassIds.size > 0 ? selectedExitedPassIds.size : exitedPasses.length} תלמידים נבחרו לשליחה אישית`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIndividualParentsModal(false);
+                  setActiveSingleStudentPass(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-3 overflow-y-auto flex-1 space-y-3 pr-0.5">
+              <div className="p-2.5 bg-blue-50/80 rounded-2xl border border-blue-200 text-xs text-blue-950 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>
+                  כל הודעה מנוסחת אישית עם שם התלמיד ושעת היציאה המאומתת מהשער.
+                </span>
+              </div>
+
+              {/* List of target passes */}
+              {(activeSingleStudentPass
+                ? [activeSingleStudentPass]
+                : exitedPasses.filter((p) => selectedExitedPassIds.size === 0 || selectedExitedPassIds.has(p.id))
+              ).map((pass) => {
+                const currentPhone = getStudentParentPhone(pass.studentId);
+                const exitTime = pass.usedAt ? (pass.usedAt.includes('T') ? pass.usedAt.split('T')[1].substring(0, 5) : pass.usedAt) : '';
+
+                return (
+                  <div
+                    key={pass.id}
+                    className="p-3.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl transition-all space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                          <span>{pass.studentName}</span>
+                          <span className="text-[11px] text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                            כיתה {pass.className}
+                          </span>
+                        </div>
+                        <div className="text-xs text-emerald-800 font-bold mt-1 flex items-center gap-1">
+                          <DoorOpen className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>יצא/ה מהשער בשעה {exitTime}</span>
+                          {pass.usedBy && <span className="text-slate-500 font-normal">· שומר: {pass.usedBy}</span>}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(buildIndividualMessage(pass), `הנוסח עבור ${pass.studentName} הועתק!`)}
+                        className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-white px-2.5 py-1 rounded-xl border border-slate-200 flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>העתק</span>
+                      </button>
+                    </div>
+
+                    {/* Parent Phone Input */}
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="text-xs font-bold text-slate-700 shrink-0">טלפון ההורה:</span>
+                        <input
+                          type="tel"
+                          placeholder="לדוגמה: 050-1234567"
+                          defaultValue={currentPhone}
+                          onBlur={(e) => handleSaveParentPhone(pass.studentId, e.target.value)}
+                          className="flex-1 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-600 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400">
+                        {currentPhone ? '✓ שמור במכשיר' : 'נשמר אוטומטית'}
+                      </span>
+                    </div>
+
+                    {/* Direct WhatsApp Action Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenStudentWhatsApp(pass, currentPhone)}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>
+                        {currentPhone
+                          ? `📲 פתח צ'אט וואטסאפ עם הורי ${pass.studentName}`
+                          : `📲 שלח בוואטסאפ להורי ${pass.studentName}`}
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500">
+                הודעות נשלחות ישירות לחשבון הוואטסאפ של המחנכת
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIndividualParentsModal(false);
+                  setActiveSingleStudentPass(null);
+                }}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                סגור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Clipboard Copy Toast Notification */}
+      {copiedTextToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-bold border border-slate-700 animate-in fade-in slide-in-from-top-3">
+          <Check className="w-4 h-4 text-emerald-400" />
+          <span>{copiedTextToast}</span>
         </div>
       )}
     </div>
