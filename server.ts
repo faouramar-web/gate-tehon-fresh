@@ -687,15 +687,47 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
+
+    // Serve index.html transformed by Vite for dev mode SPA
+    app.use('*', async (req: Request, res: Response, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api/')) return next();
+      try {
+        const indexPath = path.resolve(process.cwd(), 'index.html');
+        if (fs.existsSync(indexPath)) {
+          let template = fs.readFileSync(indexPath, 'utf-8');
+          template = await vite.transformIndexHtml(url, template);
+          res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+          return;
+        }
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        return next(e);
+      }
+      next();
+    });
   } else {
     // Serve static files from dist
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
-      app.get('*', (_req: Request, res: Response) => {
+      app.get('*', (req: Request, res: Response, next) => {
+        if (req.originalUrl.startsWith('/api/')) return next();
         res.sendFile(path.resolve(distPath, 'index.html'));
       });
     }
   }
+
+  // Fallback for any other HTML request if index.html exists
+  app.use('*', (req: Request, res: Response, next) => {
+    if (req.originalUrl.startsWith('/api/')) return next();
+    const indexPath = fs.existsSync(path.resolve(distPath, 'index.html'))
+      ? path.resolve(distPath, 'index.html')
+      : path.resolve(process.cwd(), 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[GatePass Server] Running on http://localhost:${PORT}`);

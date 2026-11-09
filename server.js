@@ -3824,14 +3824,40 @@ async function startServer() {
       appType: "spa"
     });
     app.use(vite.middlewares);
+    app.use("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith("/api/")) return next();
+      try {
+        const indexPath = path2.resolve(process.cwd(), "index.html");
+        if (fs2.existsSync(indexPath)) {
+          let template = fs2.readFileSync(indexPath, "utf-8");
+          template = await vite.transformIndexHtml(url, template);
+          res.status(200).set({ "Content-Type": "text/html" }).end(template);
+          return;
+        }
+      } catch (e) {
+        vite.ssrFixStacktrace(e);
+        return next(e);
+      }
+      next();
+    });
   } else {
     if (fs2.existsSync(distPath)) {
       app.use(express.static(distPath));
-      app.get("*", (_req, res) => {
+      app.get("*", (req, res, next) => {
+        if (req.originalUrl.startsWith("/api/")) return next();
         res.sendFile(path2.resolve(distPath, "index.html"));
       });
     }
   }
+  app.use("*", (req, res, next) => {
+    if (req.originalUrl.startsWith("/api/")) return next();
+    const indexPath = fs2.existsSync(path2.resolve(distPath, "index.html")) ? path2.resolve(distPath, "index.html") : path2.resolve(process.cwd(), "index.html");
+    if (fs2.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[GatePass Server] Running on http://localhost:${PORT}`);
   });
