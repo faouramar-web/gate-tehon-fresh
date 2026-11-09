@@ -24,29 +24,22 @@ body {
     size: A4 portrait;
     margin: 10mm;
   }
-  body {
+  html, body {
     background: white !important;
     color: black !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
-  body.printing-staff-cards * {
-    visibility: hidden;
+  .no-print,
+  nav,
+  header {
+    display: none !important;
   }
-  body.printing-staff-cards #printable-staff-cards-root,
-  body.printing-staff-cards #printable-staff-cards-root * {
-    visibility: visible;
-  }
-  body.printing-staff-cards #printable-staff-cards-root {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background: white !important;
-    display: block !important;
-  }
-  .print-page-break-inside-avoid {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  .print-page-break-inside-avoid,
+  .staff-print-card,
+  tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }

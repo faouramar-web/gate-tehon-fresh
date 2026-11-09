@@ -112,19 +112,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [printCardsRoleFilter, setPrintCardsRoleFilter] = useState<string>('all');
   const [copiedAllList, setCopiedAllList] = useState(false);
 
-  const handlePrintStaffCards = () => {
-    document.body.classList.add('printing-staff-cards');
-    window.print();
-    const cleanup = () => {
-      document.body.classList.remove('printing-staff-cards');
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
-    setTimeout(() => {
-      document.body.classList.remove('printing-staff-cards');
-    }, 2000);
-  };
-
   const getStaffRoleBadge = (member: StaffMember) => {
     if (member.role === 'admin' || member.pinCode === '160525') {
       return { title: 'מנהל המערכת הראשי', color: 'bg-purple-100 text-purple-900 border-purple-200' };
@@ -145,6 +132,379 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       return { title: `מחנכת כיתה ${member.assignedClasses[0]}`, color: 'bg-teal-100 text-teal-900 border-teal-200' };
     }
     return { title: 'מורה', color: 'bg-slate-100 text-slate-800 border-slate-200' };
+  };
+
+  const getFilteredStaffForPrint = () => {
+    return staffList.filter((s) => {
+      if (printCardsRoleFilter === 'all') return true;
+      if (printCardsRoleFilter === 'homeroom') return s.role === 'teacher' && s.assignedClasses && s.assignedClasses.length === 1 && s.assignedClasses[0] !== '*';
+      if (printCardsRoleFilter === 'subject') return s.role === 'teacher' && (s.assignedClasses?.includes('*') || (s.assignedClasses && s.assignedClasses.length > 1));
+      if (printCardsRoleFilter === 'guard') return s.role === 'guard';
+      if (printCardsRoleFilter === 'management') return s.role === 'admin' || s.role === 'vice_principal';
+      return true;
+    });
+  };
+
+  const generateStaffPrintDocumentHtml = (
+    targetStaff: StaffMember[],
+    schoolName: string,
+    layout: 'cards' | 'table'
+  ) => {
+    const dateStr = new Date().toLocaleDateString('he-IL');
+    const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+    let bodyContent = '';
+
+    if (layout === 'cards') {
+      const cardsHtml = targetStaff.map((member) => {
+        const badge = getStaffRoleBadge(member);
+        const cleanName = member.fullName.replace(/_/g, "'");
+        const classesStr = member.assignedClasses && member.assignedClasses.length > 0 && !member.assignedClasses.includes('*')
+          ? `<div style="font-size: 11px; color: #475569; margin-top: 2px;">כיתות מורשות: <strong>${member.assignedClasses.join(', ')}</strong></div>`
+          : '';
+
+        return `
+          <div class="card">
+            <div class="card-header">
+              <span class="cut-indicator">✂ גזור כאן ומסור לאיש הצוות</span>
+              <span class="school-tag">${schoolName}</span>
+            </div>
+
+            <div class="card-body">
+              <div class="member-row">
+                <span class="member-name">${cleanName}</span>
+                <span class="member-role">${badge.title}</span>
+              </div>
+              ${classesStr}
+
+              <div class="pin-box">
+                <div class="pin-label">קוד הכניסה האישי שלך (PIN):</div>
+                <div class="pin-number">${member.pinCode}</div>
+              </div>
+
+              <div class="instructions">
+                <strong>הוראות כניסה:</strong><br>
+                1. היכנס/י לכתובת המערכת בדפדפן הנייד או במחשב.<br>
+                2. הקלד/י את הקוד האישי <strong style="font-family: monospace; font-size: 13px;">${member.pinCode}</strong>.<br>
+                <span style="color: #b91c1c; font-weight: bold; font-size: 10px;">* קוד אישי ומאובטח – אין להעבירו לאחרים</span>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <span>אישור לשער</span>
+              <span>קוד צוות: ${member.staffCode || 'STAFF'}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      bodyContent = `
+        <div class="cards-grid">
+          ${cardsHtml}
+        </div>
+      `;
+    } else {
+      // Table layout
+      const rowsHtml = targetStaff.map((member, idx) => {
+        const badge = getStaffRoleBadge(member);
+        const cleanName = member.fullName.replace(/_/g, "'");
+        const classesStr = member.assignedClasses && member.assignedClasses.length > 0
+          ? member.assignedClasses.includes('*')
+            ? 'כל הכיתות'
+            : member.assignedClasses.join(', ')
+          : '-';
+
+        return `
+          <tr>
+            <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+            <td style="font-weight: bold; color: #0f172a;">${cleanName}</td>
+            <td><span class="table-badge">${badge.title}</span></td>
+            <td style="color: #334155;">${classesStr}</td>
+            <td style="text-align: center; font-family: monospace; font-size: 15px; font-weight: 900; color: #047857; background: #f0fdf4;">
+              ${member.pinCode}
+            </td>
+            <td style="text-align: center; color: #94a3b8; font-size: 11px;">
+              __________________
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      bodyContent = `
+        <table class="master-table">
+          <thead>
+            <tr>
+              <th style="width: 35px; text-align: center;">#</th>
+              <th>שם איש הצוות</th>
+              <th>תפקיד במערכת</th>
+              <th>כיתות משויכות</th>
+              <th style="text-align: center; width: 130px;">קוד אישי (PIN)</th>
+              <th style="text-align: center; width: 140px;">חתימת מסירה</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div style="margin-top: 15px; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
+          <span>דוח קודי גישה סודיים - מיועד לשמירה בלעדית אצל מנהל המערכת (עמאר פאעור)</span>
+          <span>סה"כ אנשי צוות: ${targetStaff.length}</span>
+        </div>
+      `;
+    }
+
+    return `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="utf-8">
+  <title>הדפסת קודי גישה לצוות - ${schoolName}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: 'Assistant', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #0f172a;
+      direction: rtl;
+    }
+    .doc-header {
+      text-align: center;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .doc-header .school-ministry {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .doc-header h1 {
+      margin: 3px 0 2px 0;
+      font-size: 18px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+    .doc-header .meta {
+      font-size: 11px;
+      color: #475569;
+    }
+    
+    /* CARDS GRID: Exactly 2 columns, exactly 6 per page */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .card {
+      border: 1.5px dashed #64748b;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #ffffff;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 232px;
+      box-sizing: border-box;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      font-size: 10px;
+    }
+    .cut-indicator {
+      color: #64748b;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .school-tag {
+      font-weight: 800;
+      color: #334155;
+    }
+    .member-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-top: 5px;
+      gap: 4px;
+    }
+    .member-name {
+      font-size: 15px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+    .member-role {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      white-space: nowrap;
+    }
+    .pin-box {
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 6px 10px;
+      text-align: center;
+      margin: 8px 0;
+    }
+    .pin-label {
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+    .pin-number {
+      font-size: 24px;
+      font-weight: 900;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 4px;
+      color: #34d399;
+      line-height: 1.1;
+      margin-top: 2px;
+    }
+    .instructions {
+      font-size: 10px;
+      line-height: 1.35;
+      color: #334155;
+      background: #f8fafc;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 4px;
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    /* TABLE */
+    .master-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .master-table th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 8px 10px;
+      text-align: right;
+      font-weight: 800;
+      border: 1px solid #334155;
+    }
+    .master-table td {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      vertical-align: middle;
+    }
+    .master-table tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .master-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .table-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-header">
+    <div class="school-ministry">משרד החינוך · ${schoolName} · מערכת אישור לשער</div>
+    <h1>רשימת קודי כניסה וסיסמאות אישיות לצוות בית הספר</h1>
+    <div class="meta">תאריך הפקה: ${dateStr} בשעה ${timeStr} · מסמך סודי לחלוקה לצוות המורשה בלבד</div>
+  </div>
+  ${bodyContent}
+</body>
+</html>`;
+  };
+
+  const handlePrintStaffCards = (targetStaff: StaffMember[]) => {
+    const schoolName = (schools.find((s) => s.id === selectedSchoolId)?.name) || clientStore.getActiveSchoolName() || "בית הספר";
+    const printHtml = generateStaffPrintDocumentHtml(targetStaff, schoolName, printCardsLayout);
+
+    // Try isolated hidden iframe print
+    try {
+      const oldIframe = document.getElementById('staff-print-hidden-iframe');
+      if (oldIframe) oldIframe.remove();
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'staff-print-hidden-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(printHtml);
+        doc.close();
+
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch (err) {
+            console.warn('Iframe print failed, falling back to window.print', err);
+            window.print();
+          }
+          setTimeout(() => {
+            iframe.remove();
+          }, 4000);
+        }, 350);
+        return;
+      }
+    } catch (e) {
+      console.warn('Error creating print iframe:', e);
+    }
+
+    // Direct fallback if iframe restricted
+    window.print();
+  };
+
+  const handleDownloadStaffPrintHtml = (targetStaff: StaffMember[]) => {
+    const schoolName = (schools.find((s) => s.id === selectedSchoolId)?.name) || clientStore.getActiveSchoolName() || "בית הספר";
+    const printHtml = generateStaffPrintDocumentHtml(targetStaff, schoolName, printCardsLayout);
+    const blob = new Blob([printHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `קודי_סיסמאות_צוות_${schoolName.replace(/\s+/g, '_')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleCopyAllStaffCards = (targetStaff: StaffMember[]) => {
@@ -4673,18 +5033,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 {/* Copy Text Button */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const target = staffList.filter((s) => {
-                      if (printCardsRoleFilter === 'all') return true;
-                      if (printCardsRoleFilter === 'homeroom') return s.role === 'teacher' && s.assignedClasses && s.assignedClasses.length === 1 && s.assignedClasses[0] !== '*';
-                      if (printCardsRoleFilter === 'subject') return s.role === 'teacher' && (s.assignedClasses?.includes('*') || (s.assignedClasses && s.assignedClasses.length > 1));
-                      if (printCardsRoleFilter === 'guard') return s.role === 'guard';
-                      if (printCardsRoleFilter === 'management') return s.role === 'admin' || s.role === 'vice_principal';
-                      return true;
-                    });
-                    handleCopyAllStaffCards(target);
-                  }}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+                  onClick={() => handleCopyAllStaffCards(getFilteredStaffForPrint())}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 cursor-pointer"
                   title="העתק את כל הרשימה לקובץ או להודעה"
                 >
                   {copiedAllList ? (
@@ -4700,11 +5050,23 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   )}
                 </button>
 
+                {/* Download HTML Button */}
+                <button
+                  type="button"
+                  onClick={() => handleDownloadStaffPrintHtml(getFilteredStaffForPrint())}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-teal-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+                  title="הורדת קובץ HTML להדפסה ישירה בכל מחשב או דפדפן"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>שמור קובץ HTML</span>
+                </button>
+
                 {/* Print Button */}
                 <button
                   type="button"
-                  onClick={handlePrintStaffCards}
+                  onClick={() => handlePrintStaffCards(getFilteredStaffForPrint())}
                   className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-950/30 active:scale-95 cursor-pointer"
+                  title="הדפסה נקייה ישירות ל-A4 ללא חיתוך או דפים כפולים"
                 >
                   <Printer className="w-4 h-4" />
                   <span>הדפס (A4 / PDF)</span>
@@ -4944,11 +5306,20 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={handlePrintStaffCards}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => handleDownloadStaffPrintHtml(getFilteredStaffForPrint())}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-teal-200 font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
+                  title="הורדת קובץ HTML להדפסה ישירה"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>שמור קובץ HTML</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrintStaffCards(getFilteredStaffForPrint())}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer text-xs"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>הדפס עכשיו</span>
+                  <span>הדפס עכשיו (A4 / PDF)</span>
                 </button>
               </div>
             </div>
