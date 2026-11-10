@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api.ts';
 import { clientStore, generateUniquePin } from '../lib/clientStore.ts';
-import { User, GatePass, Student, StaffMember, UserRole, School } from '../types.ts';
+import { User, GatePass, Student, StaffMember, UserRole, School, LateArrival } from '../types.ts';
+import { ComprehensiveReportsView } from './ComprehensiveReportsView.tsx';
+import {
+  buildLateArrivalWhatsAppMessage,
+  createWhatsAppUrl,
+  formatWhatsAppPhone
+} from '../lib/whatsapp.ts';
 import {
   ShieldAlert,
   Search,

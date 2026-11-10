@@ -70,12 +70,31 @@ export interface ServerSchool {
   createdAt: string;
 }
 
+export interface LateArrival {
+  id: string;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  className: string;
+  homeroomTeacher?: string;
+  dateStr: string; // YYYY-MM-DD
+  timeStr: string; // HH:mm
+  recordedById: string;
+  recordedByName: string;
+  recordedByRole: string;
+  reason?: string;
+  notes?: string;
+  schoolId?: string;
+  createdAt: string; // ISO
+}
+
 export interface DatabaseSchema {
   schools?: ServerSchool[];
   activeSchoolId?: string;
   staff: Staff[];
   students: Student[];
   passes: GatePass[];
+  lateArrivals?: LateArrival[];
   auditLogs: AuditLogEntry[];
   settings: {
     schoolName: string;
@@ -192,6 +211,7 @@ export const INITIAL_DEMO_DATA: DatabaseSchema = {
   ],
   students: (SEEDED_STUDENTS as any[]) || [],
   passes: [],
+  lateArrivals: [],
   auditLogs: [],
 };
 
@@ -1143,6 +1163,108 @@ class SchoolDatabase {
         data.passes = passes;
       }
     });
+  }
+
+  public recordLateArrival(params: {
+    studentId: string;
+    studentCode?: string;
+    studentName?: string;
+    className?: string;
+    homeroomTeacher?: string;
+    timeStr?: string;
+    dateStr?: string;
+    reason?: string;
+    notes?: string;
+    actor: Staff;
+  }): { success: boolean; lateArrival?: LateArrival; error?: string } {
+    let result: LateArrival | undefined;
+    this.mutate((data) => {
+      if (!data.lateArrivals) data.lateArrivals = [];
+      const student =
+        data.students.find((s) => s.id === params.studentId) ||
+        data.students.find(
+          (s) => s.fullName === params.studentName && s.className === params.className
+        );
+
+      const studentName = student?.fullName || params.studentName || 'תלמיד';
+      const className = student?.className || params.className || '';
+      const studentCode = student?.studentCode || params.studentCode || '';
+      const homeroomTeacher = student?.teacherName || params.homeroomTeacher || '';
+      const dateStr = params.dateStr || getIsraelDateString();
+      const timeStr = params.timeStr || getIsraelTimeString();
+
+      const newArrival: LateArrival = {
+        id: `late-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        studentId: student?.id || params.studentId || `stu-${Date.now()}`,
+        studentCode,
+        studentName,
+        className,
+        homeroomTeacher,
+        dateStr,
+        timeStr,
+        recordedById: params.actor.id,
+        recordedByName: params.actor.fullName,
+        recordedByRole: params.actor.role,
+        reason: params.reason || 'איחור בוקר',
+        notes: params.notes || '',
+        schoolId: student?.schoolId || params.actor.schoolId,
+        createdAt: new Date().toISOString(),
+      };
+
+      data.lateArrivals.unshift(newArrival);
+      result = newArrival;
+
+      data.auditLogs.push({
+        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'PASS_CREATED',
+        actorId: params.actor.id,
+        actorName: params.actor.fullName,
+        actorRole: params.actor.role,
+        studentName,
+        className,
+        details: `נרשם איחור כניסה בשער בשעה ${timeStr} על ידי ${params.actor.fullName}`,
+      });
+    });
+
+    return { success: true, lateArrival: result };
+  }
+
+  public getLateArrivals(filter?: {
+    dateStr?: string;
+    fromDate?: string;
+    toDate?: string;
+    className?: string;
+    studentId?: string;
+  }): LateArrival[] {
+    const list = this.data.lateArrivals || [];
+    return list.filter((item) => {
+      if (filter?.dateStr && item.dateStr !== filter.dateStr) return false;
+      if (filter?.fromDate && item.dateStr < filter.fromDate) return false;
+      if (filter?.toDate && item.dateStr > filter.toDate) return false;
+      if (
+        filter?.className &&
+        filter.className !== 'ALL' &&
+        filter.className !== '*' &&
+        item.className !== filter.className
+      )
+        return false;
+      if (filter?.studentId && item.studentId !== filter.studentId) return false;
+      return true;
+    });
+  }
+
+  public deleteLateArrival(id: string, actor: Staff): { success: boolean; error?: string } {
+    let success = false;
+    this.mutate((data) => {
+      if (!data.lateArrivals) return;
+      const idx = data.lateArrivals.findIndex((x) => x.id === id);
+      if (idx >= 0) {
+        data.lateArrivals.splice(idx, 1);
+        success = true;
+      }
+    });
+    return { success };
   }
 }
 

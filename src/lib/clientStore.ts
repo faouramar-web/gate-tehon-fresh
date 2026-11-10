@@ -1,4 +1,4 @@
-import { User, Student, GatePass, GuardSearchResult, StaffMember, UserRole, School, SchoolStatus } from '../types.ts';
+import { User, Student, GatePass, GuardSearchResult, StaffMember, UserRole, School, SchoolStatus, LateArrival } from '../types.ts';
 import { db as firestoreDb } from './firebase.ts';
 import {
   collection,
@@ -228,6 +228,7 @@ const STORAGE_KEY_ACTIVE_SCHOOL = 'gatepass_client_active_school_id_v8_fresh_emp
 const STORAGE_KEY_STAFF = 'gatepass_client_staff_v8_fresh_empty_slate';
 const STORAGE_KEY_STUDENTS = 'gatepass_client_students_v8_fresh_empty_slate';
 const STORAGE_KEY_PASSES = 'gatepass_client_passes_v8_fresh_empty_slate';
+const STORAGE_KEY_LATE_ARRIVALS = 'gatepass_client_late_arrivals_v8_fresh_empty_slate';
 const STORAGE_KEY_SESSION = 'gatepass_client_session_v8_fresh_empty_slate';
 const STORAGE_SEED_KEY = 'gatepass_seeded_v8_fresh_empty_slate';
 
@@ -247,6 +248,7 @@ class ClientStorageEngine {
   private staff: StaffMember[];
   private students: Student[];
   private passes: GatePass[];
+  private lateArrivals: LateArrival[];
   private listeners: Array<() => void> = [];
 
   constructor() {
@@ -298,9 +300,13 @@ class ClientStorageEngine {
       ? loadedPasses.filter((p) => p && !isDemoPass(p))
       : [];
 
+    const loadedLate = this.load<LateArrival[]>(STORAGE_KEY_LATE_ARRIVALS, []);
+    this.lateArrivals = Array.isArray(loadedLate) ? loadedLate : [];
+
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_PASSES, this.passes);
+    this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
     this.save(STORAGE_KEY_SCHOOLS, this.schools);
     this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
 
@@ -2437,6 +2443,118 @@ class ClientStorageEngine {
     this.save(STORAGE_KEY_PASSES, this.passes);
     this.broadcastChange();
     return { success: true, message: 'המערכת אופסה לחלוטין ומוכנה לקליטת בית הספר החדש!' };
+  }
+
+  // ==================== LATE ARRIVALS METHODS ====================
+
+  public recordLateArrival(params: {
+    studentId: string;
+    studentCode?: string;
+    studentName: string;
+    className: string;
+    homeroomTeacher?: string;
+    timeStr?: string;
+    dateStr?: string;
+    reason?: string;
+    notes?: string;
+    actor: User | StaffMember;
+  }): LateArrival {
+    const today = this.getIsraelDate();
+    const nowTime = this.getIsraelTime();
+
+    const newArrival: LateArrival = {
+      id: `late-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      studentId: params.studentId,
+      studentCode: params.studentCode || '',
+      studentName: params.studentName,
+      className: params.className,
+      homeroomTeacher: params.homeroomTeacher || '',
+      dateStr: params.dateStr || today,
+      timeStr: params.timeStr || nowTime,
+      recordedById: params.actor.id,
+      recordedByName: params.actor.fullName,
+      recordedByRole: params.actor.role,
+      reason: params.reason || 'איחור בוקר',
+      notes: params.notes || '',
+      schoolId: params.actor.schoolId || this.activeSchoolId,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.lateArrivals.unshift(newArrival);
+    this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
+    this.notify();
+    return newArrival;
+  }
+
+  public saveLateArrivalLocally(arrival: LateArrival): void {
+    if (!arrival || !arrival.id) return;
+    const idx = this.lateArrivals.findIndex((x) => x.id === arrival.id);
+    if (idx >= 0) {
+      this.lateArrivals[idx] = arrival;
+    } else {
+      this.lateArrivals.unshift(arrival);
+    }
+    this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
+    this.notify();
+  }
+
+  public setLateArrivals(list: LateArrival[]): void {
+    if (Array.isArray(list)) {
+      this.lateArrivals = list;
+      this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
+      this.notify();
+    }
+  }
+
+  public getLateArrivals(filter?: {
+    dateStr?: string;
+    fromDate?: string;
+    toDate?: string;
+    className?: string;
+    studentId?: string;
+  }): LateArrival[] {
+    return this.lateArrivals.filter((item) => {
+      if (filter?.dateStr && item.dateStr !== filter.dateStr) return false;
+      if (filter?.fromDate && item.dateStr < filter.fromDate) return false;
+      if (filter?.toDate && item.dateStr > filter.toDate) return false;
+      if (
+        filter?.className &&
+        filter.className !== 'ALL' &&
+        filter.className !== '*' &&
+        item.className !== filter.className
+      )
+        return false;
+      if (filter?.studentId && item.studentId !== filter.studentId) return false;
+      return true;
+    });
+  }
+
+  public getLateArrivalsTodayForClass(className: string): LateArrival[] {
+    const today = this.getIsraelDate();
+    const normStr = (c: string) => (c || '').replace(/^כיתה\s*/i, '').replace(/['"`׳״\s]/g, '').toLowerCase();
+    const targetNorm = normStr(className);
+
+    return this.lateArrivals.filter((item) => {
+      if (item.dateStr !== today) return false;
+      if (!className || className === 'ALL' || className === '*') return true;
+      return normStr(item.className) === targetNorm;
+    });
+  }
+
+  public getLateArrivalsCountToday(): number {
+    const today = this.getIsraelDate();
+    return this.lateArrivals.filter((item) => item.dateStr === today).length;
+  }
+
+  public deleteLateArrival(id: string): boolean {
+    const idx = this.lateArrivals.findIndex((x) => x.id === id);
+    if (idx >= 0) {
+      this.lateArrivals.splice(idx, 1);
+      this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
+      this.notify();
+      return true;
+    }
+    return false;
   }
 }
 

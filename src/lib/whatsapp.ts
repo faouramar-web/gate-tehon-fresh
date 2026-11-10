@@ -104,3 +104,46 @@ export function buildStudentExitWhatsAppMessage({
 
   return msg;
 }
+
+export interface LateArrivalMessageParams {
+  studentName: string;
+  className: string;
+  arrivalTime: string;
+  dateStr?: string;
+  homeroomTeacher?: string;
+  recordedBy?: string;
+  reason?: string;
+  schoolName?: string;
+}
+
+export function buildLateArrivalWhatsAppMessage({
+  studentName,
+  className,
+  arrivalTime,
+  dateStr,
+  homeroomTeacher,
+  recordedBy,
+  reason,
+  schoolName = 'בית הספר',
+}: LateArrivalMessageParams): string {
+  const cleanTime = arrivalTime.includes('T') ? arrivalTime.split('T')[1].substring(0, 5) : arrivalTime;
+  const todayStr = dateStr || new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+
+  let msg = `שלום רב,\n`;
+  msg += `ברצוננו ליידעכם כי בנכם/בתכם *${studentName}* מכיתה *${className}* נכנס/ה היום לשטח בית הספר באיחור.\n\n`;
+  msg += `📅 *תאריך:* ${todayStr}\n`;
+  msg += `⏱️ *שעת כניסה בשער:* ${cleanTime}\n`;
+  if (recordedBy) {
+    msg += `👤 *נרשם ע״י תורן שער:* ${recordedBy}\n`;
+  }
+  if (reason) {
+    msg += `📝 *סיבת איחור:* ${reason}\n`;
+  }
+  msg += `\nתודה על שיתוף הפעולה בשמירה על הגעה בזמן ובביטחון! 🌸\n`;
+  if (homeroomTeacher) {
+    msg += `בברכה, מחנכת הכיתה *${homeroomTeacher}*\n`;
+  }
+  msg += `*${schoolName}*`;
+
+  return msg;
+}

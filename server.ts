@@ -485,6 +485,57 @@ app.post('/api/guard/mark-exit', authenticate, (req: Request, res: Response) => 
   });
 });
 
+// ==================== LATE ARRIVALS API ====================
+
+// Record student late arrival (Teacher / Duty on Gate / VP / Admin)
+app.post('/api/late-arrivals', authenticate, requireRole('teacher', 'vice_principal'), (req: Request, res: Response) => {
+  const actor = (req as any).user as Staff;
+  const { studentId, studentCode, studentName, className, homeroomTeacher, timeStr, dateStr, reason, notes } = req.body;
+
+  if (!studentId && !studentName) {
+    res.status(400).json({ error: 'חסר מזהה או שם תלמיד' });
+    return;
+  }
+
+  const result = db.recordLateArrival({
+    studentId,
+    studentCode,
+    studentName,
+    className,
+    homeroomTeacher,
+    timeStr,
+    dateStr,
+    reason,
+    notes,
+    actor,
+  });
+
+  res.json({
+    success: true,
+    lateArrival: result.lateArrival,
+    message: `איחור נרשם בהצלחה עבור ${result.lateArrival?.studentName} (${result.lateArrival?.className})`,
+  });
+});
+
+// Query late arrivals (with filters: dateStr, fromDate, toDate, className)
+app.get('/api/late-arrivals', authenticate, requireRole('teacher', 'vice_principal'), (req: Request, res: Response) => {
+  const { dateStr, fromDate, toDate, className, studentId } = req.query as Record<string, string>;
+  const list = db.getLateArrivals({ dateStr, fromDate, toDate, className, studentId });
+  res.json({
+    lateArrivals: list,
+    totalCount: list.length,
+    currentTime: getIsraelTimeString(),
+  });
+});
+
+// Delete a late arrival (if recorded by error)
+app.delete('/api/late-arrivals/:id', authenticate, requireRole('teacher', 'vice_principal'), (req: Request, res: Response) => {
+  const actor = (req as any).user as Staff;
+  const { id } = req.params;
+  const result = db.deleteLateArrival(id, actor);
+  res.json(result);
+});
+
 // ==================== ADMIN API ====================
 
 // Get all staff members and their access codes

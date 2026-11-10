@@ -104,3 +104,21 @@ export interface DemoAccount {
   title?: string;
   name?: string;
 }
+
+export interface LateArrival {
+  id: string;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  className: string;
+  homeroomTeacher?: string;
+  dateStr: string; // YYYY-MM-DD
+  timeStr: string; // HH:mm
+  recordedById: string;
+  recordedByName: string;
+  recordedByRole: string;
+  reason?: string;
+  notes?: string;
+  schoolId?: string;
+  createdAt: string; // ISO
+}

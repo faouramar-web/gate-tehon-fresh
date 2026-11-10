@@ -1,4 +1,4 @@
-import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount, School, SchoolStatus } from '../types.ts';
+import { User, Student, GatePass, GuardSearchResult, AuditLogEntry, StaffMember, DemoAccount, School, SchoolStatus, LateArrival } from '../types.ts';
 import { clientStore, deduplicateStudents } from './clientStore.ts';
 
 const TOKEN_KEY = 'gatepass_auth_token';
@@ -970,5 +970,82 @@ export const api = {
       }
     }
     return clientStore.activateSchoolByCode(code);
+  },
+
+  // --- Late Arrivals ---
+  async recordLateArrival(data: {
+    studentId: string;
+    studentCode?: string;
+    studentName: string;
+    className: string;
+    homeroomTeacher?: string;
+    timeStr?: string;
+    dateStr?: string;
+    reason?: string;
+    notes?: string;
+  }): Promise<{ success: boolean; lateArrival: LateArrival; message: string }> {
+    if (isStaticHost) {
+      const currentUser = clientStore.getSessionUser();
+      const recorded = clientStore.recordLateArrival({
+        ...data,
+        actor: currentUser || { id: 'teacher', fullName: 'מורה', role: 'teacher', staffCode: 'T', assignedClasses: [] },
+      });
+      return { success: true, lateArrival: recorded, message: 'האיחור נרשם בהצלחה' };
+    }
+
+    try {
+      const res = await request<any>('/api/late-arrivals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (res && res.lateArrival) {
+        clientStore.saveLateArrivalLocally(res.lateArrival);
+      }
+      return res;
+    } catch {
+      const currentUser = clientStore.getSessionUser();
+      const recorded = clientStore.recordLateArrival({
+        ...data,
+        actor: currentUser || { id: 'teacher', fullName: 'מורה', role: 'teacher', staffCode: 'T', assignedClasses: [] },
+      });
+      return { success: true, lateArrival: recorded, message: 'האיחור נרשם בהצלחה' };
+    }
+  },
+
+  async getLateArrivals(filter?: {
+    dateStr?: string;
+    fromDate?: string;
+    toDate?: string;
+    className?: string;
+  }): Promise<{ lateArrivals: LateArrival[]; totalCount: number; currentTime: string }> {
+    if (isStaticHost) {
+      const list = clientStore.getLateArrivals(filter);
+      return { lateArrivals: list, totalCount: list.length, currentTime: clientStore.getIsraelTime() };
+    }
+
+    try {
+      const query = new URLSearchParams();
+      if (filter?.dateStr) query.set('dateStr', filter.dateStr);
+      if (filter?.fromDate) query.set('fromDate', filter.fromDate);
+      if (filter?.toDate) query.set('toDate', filter.toDate);
+      if (filter?.className && filter.className !== 'ALL') query.set('className', filter.className);
+
+      const res = await request<any>(`/api/late-arrivals?${query.toString()}`);
+      if (res && Array.isArray(res.lateArrivals)) {
+        clientStore.setLateArrivals(res.lateArrivals);
+      }
+      return res;
+    } catch {
+      const list = clientStore.getLateArrivals(filter);
+      return { lateArrivals: list, totalCount: list.length, currentTime: clientStore.getIsraelTime() };
+    }
+  },
+
+  async deleteLateArrival(id: string): Promise<{ success: boolean }> {
+    clientStore.deleteLateArrival(id);
+    if (!isStaticHost) {
+      request(`/api/late-arrivals/${id}`, { method: 'DELETE' }).catch(() => {});
+    }
+    return { success: true };
   },
 };
