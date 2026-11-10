@@ -57,7 +57,21 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const [refreshing, setRefreshing] = useState(false);
 
   // Primary active tab for Vice Principal / School Office
-  const [activeMainTab, setActiveMainTab] = useState<'passes' | 'issue_pass' | 'staff'>('passes');
+  const [activeMainTab, setActiveMainTab] = useState<'passes' | 'late_arrivals' | 'reports' | 'issue_pass' | 'staff'>('passes');
+
+  // Morning Gate Duty & Late Arrivals State
+  const [lateArrivals, setLateArrivals] = useState<LateArrival[]>([]);
+  const [showVpLateModal, setShowVpLateModal] = useState<boolean>(false);
+  const [vpLateStudentQuery, setVpLateStudentQuery] = useState<string>('');
+  const [vpSelectedStudent, setVpSelectedStudent] = useState<Student | null>(null);
+  const [vpLateTime, setVpLateTime] = useState<string>('');
+  const [vpLateReason, setVpLateReason] = useState<string>('הסעה / תחבורה איחרה');
+  const [vpLateNotes, setVpLateNotes] = useState<string>('');
+  const [isSubmittingVpLate, setIsSubmittingVpLate] = useState<boolean>(false);
+  const [vpLateSuccess, setVpLateSuccess] = useState<string | null>(null);
+  const [deletingLateId, setDeletingLateId] = useState<string | null>(null);
+  const [vpLateClassFilter, setVpLateClassFilter] = useState<string>('ALL');
+  const [vpLateSearchQuery, setVpLateSearchQuery] = useState<string>('');
 
   // Staff Management State (School Secretary / VP)
   const [schoolStaff, setSchoolStaff] = useState<StaffMember[]>([]);
@@ -296,6 +310,147 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
       setLoadingStaff(false);
     }
   };
+
+  // Morning Gate Duty & Late Arrivals Operations
+  const loadLateArrivals = async () => {
+    try {
+      const todayStr = clientStore.getIsraelDate();
+      const res = await api.getLateArrivals({
+        from: todayStr,
+        to: todayStr,
+        schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined,
+      });
+      setLateArrivals(res.lateArrivals || []);
+    } catch {
+      setLateArrivals(clientStore.getLateArrivals());
+    }
+  };
+
+  useEffect(() => {
+    loadLateArrivals();
+  }, [syncTick]);
+
+  useEffect(() => {
+    if (activeMainTab === 'late_arrivals') {
+      loadLateArrivals();
+    }
+  }, [activeMainTab]);
+
+  const allSchoolStudents = useMemo(() => {
+    const fromStore = clientStore.getAllStudents(user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined);
+    if (fromStore && fromStore.length > 0) return fromStore;
+    return studentsList;
+  }, [studentsList, user.schoolId]);
+
+  const filteredDutyStudents = useMemo(() => {
+    const q = vpLateStudentQuery.trim().toLowerCase();
+    if (!q) return [];
+    return allSchoolStudents
+      .filter(
+        (s) =>
+          s.fullName.toLowerCase().includes(q) ||
+          (s.studentCode && s.studentCode.toLowerCase().includes(q)) ||
+          (s.className && s.className.toLowerCase().includes(q))
+      )
+      .slice(0, 15);
+  }, [allSchoolStudents, vpLateStudentQuery]);
+
+  const handleOpenVpGateDutyModal = () => {
+    setVpLateStudentQuery('');
+    setVpSelectedStudent(null);
+    setVpLateTime(clientStore.getIsraelTime());
+    setVpLateReason('הסעה / תחבורה איחרה');
+    setVpLateNotes('');
+    setVpLateSuccess(null);
+    setShowVpLateModal(true);
+  };
+
+  const handleRecordVpLateArrival = async () => {
+    if (!vpSelectedStudent) return;
+    setIsSubmittingVpLate(true);
+    setVpLateSuccess(null);
+    try {
+      const todayStr = clientStore.getIsraelDate();
+      const timeStr = vpLateTime || clientStore.getIsraelTime();
+      const homeroom =
+        vpSelectedStudent.teacherName || classHomeroomMap.get(vpSelectedStudent.className) || 'מחנכת כיתה';
+
+      const payload = {
+        studentId: vpSelectedStudent.id,
+        studentCode: vpSelectedStudent.studentCode || '',
+        studentName: vpSelectedStudent.fullName,
+        className: vpSelectedStudent.className,
+        homeroomTeacher: homeroom,
+        dateStr: todayStr,
+        timeStr,
+        recordedById: user.id,
+        recordedByName: user.fullName,
+        recordedByRole: 'vice_principal' as const,
+        reason: vpLateReason,
+        notes: vpLateNotes.trim() || undefined,
+        schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : clientStore.getActiveSchoolId(),
+      };
+
+      const result = await api.recordLateArrival(payload);
+      if (result.success && result.lateArrival) {
+        setLateArrivals((prev) => [result.lateArrival!, ...prev]);
+        setVpLateSuccess(`איחור נרשם בהצלחה עבור ${vpSelectedStudent.fullName} (כיתה ${vpSelectedStudent.className})`);
+        setVpSelectedStudent(null);
+        setVpLateStudentQuery('');
+        setVpLateNotes('');
+        setTimeout(() => setVpLateSuccess(null), 3500);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSubmittingVpLate(false);
+    }
+  };
+
+  const handleDeleteLateArrival = async (id: string, studentName: string) => {
+    if (!window.confirm(`האם אתה בטוח שברצונך למחוק את רישום האיחור של ${studentName}?`)) return;
+    setDeletingLateId(id);
+    try {
+      await api.deleteLateArrival(id);
+      setLateArrivals((prev) => prev.filter((item) => item.id !== id));
+    } catch {
+      // ignore
+    } finally {
+      setDeletingLateId(null);
+    }
+  };
+
+  const handleSendVpLateWhatsApp = (late: LateArrival) => {
+    const matched = allSchoolStudents.find((s) => s.id === late.studentId || s.fullName === late.studentName);
+    const phone = matched?.parentPhone || '';
+    const text = buildLateArrivalWhatsAppMessage({
+      studentName: late.studentName,
+      className: late.className,
+      dateStr: late.dateStr,
+      timeStr: late.timeStr,
+      recordedByName: late.recordedByName,
+      recordedByRole: late.recordedByRole,
+      reason: late.reason,
+      notes: late.notes,
+      schoolName: clientStore.getActiveSchoolName() || 'בית הספר',
+    });
+    const url = createWhatsAppUrl(phone, text);
+    window.open(url, '_blank');
+  };
+
+  const filteredLateArrivals = useMemo(() => {
+    return lateArrivals.filter((item) => {
+      if (vpLateClassFilter !== 'ALL' && item.className !== vpLateClassFilter) return false;
+      if (vpLateSearchQuery.trim()) {
+        const q = vpLateSearchQuery.toLowerCase();
+        const matchName = item.studentName.toLowerCase().includes(q);
+        const matchCode = item.studentCode ? item.studentCode.toLowerCase().includes(q) : false;
+        const matchTeacher = item.homeroomTeacher ? item.homeroomTeacher.toLowerCase().includes(q) : false;
+        if (!matchName && !matchCode && !matchTeacher) return false;
+      }
+      return true;
+    });
+  }, [lateArrivals, vpLateClassFilter, vpLateSearchQuery]);
 
   useEffect(() => {
     if (activeMainTab === 'staff') {
@@ -876,19 +1031,45 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         </div>
       </div>
 
-      {/* Primary Section Switcher Tabs: Passes vs Quick Pass Issue vs Staff & Access Codes */}
-      <div className="bg-white rounded-3xl p-2 border-2 border-slate-200/90 shadow-sm mb-6 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+      {/* Primary Section Switcher Tabs: Passes vs Late Arrivals vs Reports vs Quick Pass Issue vs Staff & Access Codes */}
+      <div className="bg-white rounded-3xl p-2 border-2 border-slate-200/90 shadow-sm mb-6 flex items-center gap-2 flex-wrap">
         <button
           type="button"
           onClick={() => setActiveMainTab('passes')}
-          className={`flex-1 py-3 px-3.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 min-w-[140px] py-3 px-3 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeMainTab === 'passes'
               ? 'bg-slate-900 text-white shadow-md'
               : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
           }`}
         >
           <CalendarDays className={`w-4 h-4 ${activeMainTab === 'passes' ? 'text-amber-400' : 'text-slate-500'}`} />
-          <span>בירור יציאות ומעקב שחרורים</span>
+          <span>בירור ומעקב שחרורים</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('late_arrivals')}
+          className={`flex-1 min-w-[140px] py-3 px-3 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeMainTab === 'late_arrivals'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <Clock className={`w-4 h-4 ${activeMainTab === 'late_arrivals' ? 'text-amber-200' : 'text-amber-600'}`} />
+          <span>איחורים ותורן שער {lateArrivals.length > 0 && `(${lateArrivals.length})`}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('reports')}
+          className={`flex-1 min-w-[140px] py-3 px-3 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeMainTab === 'reports'
+              ? 'bg-indigo-700 text-white shadow-md'
+              : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <FileCheck className={`w-4 h-4 ${activeMainTab === 'reports' ? 'text-indigo-200' : 'text-indigo-600'}`} />
+          <span>דוחות וסיכומים מקיפים</span>
         </button>
 
         <button
@@ -899,27 +1080,27 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
               setIssueClass(classesOptions[0]);
             }
           }}
-          className={`flex-1 py-3 px-3.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 min-w-[140px] py-3 px-3 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeMainTab === 'issue_pass'
               ? 'bg-teal-700 text-white shadow-md'
               : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
           }`}
         >
           <DoorOpen className={`w-4 h-4 ${activeMainTab === 'issue_pass' ? 'text-teal-200' : 'text-teal-600'}`} />
-          <span>הנפקת אישור שער מהיר (מזכירות)</span>
+          <span>הנפקת אישור שער מהיר</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveMainTab('staff')}
-          className={`flex-1 py-3 px-3.5 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 min-w-[140px] py-3 px-3 rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeMainTab === 'staff'
               ? 'bg-blue-900 text-white shadow-md'
               : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
           }`}
         >
           <KeyRound className={`w-4 h-4 ${activeMainTab === 'staff' ? 'text-blue-300' : 'text-blue-600'}`} />
-          <span>צוות בית הספר וקודי גישה ({schoolStaff.length})</span>
+          <span>צוות וקודי גישה ({schoolStaff.length})</span>
         </button>
       </div>
 
@@ -1358,6 +1539,225 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
         )}
       </div>
       </>
+      )}
+
+      {/* ================= SECTION: LATE ARRIVALS & GATE DUTY ================= */}
+      {activeMainTab === 'late_arrivals' && (
+        <div className="space-y-6">
+          {/* Header & Gate Duty Action Bar */}
+          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-orange-700 rounded-3xl p-6 sm:p-8 text-white shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-black backdrop-blur-xs mb-3">
+                  <Clock className="w-3.5 h-3.5 text-amber-200" />
+                  <span>שער בית הספר · תורן שער</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black font-['Rubik'] tracking-tight">
+                  יומן איחורי בוקר ותורן שער
+                </h2>
+                <p className="text-amber-100 text-xs sm:text-sm mt-1 max-w-xl font-medium">
+                  רישום הגעת תלמידים באיחור לשער בית הספר בזמן אמת, סנכרון ישיר למחנכת הכיתה והודעות להורים
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleOpenVpGateDutyModal}
+                  className="px-5 py-3 rounded-2xl bg-white text-amber-950 font-black text-sm shadow-xl hover:bg-amber-50 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-5 h-5 text-amber-700" />
+                  <span>תורן שער: רשום תלמיד/ה באיחור</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMainTab('reports')}
+                  className="px-4 py-3 rounded-2xl bg-amber-800/80 hover:bg-amber-800 text-white font-bold text-xs sm:text-sm border border-amber-500/40 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4 text-amber-200" />
+                  <span>דוחות וסיכומים מקיפים</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick KPI stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/20">
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">סה״כ איחורים היום</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono mt-0.5">{lateArrivals.length}</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">כיתות שבהן נרשמו</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono mt-0.5">
+                  {new Set(lateArrivals.map((l) => l.className)).size}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">תלמידי ביה״ס במאגר</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono mt-0.5">{allSchoolStudents.length}</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">סנכרון למחנכות</div>
+                <div className="text-xs sm:text-sm font-bold text-emerald-300 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>פעיל באון-ליין</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters & Search */}
+          <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={vpLateSearchQuery}
+                  onChange={(e) => setVpLateSearchQuery(e.target.value)}
+                  placeholder="חיפוש לפי תלמיד, ת.ז או מחנכת..."
+                  className="w-full pr-9 pl-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:outline-none focus:border-amber-500 font-semibold"
+                />
+              </div>
+
+              <select
+                value={vpLateClassFilter}
+                onChange={(e) => setVpLateClassFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-amber-500 bg-white"
+              >
+                <option value="ALL">כל הכיתות ({classesOptions.length})</option>
+                {classesOptions.map((cls) => (
+                  <option key={cls} value={cls}>
+                    כיתה {cls}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <span className="text-xs font-bold text-slate-500">
+                מוצגים: {filteredLateArrivals.length} מתוך {lateArrivals.length}
+              </span>
+              <button
+                type="button"
+                onClick={loadLateArrivals}
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                title="רענן רשימה"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Late Arrivals List */}
+          {filteredLateArrivals.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center border-2 border-slate-200 shadow-xs">
+              <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-200">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-black text-slate-800">
+                {lateArrivals.length === 0 ? 'לא נרשמו איחורים להיום' : 'לא נמצאו איחורים התואמים לסינון'}
+              </h3>
+              <p className="text-slate-500 text-xs sm:text-sm mt-1 max-w-md mx-auto">
+                {lateArrivals.length === 0
+                  ? 'כל התלמידים הגיעו בזמן או שהתורן טרם החל ברישום. לחץ על הכפתור למטה לרישום תלמיד שהגיע באיחור לשער.'
+                  : 'נסה לאפס את הסינון או החיפוש.'}
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenVpGateDutyModal}
+                className="mt-5 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm shadow-md inline-flex items-center gap-2 cursor-pointer transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>רשום איחור כעת</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredLateArrivals.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-2xl p-4 border-2 border-amber-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <div className="font-black text-slate-900 text-base">{item.studentName}</div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5">
+                          {item.studentCode ? `קוד: ${item.studentCode} · ` : ''}כיתה {item.className}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400 text-amber-900 font-black text-xs font-mono shrink-0 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-700" />
+                        <span>{item.timeStr}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-xs space-y-1.5 mb-2">
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold">סיבת האיחור:</span>
+                        <span className="font-bold text-slate-800">{item.reason || 'לא צוין'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold">מחנכת מעודכנת:</span>
+                        <span className="font-bold text-teal-800">{item.homeroomTeacher || 'מחנכת הכיתה'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold">נרשם ע״י:</span>
+                        <span className="font-medium text-slate-700">{item.recordedByName}</span>
+                      </div>
+                      {item.notes && (
+                        <div className="pt-1 border-t border-slate-200 text-slate-700 italic">
+                          הערה: {item.notes}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleSendVpLateWhatsApp(item)}
+                      className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="שלח הודעת וואטסאפ להורים"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>הודעה להורים</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingLateId === item.id}
+                      onClick={() => handleDeleteLateArrival(item.id, item.studentName)}
+                      className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                      title="מחק רישום איחור"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================= SECTION: COMPREHENSIVE REPORTS ================= */}
+      {activeMainTab === 'reports' && (
+        <div className="space-y-6">
+          <ComprehensiveReportsView
+            user={user}
+            schoolName={clientStore.getActiveSchoolName() || 'בית הספר'}
+            allClasses={classesOptions}
+            students={allSchoolStudents}
+            passes={passes}
+            lateArrivals={lateArrivals}
+            staffList={schoolStaff}
+            onRefresh={() => {
+              loadPasses(false);
+              loadLateArrivals();
+            }}
+          />
+        </div>
       )}
 
       {/* ================= SECTION 2: QUICK PASS ISSUANCE (OFFICE / SECRETARY / VP) ================= */}
@@ -2305,6 +2705,215 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
                 className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>📱 שלח כעת בוואטסאפ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= GATE DUTY RECORDING MODAL FOR VICE PRINCIPAL ================= */}
+      {showVpLateModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl border-2 border-amber-300 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white p-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-amber-200" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">תורן שער: רישום תלמיד/ה באיחור</h3>
+                  <p className="text-amber-100 text-xs font-medium">
+                    חיפוש בכלל תלמידי בית הספר וסנכרון ישיר למחנכת בזמן אמת
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVpLateModal(false)}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {vpLateSuccess && (
+                <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-emerald-900 font-bold text-xs sm:text-sm flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{vpLateSuccess}</span>
+                </div>
+              )}
+
+              {/* Step 1: Student Search Across All School Students */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  1. איתור תלמיד/ה במאגר כלל בית הספר:
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={vpLateStudentQuery}
+                    onChange={(e) => {
+                      setVpLateStudentQuery(e.target.value);
+                      if (vpSelectedStudent && e.target.value !== vpSelectedStudent.fullName) {
+                        setVpSelectedStudent(null);
+                      }
+                    }}
+                    placeholder="הקלד שם תלמיד, מספר ת.ז או כיתה..."
+                    className="w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 focus:outline-none focus:border-amber-500 font-bold text-xs sm:text-sm text-slate-900"
+                    autoFocus
+                  />
+                  {vpLateStudentQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVpLateStudentQuery('');
+                        setVpSelectedStudent(null);
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Results Dropdown List */}
+                {!vpSelectedStudent && filteredDutyStudents.length > 0 && (
+                  <div className="mt-2 max-h-48 overflow-y-auto rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-1.5 space-y-1">
+                    {filteredDutyStudents.map((stu) => {
+                      const homeroom = stu.teacherName || classHomeroomMap.get(stu.className) || 'מחנכת כיתה';
+                      return (
+                        <button
+                          key={stu.id}
+                          type="button"
+                          onClick={() => {
+                            setVpSelectedStudent(stu);
+                            setVpLateStudentQuery(stu.fullName);
+                          }}
+                          className="w-full text-right p-2.5 rounded-xl bg-white hover:bg-amber-100/70 border border-slate-200 hover:border-amber-400 transition-all flex items-center justify-between cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-black text-slate-900 text-xs sm:text-sm">{stu.fullName}</div>
+                            <div className="text-[11px] text-slate-500 font-semibold">
+                              כיתה {stu.className} {stu.studentCode ? `· ת.ז/קוד: ${stu.studentCode}` : ''}
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200">
+                            מחנכת: {homeroom}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Student Confirmation Card */}
+              {vpSelectedStudent && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-400 text-xs sm:text-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-amber-900 font-bold">תלמיד/ה נבחר/ה:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVpSelectedStudent(null);
+                        setVpLateStudentQuery('');
+                      }}
+                      className="text-xs text-amber-700 hover:underline font-bold"
+                    >
+                      החלף תלמיד
+                    </button>
+                  </div>
+                  <div className="text-base font-black text-slate-900">{vpSelectedStudent.fullName}</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <span className="text-slate-500 block">כיתה:</span>
+                      <span className="font-black text-slate-800">כיתה {vpSelectedStudent.className}</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <span className="text-slate-500 block">מחנכת שתעודכן:</span>
+                      <span className="font-black text-teal-800">
+                        {vpSelectedStudent.teacherName || classHomeroomMap.get(vpSelectedStudent.className) || 'מחנכת כיתה'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Time and Reason */}
+              {vpSelectedStudent && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-xs font-black text-slate-700 mb-1">
+                        שעת הגעה לשער (ישראל):
+                      </label>
+                      <input
+                        type="time"
+                        value={vpLateTime}
+                        onChange={(e) => setVpLateTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:outline-none focus:border-amber-500 font-mono font-bold text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-700 mb-1">
+                        סיבת האיחור:
+                      </label>
+                      <select
+                        value={vpLateReason}
+                        onChange={(e) => setVpLateReason(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:outline-none focus:border-amber-500 font-bold text-xs sm:text-sm bg-white"
+                      >
+                        <option value="הסעה / תחבורה איחרה">הסעה / תחבורה איחרה</option>
+                        <option value="בדיקות רפואיות / קופ״ח">בדיקות רפואיות / קופ״ח</option>
+                        <option value="סיבה אישית / משפחתית">סיבה אישית / משפחתית</option>
+                        <option value="התעורר/ה מאוחר">התעורר/ה מאוחר</option>
+                        <option value="אחר">אחר</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 mb-1">
+                      הערה חופשית (אופציונלי):
+                    </label>
+                    <input
+                      type="text"
+                      value={vpLateNotes}
+                      onChange={(e) => setVpLateNotes(e.target.value)}
+                      placeholder="הערה לתורן שער או למחנכת..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowVpLateModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs sm:text-sm cursor-pointer"
+              >
+                סגור
+              </button>
+
+              <button
+                type="button"
+                disabled={!vpSelectedStudent || isSubmittingVpLate}
+                onClick={handleRecordVpLateArrival}
+                className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-black text-xs sm:text-sm shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 transition-all"
+              >
+                {isSubmittingVpLate ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
+                <span>רשום וסנכרן למחנכת בזמן אמת</span>
               </button>
             </div>
           </div>

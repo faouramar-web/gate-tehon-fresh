@@ -983,6 +983,10 @@ export const api = {
     dateStr?: string;
     reason?: string;
     notes?: string;
+    recordedById?: string;
+    recordedByName?: string;
+    recordedByRole?: string;
+    schoolId?: string;
   }): Promise<{ success: boolean; lateArrival: LateArrival; message: string }> {
     if (isStaticHost) {
       const currentUser = clientStore.getSessionUser();
@@ -1014,21 +1018,33 @@ export const api = {
 
   async getLateArrivals(filter?: {
     dateStr?: string;
+    from?: string;
+    to?: string;
     fromDate?: string;
     toDate?: string;
     className?: string;
+    schoolId?: string;
   }): Promise<{ lateArrivals: LateArrival[]; totalCount: number; currentTime: string }> {
+    const normalizedFilter = {
+      dateStr: filter?.dateStr,
+      fromDate: filter?.fromDate || filter?.from,
+      toDate: filter?.toDate || filter?.to,
+      className: filter?.className,
+      schoolId: filter?.schoolId,
+    };
+
     if (isStaticHost) {
-      const list = clientStore.getLateArrivals(filter);
+      const list = clientStore.getLateArrivals(normalizedFilter);
       return { lateArrivals: list, totalCount: list.length, currentTime: clientStore.getIsraelTime() };
     }
 
     try {
       const query = new URLSearchParams();
-      if (filter?.dateStr) query.set('dateStr', filter.dateStr);
-      if (filter?.fromDate) query.set('fromDate', filter.fromDate);
-      if (filter?.toDate) query.set('toDate', filter.toDate);
-      if (filter?.className && filter.className !== 'ALL') query.set('className', filter.className);
+      if (normalizedFilter.dateStr) query.set('dateStr', normalizedFilter.dateStr);
+      if (normalizedFilter.fromDate) query.set('fromDate', normalizedFilter.fromDate);
+      if (normalizedFilter.toDate) query.set('toDate', normalizedFilter.toDate);
+      if (normalizedFilter.className && normalizedFilter.className !== 'ALL') query.set('className', normalizedFilter.className);
+      if (normalizedFilter.schoolId) query.set('schoolId', normalizedFilter.schoolId);
 
       const res = await request<any>(`/api/late-arrivals?${query.toString()}`);
       if (res && Array.isArray(res.lateArrivals)) {
@@ -1036,7 +1052,7 @@ export const api = {
       }
       return res;
     } catch {
-      const list = clientStore.getLateArrivals(filter);
+      const list = clientStore.getLateArrivals(normalizedFilter);
       return { lateArrivals: list, totalCount: list.length, currentTime: clientStore.getIsraelTime() };
     }
   },

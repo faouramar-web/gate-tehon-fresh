@@ -24,8 +24,10 @@ import {
   ExternalLink,
   Plus,
   Trash2,
-  ShieldCheck
+  ShieldCheck,
+  FileSpreadsheet
 } from 'lucide-react';
+import { ComprehensiveReportsView } from './ComprehensiveReportsView.tsx';
 import {
   buildClassExitWhatsAppMessage,
   buildStudentExitWhatsAppMessage,
@@ -72,6 +74,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
   const [lateNotes, setLateNotes] = useState<string>('');
   const [isSubmittingLate, setIsSubmittingLate] = useState<boolean>(false);
   const [deletingLateId, setDeletingLateId] = useState<string | null>(null);
+  const [allSchoolStudents, setAllSchoolStudents] = useState<Student[]>([]);
+  const [showTeacherReportsModal, setShowTeacherReportsModal] = useState<boolean>(false);
 
   // Cancel pass state
   const [cancellingPassId, setCancellingPassId] = useState<string | null>(null);
@@ -158,6 +162,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
       }
 
       setStudents(loadedStudents);
+      const schoolAll = clientStore.getAllStudents(user.schoolId);
+      setAllSchoolStudents(schoolAll.length > 0 ? deduplicateStudents(schoolAll) : loadedStudents);
       setPassesToday(passRes.passes || []);
       const localLate = clientStore.getLateArrivals({ dateStr: todayDateStr });
       setLateArrivalsToday((lateRes?.lateArrivals && lateRes.lateArrivals.length > 0) ? lateRes.lateArrivals : localLate);
@@ -1265,14 +1271,25 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleOpenGateDutyModal}
-                className="py-2.5 px-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300 shrink-0"
-              >
-                <Plus className="w-4 h-4 text-slate-950" />
-                <span>רישום איחור (תורן שער)</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowTeacherReportsModal(true)}
+                  className="py-2.5 px-3.5 bg-white/15 hover:bg-white/25 active:scale-[0.98] text-white font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/20"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-amber-300" />
+                  <span>דוח וסיכום איחורים</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenGateDutyModal}
+                  className="py-2.5 px-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300"
+                >
+                  <Plus className="w-4 h-4 text-slate-950" />
+                  <span>רישום איחור (תורן שער)</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1451,22 +1468,23 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                   1. בחר תלמיד שנכנס בשער:
                 </label>
                 {selectedLateStudent ? (
-                  <div className="p-3.5 bg-blue-50 border-2 border-blue-300 rounded-2xl flex items-center justify-between gap-3">
+                  <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
                     <div>
                       <div className="font-black text-slate-900 text-sm">
                         {selectedLateStudent.fullName}
                       </div>
-                      <div className="text-xs text-blue-800 font-bold mt-0.5">
+                      <div className="text-xs text-amber-950 font-bold mt-0.5">
                         כיתה {selectedLateStudent.className} · קוד: {selectedLateStudent.studentCode}
-                        {selectedLateStudent.teacherName && (
-                          <span className="font-normal text-slate-600"> · מחנכת: {selectedLateStudent.teacherName}</span>
-                        )}
+                      </div>
+                      <div className="text-xs text-teal-800 font-bold mt-1 flex items-center gap-1">
+                        <UserCheck className="w-3.5 h-3.5 text-teal-600" />
+                        <span>יישלח ישירות למחנכת: {selectedLateStudent.teacherName || classHomeroomMap.get(selectedLateStudent.className) || 'מחנכת הכיתה'}</span>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSelectedLateStudent(null)}
-                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 cursor-pointer"
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 cursor-pointer shadow-2xs"
                     >
                       החלף תלמיד
                     </button>
@@ -1479,13 +1497,13 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                         type="text"
                         value={lateStudentQuery}
                         onChange={(e) => setLateStudentQuery(e.target.value)}
-                        placeholder="הקלד שם תלמיד, קוד או כיתה..."
+                        placeholder="חיפוש בכל תלמידי בית הספר (שם, כיתה או קוד)..."
                         className="w-full pl-3 pr-9 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-amber-500 focus:outline-none"
                         autoFocus
                       />
                     </div>
-                    <div className="max-h-44 overflow-y-auto space-y-1 border border-slate-200 rounded-2xl p-1 bg-slate-50/50">
-                      {students
+                    <div className="max-h-48 overflow-y-auto space-y-1 border border-slate-200 rounded-2xl p-1 bg-slate-50/50">
+                      {(allSchoolStudents.length > 0 ? allSchoolStudents : students)
                         .filter((s) => {
                           if (!lateStudentQuery.trim()) return true;
                           const q = lateStudentQuery.trim().toLowerCase();
@@ -1495,20 +1513,30 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                             s.className.toLowerCase().includes(q)
                           );
                         })
-                        .slice(0, 15)
-                        .map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => setSelectedLateStudent(s)}
-                            className="w-full text-right p-2 hover:bg-amber-50 rounded-xl flex items-center justify-between text-xs transition-colors cursor-pointer"
-                          >
-                            <span className="font-bold text-slate-800">{s.fullName}</span>
-                            <span className="text-[11px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
-                              כיתה {s.className}
-                            </span>
-                          </button>
-                        ))}
+                        .slice(0, 20)
+                        .map((s) => {
+                          const homeroom = s.teacherName || classHomeroomMap.get(s.className) || '';
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setSelectedLateStudent(s)}
+                              className="w-full text-right p-2.5 hover:bg-amber-50 rounded-xl flex items-center justify-between text-xs transition-colors cursor-pointer border border-transparent hover:border-amber-200"
+                            >
+                              <div>
+                                <span className="font-bold text-slate-800">{s.fullName}</span>
+                                {homeroom && (
+                                  <div className="text-[10px] text-slate-500 font-medium">
+                                    מחנכת: <span className="text-teal-700 font-bold">{homeroom}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                                כיתה {s.className}
+                              </span>
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -1618,6 +1646,40 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Teacher Reports Modal (Comprehensive Class Late Arrivals & Exits Report) */}
+      {showTeacherReportsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
+          <div className="bg-slate-100 w-full max-w-5xl rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-300 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-indigo-700" />
+                <h3 className="text-base sm:text-lg font-black text-slate-900 font-['Rubik']">
+                  דוחות איחורים ושחרורים - {selectedClass && selectedClass !== 'כל הכיתות' ? `כיתה ${selectedClass}` : 'הכיתות שלי'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTeacherReportsModal(false)}
+                className="p-1.5 rounded-xl bg-white hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer border border-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <ComprehensiveReportsView
+              user={user}
+              schoolName={schoolName}
+              allClasses={assignedClasses.length > 0 ? assignedClasses : Array.from(new Set(students.map((s) => s.className)))}
+              students={allSchoolStudents.length > 0 ? allSchoolStudents : students}
+              passes={passesToday}
+              lateArrivals={lateArrivalsToday}
+              fixedClassOnly={selectedClass && selectedClass !== 'כל הכיתות' ? selectedClass : (assignedClasses.length === 1 ? assignedClasses[0] : undefined)}
+              onRefresh={() => loadData(false)}
+            />
           </div>
         </div>
       )}

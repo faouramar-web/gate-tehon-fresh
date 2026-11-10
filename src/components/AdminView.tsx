@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../lib/api.ts';
 import { clientStore, generateUniquePin } from '../lib/clientStore.ts';
 import { parseExcelOrCsv, generateSampleExcelWorkbook, ParseResult } from '../lib/excelParser.ts';
-import { User, StaffMember, AuditLogEntry, GatePass, School, SchoolStatus } from '../types.ts';
+import { User, StaffMember, AuditLogEntry, GatePass, School, SchoolStatus, LateArrival, Student } from '../types.ts';
+import { ComprehensiveReportsView } from './ComprehensiveReportsView.tsx';
+import { buildLateArrivalWhatsAppMessage, createWhatsAppUrl } from '../lib/whatsapp.ts';
 import {
   Upload,
   FileSpreadsheet,
@@ -56,7 +58,21 @@ interface AdminViewProps {
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
-  const [activeTab, setActiveTab] = useState<'history' | 'import' | 'staff' | 'audit' | 'transfer'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'late_arrivals' | 'reports' | 'import' | 'staff' | 'audit' | 'transfer'>('history');
+
+  // Morning Gate Duty & Late Arrivals State (Admin)
+  const [adminLateArrivals, setAdminLateArrivals] = useState<LateArrival[]>([]);
+  const [adminLateClassFilter, setAdminLateClassFilter] = useState<string>('ALL');
+  const [adminLateSearchQuery, setAdminLateSearchQuery] = useState<string>('');
+  const [showAdminLateModal, setShowAdminLateModal] = useState<boolean>(false);
+  const [adminLateStudentQuery, setAdminLateStudentQuery] = useState<string>('');
+  const [adminSelectedStudent, setAdminSelectedStudent] = useState<Student | null>(null);
+  const [adminLateTime, setAdminLateTime] = useState<string>('');
+  const [adminLateReason, setAdminLateReason] = useState<string>('הסעה / תחבורה איחרה');
+  const [adminLateNotes, setAdminLateNotes] = useState<string>('');
+  const [isSubmittingAdminLate, setIsSubmittingAdminLate] = useState<boolean>(false);
+  const [adminLateSuccess, setAdminLateSuccess] = useState<string | null>(null);
+  const [deletingAdminLateId, setDeletingAdminLateId] = useState<string | null>(null);
 
   // History & Parent Inquiry state
   const [historyPasses, setHistoryPasses] = useState<GatePass[]>([]);
@@ -891,8 +907,148 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     if (activeTab === 'history') loadHistory(false);
     if (activeTab === 'staff') loadStaff(false);
     if (activeTab === 'audit') loadAudit(false);
+    if (activeTab === 'late_arrivals') loadAdminLateArrivals();
     loadDirectory();
   }, [activeTab, historyFromDate, historyToDate, historyClass, selectedSchoolId, syncTick]);
+
+  // Morning Gate Duty & Late Arrivals Operations (Admin)
+  const loadAdminLateArrivals = async () => {
+    try {
+      const todayStr = clientStore.getIsraelDate();
+      const res = await api.getLateArrivals({
+        from: todayStr,
+        to: todayStr,
+        schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : selectedSchoolId || undefined,
+      });
+      setAdminLateArrivals(res.lateArrivals || []);
+    } catch {
+      setAdminLateArrivals(clientStore.getLateArrivals());
+    }
+  };
+
+  const allSchoolStudents = useMemo(() => {
+    return clientStore.getAllStudents(
+      user.schoolId && user.schoolId !== '*' ? user.schoolId : selectedSchoolId || undefined
+    );
+  }, [user.schoolId, selectedSchoolId, syncTick]);
+
+  const filteredAdminDutyStudents = useMemo(() => {
+    const q = adminLateStudentQuery.trim().toLowerCase();
+    if (!q) return [];
+    return allSchoolStudents
+      .filter(
+        (s: Student) =>
+          s.fullName.toLowerCase().includes(q) ||
+          (s.studentCode && s.studentCode.toLowerCase().includes(q)) ||
+          (s.className && s.className.toLowerCase().includes(q))
+      )
+      .slice(0, 15);
+  }, [allSchoolStudents, adminLateStudentQuery]);
+
+  const handleOpenAdminGateDutyModal = () => {
+    setAdminLateStudentQuery('');
+    setAdminSelectedStudent(null);
+    setAdminLateTime(clientStore.getIsraelTime());
+    setAdminLateReason('הסעה / תחבורה איחרה');
+    setAdminLateNotes('');
+    setAdminLateSuccess(null);
+    setShowAdminLateModal(true);
+  };
+
+  const handleRecordAdminLateArrival = async () => {
+    if (!adminSelectedStudent) return;
+    setIsSubmittingAdminLate(true);
+    setAdminLateSuccess(null);
+    try {
+      const todayStr = clientStore.getIsraelDate();
+      const timeStr = adminLateTime || clientStore.getIsraelTime();
+      const homeroom = adminSelectedStudent.teacherName || 'מחנכת כיתה';
+
+      const payload = {
+        studentId: adminSelectedStudent.id,
+        studentCode: adminSelectedStudent.studentCode || '',
+        studentName: adminSelectedStudent.fullName,
+        className: adminSelectedStudent.className,
+        homeroomTeacher: homeroom,
+        dateStr: todayStr,
+        timeStr,
+        recordedById: user.id,
+        recordedByName: user.fullName,
+        recordedByRole: 'admin' as const,
+        reason: adminLateReason,
+        notes: adminLateNotes.trim() || undefined,
+        schoolId:
+          user.schoolId && user.schoolId !== '*'
+            ? user.schoolId
+            : selectedSchoolId || clientStore.getActiveSchoolId(),
+      };
+
+      const result = await api.recordLateArrival(payload);
+      if (result.success && result.lateArrival) {
+        setAdminLateArrivals((prev) => [result.lateArrival!, ...prev]);
+        setAdminLateSuccess(
+          `איחור נרשם בהצלחה עבור ${adminSelectedStudent.fullName} (כיתה ${adminSelectedStudent.className})`
+        );
+        setAdminSelectedStudent(null);
+        setAdminLateStudentQuery('');
+        setAdminLateNotes('');
+        setTimeout(() => setAdminLateSuccess(null), 3500);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSubmittingAdminLate(false);
+    }
+  };
+
+  const handleDeleteAdminLateArrival = async (id: string, studentName: string) => {
+    if (!window.confirm(`האם אתה בטוח שברצונך למחוק את רישום האיחור של ${studentName}?`)) return;
+    setDeletingAdminLateId(id);
+    try {
+      await api.deleteLateArrival(id);
+      setAdminLateArrivals((prev) => prev.filter((item) => item.id !== id));
+    } catch {
+      // ignore
+    } finally {
+      setDeletingAdminLateId(null);
+    }
+  };
+
+  const handleSendAdminLateWhatsApp = (late: LateArrival) => {
+    const matched = allSchoolStudents.find((s: Student) => s.id === late.studentId || s.fullName === late.studentName);
+    const phone = matched?.parentPhone || '';
+    const schoolName =
+      (schools.find((s) => s.id === selectedSchoolId)?.name) ||
+      clientStore.getActiveSchoolName() ||
+      'בית הספר';
+    const text = buildLateArrivalWhatsAppMessage({
+      studentName: late.studentName,
+      className: late.className,
+      dateStr: late.dateStr,
+      timeStr: late.timeStr,
+      recordedByName: late.recordedByName,
+      recordedByRole: late.recordedByRole,
+      reason: late.reason,
+      notes: late.notes,
+      schoolName,
+    });
+    const url = createWhatsAppUrl(phone, text);
+    window.open(url, '_blank');
+  };
+
+  const filteredAdminLateArrivals = useMemo(() => {
+    return adminLateArrivals.filter((item) => {
+      if (adminLateClassFilter !== 'ALL' && item.className !== adminLateClassFilter) return false;
+      if (adminLateSearchQuery.trim()) {
+        const q = adminLateSearchQuery.toLowerCase();
+        const matchName = item.studentName.toLowerCase().includes(q);
+        const matchCode = item.studentCode ? item.studentCode.toLowerCase().includes(q) : false;
+        const matchTeacher = item.homeroomTeacher ? item.homeroomTeacher.toLowerCase().includes(q) : false;
+        if (!matchName && !matchCode && !matchTeacher) return false;
+      }
+      return true;
+    });
+  }, [adminLateArrivals, adminLateClassFilter, adminLateSearchQuery]);
 
   // Multi-School Management handlers (Amar Faour)
   const handleToggleSuspendSchool = async (schoolId: string, suspend: boolean) => {
@@ -2007,7 +2163,29 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
           }`}
         >
           <History className="w-4 h-4 text-emerald-600" />
-          <span>בירור יציאות הורים וארכיון</span>
+          <span>בירור יציאות הורים</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('late_arrivals')}
+          className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+            activeTab === 'late_arrivals' ? 'bg-amber-600 text-white shadow-sm font-black' : 'text-amber-900 hover:text-amber-950'
+          }`}
+        >
+          <Clock className="w-4 h-4 text-amber-300" />
+          <span>איחורים ותורן שער</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('reports')}
+          className={`flex-1 py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+            activeTab === 'reports' ? 'bg-indigo-700 text-white shadow-sm font-black' : 'text-indigo-900 hover:text-indigo-950'
+          }`}
+        >
+          <FileCheck className="w-4 h-4 text-indigo-300" />
+          <span>דוחות וסיכומים מקיפים</span>
         </button>
 
         <button
@@ -2018,7 +2196,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
           }`}
         >
           <Upload className="w-4 h-4 text-teal-600" />
-          <span>הזנת תלמידי בית הספר (Excel)</span>
+          <span>הזנת תלמידים (Excel)</span>
         </button>
 
         <button
@@ -2534,6 +2712,229 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ================= TAB: LATE ARRIVALS & GATE DUTY ================= */}
+      {activeTab === 'late_arrivals' && (
+        <div className="space-y-6">
+          {/* Header & Gate Duty Action Bar */}
+          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-orange-700 rounded-3xl p-6 sm:p-8 text-white shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-black backdrop-blur-xs mb-3">
+                  <Clock className="w-3.5 h-3.5 text-amber-200" />
+                  <span>שער בית הספר · תורן שער</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black font-['Rubik'] tracking-tight">
+                  יומן איחורי בוקר ותורן שער
+                </h2>
+                <p className="text-amber-100 text-xs sm:text-sm mt-1 max-w-xl font-medium">
+                  רישום הגעת תלמידים באיחור לשער בית הספר בזמן אמת, סנכרון ישיר למחנכת הכיתה והודעות להורים
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleOpenAdminGateDutyModal}
+                  className="px-5 py-3 rounded-2xl bg-white text-amber-950 font-black text-sm shadow-xl hover:bg-amber-50 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-5 h-5 text-amber-700" />
+                  <span>תורן שער: רשום תלמיד/ה באיחור</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reports')}
+                  className="px-4 py-3 rounded-2xl bg-amber-800/80 hover:bg-amber-800 text-white font-bold text-xs sm:text-sm border border-amber-500/40 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4 text-amber-200" />
+                  <span>דוחות וסיכומים מקיפים</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick KPI stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/20">
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">סה״כ איחורים היום</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono mt-0.5">{adminLateArrivals.length}</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">כיתות שבהן נרשמו</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono mt-0.5">
+                  {new Set(adminLateArrivals.map((l) => l.className)).size}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">תלמידי ביה״ס במאגר</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono mt-0.5">{allSchoolStudents.length}</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15">
+                <div className="text-amber-200 text-xs font-bold">סנכרון למחנכות</div>
+                <div className="text-xs sm:text-sm font-bold text-emerald-300 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>פעיל באון-ליין</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters & Search */}
+          <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={adminLateSearchQuery}
+                  onChange={(e) => setAdminLateSearchQuery(e.target.value)}
+                  placeholder="חיפוש לפי תלמיד, ת.ז או מחנכת..."
+                  className="w-full pr-9 pl-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:outline-none focus:border-amber-500 font-semibold"
+                />
+              </div>
+
+              <select
+                value={adminLateClassFilter}
+                onChange={(e) => setAdminLateClassFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-amber-500 bg-white"
+              >
+                <option value="ALL">כל הכיתות</option>
+                {(schoolDirectory?.classesSummary || []).map((c) => (
+                  <option key={c.className} value={c.className}>
+                    כיתה {c.className}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <span className="text-xs font-bold text-slate-500">
+                מוצגים: {filteredAdminLateArrivals.length} מתוך {adminLateArrivals.length}
+              </span>
+              <button
+                type="button"
+                onClick={loadAdminLateArrivals}
+                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                title="רענן רשימה"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Late Arrivals List */}
+          {filteredAdminLateArrivals.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center border-2 border-slate-200 shadow-xs">
+              <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-200">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-black text-slate-800">
+                {adminLateArrivals.length === 0 ? 'לא נרשמו איחורים להיום' : 'לא נמצאו איחורים התואמים לסינון'}
+              </h3>
+              <p className="text-slate-500 text-xs sm:text-sm mt-1 max-w-md mx-auto">
+                {adminLateArrivals.length === 0
+                  ? 'כל התלמידים הגיעו בזמן או שהתורן טרם החל ברישום. לחץ על הכפתור למטה לרישום תלמיד שהגיע באיחור לשער.'
+                  : 'נסה לאפס את הסינון או החיפוש.'}
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenAdminGateDutyModal}
+                className="mt-5 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm shadow-md inline-flex items-center gap-2 cursor-pointer transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>רשום איחור כעת</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredAdminLateArrivals.map((item: LateArrival) => (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-2xl p-4 border-2 border-amber-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <div className="font-black text-slate-900 text-base">{item.studentName}</div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5">
+                          {item.studentCode ? `קוד: ${item.studentCode} · ` : ''}כיתה {item.className}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400 text-amber-900 font-black text-xs font-mono shrink-0 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-700" />
+                        <span>{item.timeStr}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-xs space-y-1.5 mb-2">
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold">סיבת האיחור:</span>
+                        <span className="font-bold text-slate-800">{item.reason || 'לא צוין'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold">מחנכת מעודכנת:</span>
+                        <span className="font-bold text-teal-800">{item.homeroomTeacher || 'מחנכת הכיתה'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-semibold">נרשם ע״י:</span>
+                        <span className="font-medium text-slate-700">{item.recordedByName}</span>
+                      </div>
+                      {item.notes && (
+                        <div className="pt-1 border-t border-slate-200 text-slate-700 italic">
+                          הערה: {item.notes}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleSendAdminLateWhatsApp(item)}
+                      className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="שלח הודעת וואטסאפ להורים"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>הודעה להורים</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingAdminLateId === item.id}
+                      onClick={() => handleDeleteAdminLateArrival(item.id, item.studentName)}
+                      className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                      title="מחק רישום איחור"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================= TAB: COMPREHENSIVE REPORTS ================= */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6">
+          <ComprehensiveReportsView
+            user={user}
+            schoolName={
+              (schools.find((s) => s.id === selectedSchoolId)?.name) ||
+              clientStore.getActiveSchoolName() ||
+              'בית הספר'
+            }
+            allClasses={(schoolDirectory?.classesSummary || []).map((c) => c.className)}
+            students={allSchoolStudents}
+            passes={historyPasses}
+            lateArrivals={adminLateArrivals}
+            staffList={staffList}
+            onRefresh={() => {
+              loadHistory(false);
+              loadAdminLateArrivals();
+            }}
+          />
         </div>
       )}
 
@@ -5322,6 +5723,215 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   <span>הדפס עכשיו (A4 / PDF)</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= GATE DUTY RECORDING MODAL FOR ADMIN ================= */}
+      {showAdminLateModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl border-2 border-amber-300 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white p-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-amber-200" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">תורן שער: רישום תלמיד/ה באיחור</h3>
+                  <p className="text-amber-100 text-xs font-medium">
+                    חיפוש בכלל תלמידי בית הספר וסנכרון ישיר למחנכת בזמן אמת
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdminLateModal(false)}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {adminLateSuccess && (
+                <div className="p-3.5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-emerald-900 font-bold text-xs sm:text-sm flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{adminLateSuccess}</span>
+                </div>
+              )}
+
+              {/* Step 1: Student Search Across All School Students */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  1. איתור תלמיד/ה במאגר כלל בית הספר:
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={adminLateStudentQuery}
+                    onChange={(e) => {
+                      setAdminLateStudentQuery(e.target.value);
+                      if (adminSelectedStudent && e.target.value !== adminSelectedStudent.fullName) {
+                        setAdminSelectedStudent(null);
+                      }
+                    }}
+                    placeholder="הקלד שם תלמיד, מספר ת.ז או כיתה..."
+                    className="w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 focus:outline-none focus:border-amber-500 font-bold text-xs sm:text-sm text-slate-900"
+                    autoFocus
+                  />
+                  {adminLateStudentQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminLateStudentQuery('');
+                        setAdminSelectedStudent(null);
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Results Dropdown List */}
+                {!adminSelectedStudent && filteredAdminDutyStudents.length > 0 && (
+                  <div className="mt-2 max-h-48 overflow-y-auto rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-1.5 space-y-1">
+                    {filteredAdminDutyStudents.map((stu: Student) => {
+                      const homeroom = stu.teacherName || 'מחנכת כיתה';
+                      return (
+                        <button
+                          key={stu.id}
+                          type="button"
+                          onClick={() => {
+                            setAdminSelectedStudent(stu);
+                            setAdminLateStudentQuery(stu.fullName);
+                          }}
+                          className="w-full text-right p-2.5 rounded-xl bg-white hover:bg-amber-100/70 border border-slate-200 hover:border-amber-400 transition-all flex items-center justify-between cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-black text-slate-900 text-xs sm:text-sm">{stu.fullName}</div>
+                            <div className="text-[11px] text-slate-500 font-semibold">
+                              כיתה {stu.className} {stu.studentCode ? `· ת.ז/קוד: ${stu.studentCode}` : ''}
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200">
+                            מחנכת: {homeroom}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Student Confirmation Card */}
+              {adminSelectedStudent && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-400 text-xs sm:text-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-amber-900 font-bold">תלמיד/ה נבחר/ה:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminSelectedStudent(null);
+                        setAdminLateStudentQuery('');
+                      }}
+                      className="text-xs text-amber-700 hover:underline font-bold"
+                    >
+                      החלף תלמיד
+                    </button>
+                  </div>
+                  <div className="text-base font-black text-slate-900">{adminSelectedStudent.fullName}</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <span className="text-slate-500 block">כיתה:</span>
+                      <span className="font-black text-slate-800">כיתה {adminSelectedStudent.className}</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <span className="text-slate-500 block">מחנכת שתעודכן:</span>
+                      <span className="font-black text-teal-800">
+                        {adminSelectedStudent.teacherName || 'מחנכת כיתה'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Time and Reason */}
+              {adminSelectedStudent && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-xs font-black text-slate-700 mb-1">
+                        שעת הגעה לשער (ישראל):
+                      </label>
+                      <input
+                        type="time"
+                        value={adminLateTime}
+                        onChange={(e) => setAdminLateTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:outline-none focus:border-amber-500 font-mono font-bold text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-700 mb-1">
+                        סיבת האיחור:
+                      </label>
+                      <select
+                        value={adminLateReason}
+                        onChange={(e) => setAdminLateReason(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 focus:outline-none focus:border-amber-500 font-bold text-xs sm:text-sm bg-white"
+                      >
+                        <option value="הסעה / תחבורה איחרה">הסעה / תחבורה איחרה</option>
+                        <option value="בדיקות רפואיות / קופ״ח">בדיקות רפואיות / קופ״ח</option>
+                        <option value="סיבה אישית / משפחתית">סיבה אישית / משפחתית</option>
+                        <option value="התעורר/ה מאוחר">התעורר/ה מאוחר</option>
+                        <option value="אחר">אחר</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 mb-1">
+                      הערה חופשית (אופציונלי):
+                    </label>
+                    <input
+                      type="text"
+                      value={adminLateNotes}
+                      onChange={(e) => setAdminLateNotes(e.target.value)}
+                      placeholder="הערה לתורן שער או למחנכת..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAdminLateModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs sm:text-sm cursor-pointer"
+              >
+                סגור
+              </button>
+
+              <button
+                type="button"
+                disabled={!adminSelectedStudent || isSubmittingAdminLate}
+                onClick={handleRecordAdminLateArrival}
+                className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-black text-xs sm:text-sm shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 transition-all"
+              >
+                {isSubmittingAdminLate ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
+                <span>רשום וסנכרן למחנכת בזמן אמת</span>
+              </button>
             </div>
           </div>
         </div>

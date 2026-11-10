@@ -1892,8 +1892,13 @@ class ClientStorageEngine {
     };
   }
 
-  public getAllStudents(): Student[] {
-    return deduplicateStudents(Array.isArray(this.students) ? this.students : []);
+  public getAllStudents(schoolId?: string): Student[] {
+    const target = schoolId || this.activeSchoolId;
+    const all = deduplicateStudents(Array.isArray(this.students) ? this.students : []);
+    if (!target || target === '*') {
+      return all;
+    }
+    return all.filter((s) => !s.schoolId || s.schoolId === target);
   }
 
   public searchGuard(queryStr = ''): { results: GuardSearchResult[]; currentTime: string } {
@@ -2544,6 +2549,26 @@ class ClientStorageEngine {
   public getLateArrivalsCountToday(): number {
     const today = this.getIsraelDate();
     return this.lateArrivals.filter((item) => item.dateStr === today).length;
+  }
+
+  public getIsraelDate(): string {
+    return getClientIsraelDateString();
+  }
+
+  public getIsraelTime(): string {
+    return getClientIsraelTimeString();
+  }
+
+  public getSessionUser(): User | null {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_SESSION);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   public deleteLateArrival(id: string): boolean {

@@ -14,7 +14,26 @@ export function formatWhatsAppPhone(phone: string): string {
   return clean;
 }
 
-export function createWhatsAppUrl(text: string, phone?: string): string {
+export function createWhatsAppUrl(arg1: string, arg2?: string): string {
+  // Flexible signature: supports both createWhatsAppUrl(text, phone) and createWhatsAppUrl(phone, text)
+  let phone = '';
+  let text = '';
+
+  if (arg2 !== undefined) {
+    // If arg1 has digits only or starts with 05 / 972 / +, it's the phone
+    const clean1 = arg1.replace(/[^\d+]/g, '');
+    const clean2 = arg2.replace(/[^\d+]/g, '');
+    if ((clean1.length >= 9 && clean1.length <= 15 && !arg1.includes(' ')) || (!arg1.includes(' ') && (arg1.startsWith('05') || arg1.startsWith('+') || arg1.startsWith('972')))) {
+      phone = arg1;
+      text = arg2;
+    } else {
+      text = arg1;
+      phone = arg2;
+    }
+  } else {
+    text = arg1;
+  }
+
   const encodedText = encodeURIComponent(text);
   const cleanPhone = phone ? formatWhatsAppPhone(phone) : '';
   if (cleanPhone) {
@@ -108,11 +127,15 @@ export function buildStudentExitWhatsAppMessage({
 export interface LateArrivalMessageParams {
   studentName: string;
   className: string;
-  arrivalTime: string;
+  arrivalTime?: string;
+  timeStr?: string;
   dateStr?: string;
   homeroomTeacher?: string;
   recordedBy?: string;
+  recordedByName?: string;
+  recordedByRole?: string;
   reason?: string;
+  notes?: string;
   schoolName?: string;
 }
 
@@ -120,24 +143,32 @@ export function buildLateArrivalWhatsAppMessage({
   studentName,
   className,
   arrivalTime,
+  timeStr,
   dateStr,
   homeroomTeacher,
   recordedBy,
+  recordedByName,
   reason,
+  notes,
   schoolName = 'בית הספר',
 }: LateArrivalMessageParams): string {
-  const cleanTime = arrivalTime.includes('T') ? arrivalTime.split('T')[1].substring(0, 5) : arrivalTime;
+  const rawTime = arrivalTime || timeStr || '08:00';
+  const cleanTime = rawTime.includes('T') ? rawTime.split('T')[1].substring(0, 5) : rawTime;
   const todayStr = dateStr || new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+  const whoRecorded = recordedByName || recordedBy;
 
   let msg = `שלום רב,\n`;
   msg += `ברצוננו ליידעכם כי בנכם/בתכם *${studentName}* מכיתה *${className}* נכנס/ה היום לשטח בית הספר באיחור.\n\n`;
   msg += `📅 *תאריך:* ${todayStr}\n`;
   msg += `⏱️ *שעת כניסה בשער:* ${cleanTime}\n`;
-  if (recordedBy) {
-    msg += `👤 *נרשם ע״י תורן שער:* ${recordedBy}\n`;
+  if (whoRecorded) {
+    msg += `👤 *נרשם ע״י תורן שער:* ${whoRecorded}\n`;
   }
   if (reason) {
     msg += `📝 *סיבת איחור:* ${reason}\n`;
+  }
+  if (notes) {
+    msg += `ℹ️ *הערה:* ${notes}\n`;
   }
   msg += `\nתודה על שיתוף הפעולה בשמירה על הגעה בזמן ובביטחון! 🌸\n`;
   if (homeroomTeacher) {
