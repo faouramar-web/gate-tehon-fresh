@@ -1691,6 +1691,10 @@ class ClientStorageEngine {
     return this.passes.find((p) => p.id === passId);
   }
 
+  public getAllPasses(): GatePass[] {
+    return [...this.passes];
+  }
+
   public mergeRemotePasses(remotePasses: GatePass[]): void {
     if (!Array.isArray(remotePasses) || remotePasses.length === 0) return;
     const existingMap = new Map(this.passes.map((p) => [p.id, p]));

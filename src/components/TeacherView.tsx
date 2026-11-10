@@ -1682,8 +1682,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
               schoolName={schoolName}
               allClasses={assignedClasses.length > 0 ? assignedClasses : Array.from(new Set(students.map((s) => s.className)))}
               students={allSchoolStudents.length > 0 ? allSchoolStudents : students}
-              passes={passesToday}
-              lateArrivals={lateArrivalsToday}
+              passes={passesToday.length > 0 ? passesToday : clientStore.getAllPasses()}
+              lateArrivals={lateArrivalsToday.length > 0 ? lateArrivalsToday : clientStore.getLateArrivals({ schoolId: user.schoolId })}
               fixedClassOnly={selectedClass && selectedClass !== 'כל הכיתות' ? selectedClass : (assignedClasses.length === 1 ? assignedClasses[0] : undefined)}
               onRefresh={() => loadData(false)}
             />

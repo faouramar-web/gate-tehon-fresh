@@ -1761,8 +1761,8 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
             schoolName={clientStore.getActiveSchoolName() || 'בית הספר'}
             allClasses={classesOptions}
             students={allSchoolStudents}
-            passes={passes}
-            lateArrivals={lateArrivals}
+            passes={passes.length > 0 ? passes : clientStore.getAllPasses()}
+            lateArrivals={lateArrivals.length > 0 ? lateArrivals : clientStore.getLateArrivals({ schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined })}
             staffList={schoolStaff}
             onRefresh={() => {
               loadPasses(false);

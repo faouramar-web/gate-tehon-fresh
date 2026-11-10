@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { User, Student, GatePass, LateArrival, StaffMember } from '../types.ts';
+import { clientStore } from '../lib/clientStore.ts';
 import {
   Calendar,
   Clock,
@@ -35,14 +36,16 @@ export type ReportType = 'late_arrivals' | 'gate_passes' | 'combined';
 export type DatePreset = 'today' | 'yesterday' | '2days' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
 
 export function getDatePresetRange(preset: DatePreset): { fromDate: string; toDate: string; label: string } {
-  const now = new Date();
   const formatYMD = (d: Date) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jerusalem',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
   };
 
+  const now = new Date();
   const todayStr = formatYMD(now);
 
   if (preset === 'today') {
@@ -97,7 +100,7 @@ export const ComprehensiveReportsView: React.FC<ComprehensiveReportsViewProps> =
   fixedClassOnly
 }) => {
   const [reportType, setReportType] = useState<ReportType>('late_arrivals');
-  const [datePreset, setDatePreset] = useState<DatePreset>('last_week');
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [customFromDate, setCustomFromDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
@@ -108,6 +111,25 @@ export const ComprehensiveReportsView: React.FC<ComprehensiveReportsViewProps> =
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedStudentIds, setExpandedStudentIds] = useState<Set<string>>(new Set());
   const [copiedSummaryToast, setCopiedSummaryToast] = useState(false);
+
+  // Combine props with all clientStore records so historical dates and today are always 100% available
+  const allAvailableLateArrivals = useMemo(() => {
+    const storeArrivals = clientStore.getLateArrivals({
+      schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined,
+    });
+    const map = new Map<string, LateArrival>();
+    for (const item of storeArrivals) map.set(item.id, item);
+    for (const item of (lateArrivals || [])) map.set(item.id, item);
+    return Array.from(map.values());
+  }, [lateArrivals, user.schoolId]);
+
+  const allAvailablePasses = useMemo(() => {
+    const storePasses = clientStore.getAllPasses();
+    const map = new Map<string, GatePass>();
+    for (const item of storePasses) map.set(item.id, item);
+    for (const item of (passes || [])) map.set(item.id, item);
+    return Array.from(map.values());
+  }, [passes]);
 
   // Active date range bounds
   const activeRange = useMemo(() => {
@@ -140,7 +162,7 @@ export const ComprehensiveReportsView: React.FC<ComprehensiveReportsViewProps> =
 
   // Filtered late arrivals
   const filteredLateArrivals = useMemo(() => {
-    return lateArrivals.filter((item) => {
+    return allAvailableLateArrivals.filter((item) => {
       if (item.dateStr < activeRange.fromDate || item.dateStr > activeRange.toDate) return false;
       if (effectiveClass !== 'ALL' && normStr(item.className) !== normStr(effectiveClass)) return false;
       if (searchQuery.trim()) {
@@ -152,11 +174,11 @@ export const ComprehensiveReportsView: React.FC<ComprehensiveReportsViewProps> =
       }
       return true;
     });
-  }, [lateArrivals, activeRange, effectiveClass, searchQuery]);
+  }, [allAvailableLateArrivals, activeRange, effectiveClass, searchQuery]);
 
   // Filtered passes
   const filteredPasses = useMemo(() => {
-    return passes.filter((p) => {
+    return allAvailablePasses.filter((p) => {
       const passDate = p.dateStr || (p.createdAt ? p.createdAt.split('T')[0] : '');
       if (passDate < activeRange.fromDate || passDate > activeRange.toDate) return false;
       if (effectiveClass !== 'ALL' && normStr(p.className) !== normStr(effectiveClass)) return false;
@@ -169,7 +191,7 @@ export const ComprehensiveReportsView: React.FC<ComprehensiveReportsViewProps> =
       }
       return true;
     });
-  }, [passes, activeRange, effectiveClass, searchQuery]);
+  }, [allAvailablePasses, activeRange, effectiveClass, searchQuery]);
 
   // Grouped by student for Late Arrivals
   const studentLateGrouped = useMemo(() => {

@@ -3060,8 +3060,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             }
             allClasses={(schoolDirectory?.classesSummary || []).map((c) => c.className)}
             students={allSchoolStudents}
-            passes={historyPasses}
-            lateArrivals={adminLateArrivals}
+            passes={historyPasses.length > 0 ? historyPasses : clientStore.getAllPasses()}
+            lateArrivals={adminLateArrivals.length > 0 ? adminLateArrivals : clientStore.getLateArrivals({ schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : selectedSchoolId || undefined })}
             staffList={staffList}
             onRefresh={() => {
               loadHistory(false);
