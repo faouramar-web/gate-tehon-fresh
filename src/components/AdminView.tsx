@@ -959,7 +959,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
     if (activeTab === 'history') loadHistory(false);
     if (activeTab === 'staff') loadStaff(false);
     if (activeTab === 'audit') loadAudit(false);
-    if (activeTab === 'late_arrivals') loadAdminLateArrivals();
+    loadAdminLateArrivals();
     loadDirectory();
   }, [activeTab, historyFromDate, historyToDate, historyClass, selectedSchoolId, syncTick]);
 
@@ -967,12 +967,24 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const loadAdminLateArrivals = async () => {
     try {
       const todayStr = clientStore.getIsraelDate();
+      const schoolTarget = user.schoolId && user.schoolId !== '*' ? user.schoolId : selectedSchoolId || undefined;
+      const localLate = clientStore.getLateArrivals({
+        fromDate: todayStr,
+        toDate: todayStr,
+        schoolId: schoolTarget,
+      });
       const res = await api.getLateArrivals({
         from: todayStr,
         to: todayStr,
-        schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : selectedSchoolId || undefined,
+        schoolId: schoolTarget,
       });
-      setAdminLateArrivals(res.lateArrivals || []);
+      const arrivalMap = new Map<string, LateArrival>();
+      for (const item of localLate) arrivalMap.set(item.id, item);
+      for (const item of (res?.lateArrivals || [])) arrivalMap.set(item.id, item);
+      const merged = Array.from(arrivalMap.values()).sort(
+        (a, b) => (b.timeStr || '').localeCompare(a.timeStr || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
+      );
+      setAdminLateArrivals(merged);
     } catch {
       setAdminLateArrivals(clientStore.getLateArrivals());
     }

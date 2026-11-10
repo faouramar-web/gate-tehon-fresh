@@ -34,8 +34,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   const response = await fetch(endpoint, {
+    cache: 'no-store',
     ...options,
-    headers,
+    headers: {
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache',
+      ...headers,
+    },
   });
 
   const data = await response.json().catch(() => ({}));
@@ -1009,13 +1014,22 @@ export const api = {
     recordedByRole?: string;
     schoolId?: string;
   }): Promise<{ success: boolean; lateArrival: LateArrival; message: string }> {
+    // 1. Immediately record in clientStore synchronously (<1ms UI update + Firestore push + BroadcastChannel)
+    const currentUser = clientStore.getSessionUser();
+    const locallyRecorded = clientStore.recordLateArrival({
+      ...data,
+      actor: currentUser || {
+        id: data.recordedById || 'teacher',
+        fullName: data.recordedByName || 'מורה',
+        role: (data.recordedByRole as any) || 'teacher',
+        staffCode: 'T',
+        assignedClasses: [],
+        schoolId: data.schoolId,
+      },
+    });
+
     if (isStaticHost) {
-      const currentUser = clientStore.getSessionUser();
-      const recorded = clientStore.recordLateArrival({
-        ...data,
-        actor: currentUser || { id: 'teacher', fullName: 'מורה', role: 'teacher', staffCode: 'T', assignedClasses: [] },
-      });
-      return { success: true, lateArrival: recorded, message: 'האיחור נרשם בהצלחה' };
+      return { success: true, lateArrival: locallyRecorded, message: 'האיחור נרשם בהצלחה' };
     }
 
     try {
@@ -1028,12 +1042,7 @@ export const api = {
       }
       return res;
     } catch {
-      const currentUser = clientStore.getSessionUser();
-      const recorded = clientStore.recordLateArrival({
-        ...data,
-        actor: currentUser || { id: 'teacher', fullName: 'מורה', role: 'teacher', staffCode: 'T', assignedClasses: [] },
-      });
-      return { success: true, lateArrival: recorded, message: 'האיחור נרשם בהצלחה' };
+      return { success: true, lateArrival: locallyRecorded, message: 'האיחור נרשם בהצלחה' };
     }
   },
 
@@ -1054,9 +1063,10 @@ export const api = {
       schoolId: filter?.schoolId,
     };
 
+    const localList = clientStore.getLateArrivals(normalizedFilter);
+
     if (isStaticHost) {
-      const list = clientStore.getLateArrivals(normalizedFilter);
-      return { lateArrivals: list, totalCount: list.length, currentTime: clientStore.getIsraelTime() };
+      return { lateArrivals: localList, totalCount: localList.length, currentTime: clientStore.getIsraelTime() };
     }
 
     try {
@@ -1066,15 +1076,22 @@ export const api = {
       if (normalizedFilter.toDate) query.set('toDate', normalizedFilter.toDate);
       if (normalizedFilter.className && normalizedFilter.className !== 'ALL') query.set('className', normalizedFilter.className);
       if (normalizedFilter.schoolId) query.set('schoolId', normalizedFilter.schoolId);
+      query.set('_t', String(Date.now())); // Cache buster
 
       const res = await request<any>(`/api/late-arrivals?${query.toString()}`);
       if (res && Array.isArray(res.lateArrivals)) {
-        clientStore.setLateArrivals(res.lateArrivals);
+        const arrivalMap = new Map<string, LateArrival>();
+        for (const item of localList) arrivalMap.set(item.id, item);
+        for (const item of res.lateArrivals) arrivalMap.set(item.id, item);
+        const merged = Array.from(arrivalMap.values()).sort(
+          (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.timeStr || '').localeCompare(a.timeStr || '')
+        );
+        clientStore.setLateArrivals(merged);
+        return { lateArrivals: merged, totalCount: merged.length, currentTime: res.currentTime || clientStore.getIsraelTime() };
       }
-      return res;
+      return { lateArrivals: localList, totalCount: localList.length, currentTime: clientStore.getIsraelTime() };
     } catch {
-      const list = clientStore.getLateArrivals(normalizedFilter);
-      return { lateArrivals: list, totalCount: list.length, currentTime: clientStore.getIsraelTime() };
+      return { lateArrivals: localList, totalCount: localList.length, currentTime: clientStore.getIsraelTime() };
     }
   },
 

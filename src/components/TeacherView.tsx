@@ -106,7 +106,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
       if (isInitial && students.length === 0) {
         setLoading(true);
       }
-      const todayDateStr = new Date().toISOString().split('T')[0];
+      const todayDateStr = clientStore.getIsraelDate();
       const [classRes, passRes, lateRes] = await Promise.all([
         api.getTeacherClasses(),
         api.getTeacherPasses(),
@@ -166,7 +166,14 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ user, syncTick }) => {
       setAllSchoolStudents(schoolAll.length > 0 ? deduplicateStudents(schoolAll) : loadedStudents);
       setPassesToday(passRes.passes || []);
       const localLate = clientStore.getLateArrivals({ dateStr: todayDateStr });
-      setLateArrivalsToday((lateRes?.lateArrivals && lateRes.lateArrivals.length > 0) ? lateRes.lateArrivals : localLate);
+      const serverLate = lateRes?.lateArrivals || [];
+      const arrivalMap = new Map<string, LateArrival>();
+      for (const item of localLate) arrivalMap.set(item.id, item);
+      for (const item of serverLate) arrivalMap.set(item.id, item);
+      const mergedLate = Array.from(arrivalMap.values()).sort(
+        (a, b) => (b.timeStr || '').localeCompare(a.timeStr || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
+      );
+      setLateArrivalsToday(mergedLate);
 
       // Pre-set custom time to current HH:mm
       if (!customTime) {

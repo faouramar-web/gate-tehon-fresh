@@ -315,12 +315,24 @@ export const VicePrincipalView: React.FC<VicePrincipalViewProps> = ({ user, sync
   const loadLateArrivals = async () => {
     try {
       const todayStr = clientStore.getIsraelDate();
+      const schoolTarget = user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined;
+      const localLate = clientStore.getLateArrivals({
+        fromDate: todayStr,
+        toDate: todayStr,
+        schoolId: schoolTarget,
+      });
       const res = await api.getLateArrivals({
         from: todayStr,
         to: todayStr,
-        schoolId: user.schoolId && user.schoolId !== '*' ? user.schoolId : undefined,
+        schoolId: schoolTarget,
       });
-      setLateArrivals(res.lateArrivals || []);
+      const arrivalMap = new Map<string, LateArrival>();
+      for (const item of localLate) arrivalMap.set(item.id, item);
+      for (const item of (res?.lateArrivals || [])) arrivalMap.set(item.id, item);
+      const merged = Array.from(arrivalMap.values()).sort(
+        (a, b) => (b.timeStr || '').localeCompare(a.timeStr || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
+      );
+      setLateArrivals(merged);
     } catch {
       setLateArrivals(clientStore.getLateArrivals());
     }

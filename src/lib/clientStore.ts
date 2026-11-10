@@ -85,6 +85,7 @@ const FS_COLLECTION_SCHOOLS = 'schools_clean_v6';
 const FS_COLLECTION_STAFF = 'staff_clean_v6';
 const FS_COLLECTION_STUDENTS = 'students_clean_v6';
 const FS_COLLECTION_PASSES = 'gatepasses_clean_v6';
+const FS_COLLECTION_LATE_ARRIVALS = 'latearrivals_clean_v6';
 const FS_BUNDLE_COLLECTION = 'app_sync_bundle_v2';
 const FS_BUNDLE_DOC_ID = 'global_data';
 
@@ -443,7 +444,37 @@ class ClientStorageEngine {
             handleFirestoreQuotaError(err);
           }
         );
-        // 5. Cloud State Bundle realtime listener (guarantees GitHub Pages and smartphones receive 100% of data in 1 single read)
+
+        // 5. Late Arrivals realtime listener (<100ms sync across all devices)
+        const lateArrivalsRef = collection(firestoreDb, FS_COLLECTION_LATE_ARRIVALS);
+        const qLate = query(lateArrivalsRef, orderBy('createdAt', 'desc'), limit(200));
+        onSnapshot(
+          qLate,
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const remoteLate: LateArrival[] = [];
+              snapshot.forEach((docSnap) => {
+                const data = docSnap.data() as LateArrival;
+                if (!data || !data.id) return;
+                remoteLate.push(data);
+              });
+              const existingMap = new Map(this.lateArrivals.map((l) => [l.id, l]));
+              for (const rl of remoteLate) {
+                existingMap.set(rl.id, rl);
+              }
+              this.lateArrivals = Array.from(existingMap.values()).sort(
+                (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.timeStr || '').localeCompare(a.timeStr || '')
+              );
+              this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
+              this.notify();
+            }
+          },
+          (err) => {
+            handleFirestoreQuotaError(err);
+          }
+        );
+
+        // 6. Cloud State Bundle realtime listener (guarantees GitHub Pages and smartphones receive 100% of data in 1 single read)
         try {
           const bundleRef = doc(firestoreDb, FS_BUNDLE_COLLECTION, FS_BUNDLE_DOC_ID);
           onSnapshot(
@@ -482,6 +513,17 @@ class ClientStorageEngine {
                 if (Array.isArray(data.passes)) {
                   this.passes = data.passes.filter((p: any) => p && !isDemoPass(p));
                   this.save(STORAGE_KEY_PASSES, this.passes);
+                  changed = true;
+                }
+                if (Array.isArray(data.lateArrivals)) {
+                  const arrivalMap = new Map(this.lateArrivals.map((a) => [a.id, a]));
+                  for (const la of data.lateArrivals) {
+                    if (la && la.id) arrivalMap.set(la.id, la);
+                  }
+                  this.lateArrivals = Array.from(arrivalMap.values()).sort(
+                    (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.timeStr || '').localeCompare(a.timeStr || '')
+                  );
+                  this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
                   changed = true;
                 }
                 if (changed) {
@@ -572,9 +614,13 @@ class ClientStorageEngine {
       (p: GatePass) => p && !isDemoPass(p)
     );
 
+    const rawLate = this.load<LateArrival[]>(STORAGE_KEY_LATE_ARRIVALS, []);
+    this.lateArrivals = Array.isArray(rawLate) ? rawLate : [];
+
     this.save(STORAGE_KEY_STUDENTS, this.students);
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_PASSES, this.passes);
+    this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
     this.ensureSchoolIntegrity();
     this.ensureEssentialStaff();
   }
@@ -592,6 +638,7 @@ class ClientStorageEngine {
           students: this.students,
           activeSchoolId: this.activeSchoolId,
           passes: this.passes,
+          lateArrivals: this.lateArrivals,
         }),
       });
     } catch {
@@ -603,7 +650,7 @@ class ClientStorageEngine {
     if (typeof window === 'undefined') return false;
     if (window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:') return false;
     try {
-      const res = await fetch('/api/sync/state');
+      const res = await fetch('/api/sync/state', { cache: 'no-store' });
       if (!res.ok) return false;
       const data = await res.json();
       let changed = false;
@@ -649,6 +696,18 @@ class ClientStorageEngine {
         changed = true;
       }
 
+      if (Array.isArray(data.lateArrivals)) {
+        const arrivalMap = new Map(this.lateArrivals.map((a) => [a.id, a]));
+        for (const la of data.lateArrivals) {
+          if (la && la.id) arrivalMap.set(la.id, la);
+        }
+        this.lateArrivals = Array.from(arrivalMap.values()).sort(
+          (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.timeStr || '').localeCompare(a.timeStr || '')
+        );
+        this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
+        changed = true;
+      }
+
       if (changed) {
         this.notify();
       }
@@ -672,6 +731,7 @@ class ClientStorageEngine {
       if (this.students.length > 0) payload.students = this.students;
       if (this.activeSchoolId) payload.activeSchoolId = this.activeSchoolId;
       payload.passes = this.passes || [];
+      payload.lateArrivals = this.lateArrivals || [];
 
       await setDoc(bundleRef, payload, { merge: true });
       return true;
@@ -725,6 +785,18 @@ class ClientStorageEngine {
       if (Array.isArray(data.passes)) {
         this.passes = data.passes.filter((p: any) => p && !isDemoPass(p));
         this.save(STORAGE_KEY_PASSES, this.passes);
+        changed = true;
+      }
+
+      if (Array.isArray(data.lateArrivals)) {
+        const arrivalMap = new Map(this.lateArrivals.map((a) => [a.id, a]));
+        for (const la of data.lateArrivals) {
+          if (la && la.id) arrivalMap.set(la.id, la);
+        }
+        this.lateArrivals = Array.from(arrivalMap.values()).sort(
+          (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.timeStr || '').localeCompare(a.timeStr || '')
+        );
+        this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
         changed = true;
       }
 
@@ -975,12 +1047,24 @@ class ClientStorageEngine {
     }
   }
 
+  public syncLateArrivalToFirestore(arrival: LateArrival): void {
+    if (isFirestoreQuotaExhausted || !firestoreDb || !arrival || !arrival.id) return;
+    try {
+      setDoc(doc(firestoreDb, FS_COLLECTION_LATE_ARRIVALS, arrival.id), arrival, { merge: true }).catch((err) => {
+        handleFirestoreQuotaError(err);
+      });
+    } catch (e) {
+      handleFirestoreQuotaError(e);
+    }
+  }
+
   private broadcastChange() {
     this.save(STORAGE_KEY_SCHOOLS, this.schools);
     this.save(STORAGE_KEY_ACTIVE_SCHOOL, this.activeSchoolId);
     this.save(STORAGE_KEY_PASSES, this.passes);
     this.save(STORAGE_KEY_STAFF, this.staff);
     this.save(STORAGE_KEY_STUDENTS, this.students);
+    this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
     this.notify();
     if (typeof window !== 'undefined') {
       try {
@@ -2219,6 +2303,13 @@ class ClientStorageEngine {
       this.setLateArrivals(remaining);
     }
 
+    if (firestoreDb && !isFirestoreQuotaExhausted && toDelete.length > 0) {
+      for (const item of toDelete) {
+        deleteDoc(doc(firestoreDb, FS_COLLECTION_LATE_ARRIVALS, item.id)).catch(() => {});
+      }
+      this.syncBundleToCloud();
+    }
+
     this.broadcastChange();
     this.notify();
     return { success: true, deletedCount: toDelete.length };
@@ -2529,7 +2620,10 @@ class ClientStorageEngine {
 
     this.lateArrivals.unshift(newArrival);
     this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
-    this.notify();
+    this.broadcastChange();
+    this.syncLateArrivalToFirestore(newArrival);
+    this.syncBundleToCloud();
+    this.pushStateToServer();
     return newArrival;
   }
 
@@ -2542,14 +2636,16 @@ class ClientStorageEngine {
       this.lateArrivals.unshift(arrival);
     }
     this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
-    this.notify();
+    this.broadcastChange();
+    this.syncLateArrivalToFirestore(arrival);
+    this.syncBundleToCloud();
   }
 
   public setLateArrivals(list: LateArrival[]): void {
     if (Array.isArray(list)) {
       this.lateArrivals = list;
       this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
-      this.notify();
+      this.broadcastChange();
     }
   }
 
@@ -2559,8 +2655,10 @@ class ClientStorageEngine {
     toDate?: string;
     className?: string;
     studentId?: string;
+    schoolId?: string;
   }): LateArrival[] {
     return this.lateArrivals.filter((item) => {
+      if (filter?.schoolId && filter.schoolId !== '*' && (item.schoolId || filter.schoolId) !== filter.schoolId) return false;
       if (filter?.dateStr && item.dateStr !== filter.dateStr) return false;
       if (filter?.fromDate && item.dateStr < filter.fromDate) return false;
       if (filter?.toDate && item.dateStr > filter.toDate) return false;
@@ -2618,7 +2716,11 @@ class ClientStorageEngine {
     if (idx >= 0) {
       this.lateArrivals.splice(idx, 1);
       this.save(STORAGE_KEY_LATE_ARRIVALS, this.lateArrivals);
-      this.notify();
+      this.broadcastChange();
+      if (firestoreDb && !isFirestoreQuotaExhausted) {
+        deleteDoc(doc(firestoreDb, FS_COLLECTION_LATE_ARRIVALS, id)).catch(() => {});
+        this.syncBundleToCloud();
+      }
       return true;
     }
     return false;

@@ -1117,7 +1117,8 @@ class SchoolDatabase {
     staff?: Staff[],
     students?: Student[],
     activeSchoolId?: string,
-    passes?: GatePass[]
+    passes?: GatePass[],
+    lateArrivals?: LateArrival[]
   ): void {
     this.mutate((data) => {
       if (Array.isArray(schools) && schools.length > 0) {
@@ -1161,6 +1162,16 @@ class SchoolDatabase {
       }
       if (Array.isArray(passes)) {
         data.passes = passes;
+      }
+      if (Array.isArray(lateArrivals) && lateArrivals.length > 0) {
+        if (!data.lateArrivals) data.lateArrivals = [];
+        const arrivalMap = new Map(data.lateArrivals.map((a) => [a.id, a]));
+        for (const la of lateArrivals) {
+          if (la && la.id) arrivalMap.set(la.id, la);
+        }
+        data.lateArrivals = Array.from(arrivalMap.values()).sort(
+          (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || (b.timeStr || '').localeCompare(a.timeStr || '')
+        );
       }
     });
   }

@@ -15,6 +15,14 @@ const PORT = 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Disable caching for all API endpoints to guarantee instant real-time synchronization (<100ms) across all devices
+app.use('/api', (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // In-memory sessions map: token -> { staffId: string, expiresAt: number }
 interface Session {
   staffId: string;
@@ -695,12 +703,13 @@ app.get('/api/sync/state', (_req: Request, res: Response) => {
     staff: db.getAllStaff(),
     students: db.getAllStudents(),
     passes: db.searchPassesHistory(),
+    lateArrivals: db.getLateArrivals(),
   });
 });
 
 app.post('/api/sync/state', (req: Request, res: Response) => {
-  const { schools, staff, students, activeSchoolId, passes } = req.body || {};
-  db.syncAllState(schools, staff, students, activeSchoolId, passes);
+  const { schools, staff, students, activeSchoolId, passes, lateArrivals } = req.body || {};
+  db.syncAllState(schools, staff, students, activeSchoolId, passes, lateArrivals);
   const updated = db.getSchools();
   res.json({
     success: true,
@@ -708,6 +717,7 @@ app.post('/api/sync/state', (req: Request, res: Response) => {
     staffCount: db.getAllStaff().length,
     studentsCount: db.getAllStudents().length,
     passesCount: db.getPassesForToday().length,
+    lateArrivalsCount: db.getLateArrivals().length,
   });
 });
 
