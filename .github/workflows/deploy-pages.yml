@@ -41,7 +41,7 @@ jobs:
           GITHUB_PAGES: 'true'
           VITE_BASE_PATH: './'
         run: |
-          npm run build:pages
+          npx vite build --outDir dist-pages
           # Fallback for SPA routing on GitHub Pages
           cp dist-pages/index.html dist-pages/404.html
           # Verify that server code is never deployed to GitHub Pages
