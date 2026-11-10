@@ -735,6 +735,27 @@ export const api = {
     return localRes;
   },
 
+  async deleteLateArrivals(options: {
+    all?: boolean;
+    arrivalIds?: string[];
+    fromDate?: string;
+    toDate?: string;
+    schoolId?: string;
+  }): Promise<{ success: boolean; deletedCount: number }> {
+    const localRes = clientStore.deleteLateArrivals(options);
+    if (!isStaticHost) {
+      try {
+        await request('/api/admin/late-arrivals/delete', {
+          method: 'POST',
+          body: JSON.stringify(options),
+        });
+      } catch {
+        // ignore
+      }
+    }
+    return localRes;
+  },
+
   async searchHistory(params: {
     q?: string;
     from?: string;

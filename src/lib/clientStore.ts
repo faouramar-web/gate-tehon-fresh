@@ -2182,6 +2182,48 @@ class ClientStorageEngine {
     return { success: true, deletedCount: toDelete.length };
   }
 
+  public deleteLateArrivals(options: {
+    all?: boolean;
+    arrivalIds?: string[];
+    fromDate?: string;
+    toDate?: string;
+    schoolId?: string;
+  }): { success: boolean; deletedCount: number } {
+    const list = this.getLateArrivals();
+    const targetSchoolId = options.schoolId || this.activeSchoolId || this.schools[0]?.id;
+    let toDelete: LateArrival[] = [];
+
+    if (options.all) {
+      if (targetSchoolId && targetSchoolId !== '*') {
+        toDelete = list.filter((l) => (l.schoolId || targetSchoolId) === targetSchoolId);
+        const remaining = list.filter((l) => (l.schoolId || targetSchoolId) !== targetSchoolId);
+        this.setLateArrivals(remaining);
+      } else {
+        toDelete = [...list];
+        this.setLateArrivals([]);
+      }
+    } else if (options.arrivalIds && options.arrivalIds.length > 0) {
+      const idSet = new Set(options.arrivalIds);
+      toDelete = list.filter((l) => idSet.has(l.id));
+      const remaining = list.filter((l) => !idSet.has(l.id));
+      this.setLateArrivals(remaining);
+    } else if (options.fromDate || options.toDate) {
+      toDelete = list.filter((l) => {
+        if (targetSchoolId && targetSchoolId !== '*' && (l.schoolId || targetSchoolId) !== targetSchoolId) return false;
+        if (options.fromDate && l.dateStr < options.fromDate) return false;
+        if (options.toDate && l.dateStr > options.toDate) return false;
+        return true;
+      });
+      const deleteIds = new Set(toDelete.map((l) => l.id));
+      const remaining = list.filter((l) => !deleteIds.has(l.id));
+      this.setLateArrivals(remaining);
+    }
+
+    this.broadcastChange();
+    this.notify();
+    return { success: true, deletedCount: toDelete.length };
+  }
+
   public importData(
     newStudents: Omit<Student, 'id'>[],
     classesTeachers: Array<{ className: string; teacherName?: string }>,

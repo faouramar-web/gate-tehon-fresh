@@ -1266,6 +1266,49 @@ class SchoolDatabase {
     });
     return { success };
   }
+
+  public deleteLateArrivals(
+    options: { all?: boolean; arrivalIds?: string[]; fromDate?: string; toDate?: string; schoolId?: string },
+    actor: Staff
+  ): { success: boolean; deletedCount: number; error?: string } {
+    let deletedCount = 0;
+    this.mutate((data) => {
+      if (!data.lateArrivals || !Array.isArray(data.lateArrivals)) return;
+      const initialLen = data.lateArrivals.length;
+      data.lateArrivals = data.lateArrivals.filter((item) => {
+        if (options.schoolId && options.schoolId !== '*' && item.schoolId && item.schoolId !== options.schoolId) {
+          return true; // keep
+        }
+        if (options.arrivalIds && options.arrivalIds.length > 0) {
+          if (options.arrivalIds.includes(item.id)) return false; // delete
+          return true;
+        }
+        if (options.all) {
+          return false; // delete
+        }
+        if (options.fromDate || options.toDate) {
+          if (options.fromDate && item.dateStr < options.fromDate) return true;
+          if (options.toDate && item.dateStr > options.toDate) return true;
+          return false; // delete
+        }
+        return true;
+      });
+      deletedCount = initialLen - data.lateArrivals.length;
+
+      if (!data.auditLogs) data.auditLogs = [];
+      data.auditLogs.push({
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'PASSES_DELETED',
+        actorId: actor.id,
+        actorName: actor.fullName,
+        actorRole: actor.role,
+        details: `נמחקו ${deletedCount} דיווחי איחורים מהמאגר ע״י מנהל המערכת ${options.all ? '(מחיקה כוללת)' : ''}`,
+      });
+    });
+
+    return { success: true, deletedCount };
+  }
 }
 
 export const db = new SchoolDatabase();

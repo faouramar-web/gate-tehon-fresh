@@ -668,6 +668,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Late Arrival Deletion & Purge state (Admin Amar Faour)
+  const [deleteLateModalOpen, setDeleteLateModalOpen] = useState(false);
+  const [deleteLateMode, setDeleteLateMode] = useState<'all' | 'range' | 'single'>('all');
+  const [singleLateToDeleteRecord, setSingleLateToDeleteRecord] = useState<LateArrival | null>(null);
+  const [purgeLateFromDate, setPurgeLateFromDate] = useState('');
+  const [purgeLateToDate, setPurgeLateToDate] = useState('');
+  const [isDeletingLateArrivals, setIsDeletingLateArrivals] = useState(false);
+  const [deleteLateFeedback, setDeleteLateFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   // School Directory state (Amar Faour)
   const [schoolDirectory, setSchoolDirectory] = useState<{
     classesSummary: Array<{
@@ -757,6 +766,49 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleExecuteDeleteLate = async () => {
+    setIsDeletingLateArrivals(true);
+    try {
+      let res;
+      if (deleteLateMode === 'all') {
+        res = await api.deleteLateArrivals({ all: true, schoolId: selectedSchoolId });
+        setDeleteLateFeedback({
+          type: 'success',
+          message: `כל מאגר דיווחי האיחורים של בית ספר זה נמחק בהצלחה (${res.deletedCount} דיווחים הוסרו).`,
+        });
+      } else if (deleteLateMode === 'single' && singleLateToDeleteRecord) {
+        res = await api.deleteLateArrivals({ arrivalIds: [singleLateToDeleteRecord.id], schoolId: selectedSchoolId });
+        setDeleteLateFeedback({
+          type: 'success',
+          message: `רישום האיחור של ${singleLateToDeleteRecord.studentName} נמחק בהצלחה מהמאגר.`,
+        });
+      } else if (deleteLateMode === 'range') {
+        if (!purgeLateFromDate && !purgeLateToDate) {
+          throw new Error('אנא בחר לפחות תאריך התחלה או תאריך סיום למחיקה');
+        }
+        res = await api.deleteLateArrivals({
+          fromDate: purgeLateFromDate || undefined,
+          toDate: purgeLateToDate || undefined,
+          schoolId: selectedSchoolId,
+        });
+        setDeleteLateFeedback({
+          type: 'success',
+          message: `נמחקו ${res.deletedCount} דיווחי איחור בטווח התאריכים שנבחר עבור בית ספר זה.`,
+        });
+      }
+      setDeleteLateModalOpen(false);
+      setSingleLateToDeleteRecord(null);
+      await loadAdminLateArrivals();
+    } catch (err: any) {
+      setDeleteLateFeedback({
+        type: 'error',
+        message: err.message || 'שגיאה במחיקת דיווחי האיחורים מהמאגר',
+      });
+    } finally {
+      setIsDeletingLateArrivals(false);
     }
   };
 
@@ -2780,10 +2832,37 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
             </div>
           </div>
 
-          {/* Filters & Search */}
-          <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-72">
+          {/* Delete Feedback Banner */}
+          {deleteLateFeedback && (
+            <div
+              className={`p-4 rounded-2xl border flex items-center justify-between text-xs sm:text-sm font-bold animate-in fade-in ${
+                deleteLateFeedback.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  : 'bg-rose-50 border-rose-300 text-rose-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {deleteLateFeedback.type === 'success' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                )}
+                <span>{deleteLateFeedback.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteLateFeedback(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Filters & Search & Admin Purge Actions */}
+          <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -2806,12 +2885,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                   </option>
                 ))}
               </select>
-            </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              <span className="text-xs font-bold text-slate-500">
-                מוצגים: {filteredAdminLateArrivals.length} מתוך {adminLateArrivals.length}
-              </span>
               <button
                 type="button"
                 onClick={loadAdminLateArrivals}
@@ -2820,6 +2894,53 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Admin Delete Action Buttons */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0 border-t md:border-t-0 md:border-r border-slate-200 pt-3 md:pt-0 md:pr-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteLateMode('range');
+                  setPurgeLateFromDate('');
+                  setPurgeLateToDate(getDateOffsetString(14));
+                  setDeleteLateModalOpen(true);
+                }}
+                className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs ${
+                  adminLateArrivals.length === 0
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : 'bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 border border-amber-400/40 cursor-pointer'
+                }`}
+                title={adminLateArrivals.length === 0 ? 'אין איחורים במאגר למחיקה' : 'מחיקת איחורים לפי טווח תאריכים'}
+              >
+                <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                <span>מחיקה לפי טווח...</span>
+              </button>
+
+              {adminLateArrivals.length === 0 ? (
+                <button
+                  type="button"
+                  disabled
+                  className="px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs cursor-default"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                  <span>אין דיווחי איחורים ✓</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteLateMode('all');
+                    setSingleLateToDeleteRecord(null);
+                    setDeleteLateModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/30 cursor-pointer"
+                  title="מחיקת כל דיווחי האיחורים במאגר"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>מחיקת כל הדיווחים על איחורים</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -4988,6 +5109,162 @@ export const AdminView: React.FC<AdminViewProps> = ({ user, syncTick }) => {
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 active:scale-98 disabled:bg-slate-300 text-white font-black rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isDeleting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>אשר מחיקה לצמיתות</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PURGE / DELETE LATE ARRIVALS (ADMIN AMAR FAOUR) ================= */}
+      {deleteLateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 font-['Rubik']">
+                    {deleteLateMode === 'all'
+                      ? 'מחיקת כל הדיווחים על איחורים'
+                      : deleteLateMode === 'single'
+                      ? 'מחיקת דיווח איחור בודד'
+                      : 'מחיקת איחורים לפי טווח תאריכים'}
+                  </h3>
+                  <p className="text-xs text-slate-500">פעולת ניהול מנהל ראשי - מחיקת נתונים לצמיתות</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteLateModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-5 space-y-4 text-xs">
+              {deleteLateMode === 'all' && (
+                <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-950 space-y-2">
+                  <div className="flex items-center gap-2 font-black text-sm text-rose-700">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span>אזהרה: איפוס ומחיקת כל דיווחי האיחורים</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    פעולה זו תמחק את <strong>כל {adminLateArrivals.length} דיווחי האיחורים</strong> הקיימים כרגע במסד הנתונים עבור בית ספר זה (
+                    {(schools.find((s) => s.id === selectedSchoolId)?.name) || clientStore.getActiveSchoolName() || 'בית הספר'}
+                    ).
+                  </p>
+                  <p className="text-slate-600 font-medium">
+                    רשימת התלמידים, הכיתות וצוות המורים לא תיפגע — רק היסטוריית דיווחי האיחורים תימחק לצמיתות.
+                  </p>
+                </div>
+              )}
+
+              {deleteLateMode === 'single' && singleLateToDeleteRecord && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="font-bold text-slate-900 text-sm">דיווח האיחור שיימחק לצמיתות:</div>
+                  <div className="grid grid-cols-2 gap-2 text-slate-700">
+                    <div>תלמיד: <strong>{singleLateToDeleteRecord.studentName}</strong></div>
+                    <div>כיתה: <strong>{singleLateToDeleteRecord.className}</strong></div>
+                    <div>תאריך ושעה: <strong>{singleLateToDeleteRecord.dateStr} {singleLateToDeleteRecord.timeStr}</strong></div>
+                    <div>סיבה: <strong>{singleLateToDeleteRecord.reason || 'ללא'}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {deleteLateMode === 'range' && (
+                <div className="space-y-3.5">
+                  <p className="text-slate-600 font-medium">
+                    בחר את טווח התאריכים של דיווחי האיחורים שברצונך למחוק מהמאגר:
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">מתאריך:</label>
+                      <input
+                        type="date"
+                        value={purgeLateFromDate}
+                        onChange={(e) => setPurgeLateFromDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">עד תאריך:</label>
+                      <input
+                        type="date"
+                        value={purgeLateToDate}
+                        onChange={(e) => setPurgeLateToDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Range Quick Shortcuts */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-500">קיצורים מהירים לבחירה:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPurgeLateFromDate('');
+                          setPurgeLateToDate(getDateOffsetString(14));
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        מחק איחורים ישנים מעל שבועיים
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPurgeLateFromDate('');
+                          setPurgeLateToDate(getDateOffsetString(30));
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        מחק איחורים ישנים מעל חודש
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = getDateOffsetString(0);
+                          setPurgeLateFromDate(today);
+                          setPurgeLateToDate(today);
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[11px] cursor-pointer"
+                      >
+                        היום בלבד
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteLateModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                ביטול וחזרה
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeletingLateArrivals}
+                onClick={handleExecuteDeleteLate}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 active:scale-98 disabled:bg-slate-300 text-white font-black rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeletingLateArrivals ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>

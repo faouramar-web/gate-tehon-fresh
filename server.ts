@@ -605,6 +605,15 @@ app.post('/api/admin/passes/delete', authenticate, requireRole('admin'), (req: R
   res.json({ success: true, deletedCount: result.deletedCount });
 });
 
+// Admin purge or delete late arrivals (all or by date range or school)
+app.post('/api/admin/late-arrivals/delete', authenticate, requireRole('admin'), (req: Request, res: Response) => {
+  const admin = (req as any).user as Staff;
+  const { all, arrivalIds, fromDate, toDate, schoolId } = req.body || {};
+
+  const result = db.deleteLateArrivals({ all, arrivalIds, fromDate, toDate, schoolId }, admin);
+  res.json({ success: true, deletedCount: result.deletedCount });
+});
+
 // Suspend or unsuspend all school staff (Kill switch for unpaid subscription)
 app.post('/api/admin/suspend-all', authenticate, requireRole('admin'), (req: Request, res: Response) => {
   const admin = (req as any).user as Staff;
